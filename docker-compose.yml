@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16
+    container_name: vetclinica-db
+    environment:
+      POSTGRES_DB: vetclinica
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - vetdata:/var/lib/postgresql/data
+      - ./database/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/02-estoque-mensagens.sql:/docker-entrypoint-initdb.d/02-estoque-mensagens.sql
+      - ./database/03-aniversario-tutor.sql:/docker-entrypoint-initdb.d/03-aniversario-tutor.sql
+      - ./database/04-branding-fonseca.sql:/docker-entrypoint-initdb.d/04-branding-fonseca.sql
+      - ./database/05-plataforma-saas.sql:/docker-entrypoint-initdb.d/05-plataforma-saas.sql
+      - ./database/06-promocoes.sql:/docker-entrypoint-initdb.d/06-promocoes.sql
+      - ./database/07-fix-enums-to-varchar.sql:/docker-entrypoint-initdb.d/07-fix-enums-to-varchar.sql
+      - ./database/08-prontuario-campos.sql:/docker-entrypoint-initdb.d/08-prontuario-campos.sql
+      - ./database/09-caixa.sql:/docker-entrypoint-initdb.d/09-caixa.sql
+volumes:
+  vetdata:

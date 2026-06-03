@@ -1,0 +1,18 @@
+COMO COLOCAR A LOGO DA CLÍNICA
+================================
+
+1. Salve a logo da Clínica Veterinária Fonseca como "logo.png"
+   (PNG com fundo transparente fica melhor).
+
+2. Coloque o arquivo AQUI, nesta pasta:
+   frontend/public/logo.png
+
+3. Pronto. A logo aparece automaticamente no login e no menu lateral.
+
+Enquanto não houver logo.png, o sistema mostra o emoji 🐾 no lugar.
+
+Dica: a logo é exibida com altura de ~32px (menu) e ~56px (login),
+então uma imagem em torno de 200x200px (ou retangular) funciona bem.
+
+Para trocar o nome da clínica ou a frase, edite:
+   frontend/src/lib/branding.js

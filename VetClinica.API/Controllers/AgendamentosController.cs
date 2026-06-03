@@ -1,0 +1,88 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using VetClinica.API.Data;
+using VetClinica.API.DTOs;
+using VetClinica.API.Middleware;
+using VetClinica.API.Models;
+using VetClinica.API.Services;
+
+namespace VetClinica.API.Controllers;
+
+[ApiController]
+[Authorize]
+[Route("api/agendamentos")]
+public class AgendamentosController : ControllerBase
+{
+    private readonly AppDbContext _db;
+    private readonly TenantContext _t;
+    private readonly AgendaService _agenda;
+    public AgendamentosController(AppDbContext db, TenantContext t, AgendaService agenda)
+    { _db = db; _t = t; _agenda = agenda; }
+
+    [HttpGet]
+    public async Task<IActionResult> Listar([FromQuery] DateTime? de, [FromQuery] DateTime? ate)
+    {
+        var inicio = de ?? DateTime.Today;
+        var fim = ate ?? inicio.AddDays(7);
+
+        var ags = await _db.Agendamentos.Include(a => a.Pet)
+            .Where(a => a.TenantId == _t.TenantId && a.DataHora >= inicio && a.DataHora < fim)
+            .OrderBy(a => a.DataHora)
+            .Select(a => new AgendamentoDto(a.Id, a.PetId, a.Pet!.Nome, a.Tipo,
+                a.DataHora, a.DuracaoMin, a.Status, a.Origem, a.Obs))
+            .ToListAsync();
+        return Ok(ags);
+    }
+
+    [HttpGet("slots")]
+    public async Task<IActionResult> Slots([FromQuery] int dias = 14)
+    {
+        var slots = await _agenda.GetSlotsLivres(_t.TenantId, DateTime.Today, dias);
+        return Ok(slots);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Criar(AgendamentoCreate dto)
+    {
+        var ag = new Agendamento
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _t.TenantId,
+            PetId = dto.PetId,
+            UserId = dto.UserId,
+            Tipo = dto.Tipo,
+            DataHora = dto.DataHora,
+            DuracaoMin = dto.DuracaoMin,
+            Status = "confirmado",     // criado internamente já nasce confirmado
+            Origem = "interno",
+            Obs = dto.Obs,
+            CriadoEm = DateTime.UtcNow
+        };
+        _db.Agendamentos.Add(ag);
+        await _db.SaveChangesAsync();
+        return Ok(ag);
+    }
+
+    [HttpPut("{id}/confirmar")]
+    public async Task<IActionResult> Confirmar(Guid id)
+    {
+        var ag = await _db.Agendamentos.FirstOrDefaultAsync(a => a.Id == id && a.TenantId == _t.TenantId);
+        if (ag == null) return NotFound();
+        ag.Status = "confirmado";
+        ag.ConfirmadoEm = DateTime.UtcNow;
+        ag.ConfirmadoPor = _t.UserId;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPut("{id}/status")]
+    public async Task<IActionResult> AtualizarStatus(Guid id, [FromBody] StatusUpdate dto)
+    {
+        var ag = await _db.Agendamentos.FirstOrDefaultAsync(a => a.Id == id && a.TenantId == _t.TenantId);
+        if (ag == null) return NotFound();
+        ag.Status = dto.Status;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+}
