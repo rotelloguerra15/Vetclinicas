@@ -43,7 +43,9 @@ builder.Services.AddScoped<ComissaoService>();
 builder.Services.AddScoped<FechamentoService>();
 
 // ---------- JWT ----------
-var jwtKey = builder.Configuration["Jwt:Key"]!;
+var jwtKey = builder.Configuration["Jwt:Key"] 
+    ?? Environment.GetEnvironmentVariable("Jwt__Key")
+    ?? throw new InvalidOperationException("Jwt:Key nao configurado. Adicione a variavel Jwt__Key no Railway.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
