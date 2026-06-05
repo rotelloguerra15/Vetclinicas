@@ -1,4 +1,4 @@
-# ── Build ────────────────────────────────────────────────────────────────────
+# ── Build ─────────────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
@@ -13,20 +13,16 @@ RUN dotnet publish VetClinica.API/VetClinica.API.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
-# Instala fontes para o QuestPDF gerar PDFs corretamente no Linux
 RUN apt-get update && apt-get install -y \
-    fontconfig \
-    libfreetype6 \
-    libfontconfig1 \
-    fonts-dejavu-core \
+    fontconfig libfreetype6 libfontconfig1 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/publish .
 
-# Railway injeta a porta via variável PORT
-ENV ASPNETCORE_URLS=http://+:${PORT:-8080}
+# Railway define PORT dinamicamente — o .NET deve escutar nela
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "VetClinica.API.dll"]
+# Usa shell form para que $PORT seja expandido em runtime
+CMD ASPNETCORE_URLS=http://+:${PORT:-8080} dotnet VetClinica.API.dll
