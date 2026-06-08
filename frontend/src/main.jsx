@@ -32,6 +32,7 @@ import RelatoriosRH from './pages/RH/RelatoriosRH'
 import Parametros from './pages/Parametros'
 import Bot from './pages/Parametros/Bot'
 import Vias from './pages/Cadastros/Vias'
+import GestaoVista from './pages/GestaoVista'
 
 function Protected({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/login" />
@@ -45,6 +46,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<Protected><AdminPanel /></Protected>} />
         <Route path="/agendar/:token" element={<AgendarPublico />} />
+        <Route path="/gestao-vista" element={<Protected><GestaoVista /></Protected>} />
         <Route path="/" element={<Protected><Layout /></Protected>}>
           <Route index element={<Dashboard />} />
           <Route path="tutores" element={<Tutores />} />

@@ -57,6 +57,10 @@ const menu = [
   { group: 'Configuracoes' },
   { to: '/parametros',      label: 'Parametros' },
   { to: '/parametros/bot',  label: 'Bot WhatsApp' },
+
+  // Gestao a Vista
+  { group: 'Gestao a Vista' },
+  { to: '/gestao-vista', label: 'Gestao a Vista', tv: true },
 ]
 
 export default function Layout() {
@@ -112,6 +116,18 @@ export default function Layout() {
                   }>
                   {item.label}
                 </NavLink>
+              )
+            }
+
+            if (item.tv) {
+              return (
+                <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-2
+                             text-sky-300 hover:bg-slate-800">
+                  <span>📺</span>
+                  <span>{item.label}</span>
+                  <span className="ml-auto text-[10px] text-slate-500">TV</span>
+                </a>
               )
             }
 
