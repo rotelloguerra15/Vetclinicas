@@ -18,6 +18,7 @@ export default function Login() {
       localStorage.setItem('token', data.token)
       localStorage.setItem('nome', data.nome)
       localStorage.setItem('papel', data.papel)
+      localStorage.setItem('tenantId', data.tenantId)
       nav('/')
     } catch {
       setErro('Email ou senha inválidos')
