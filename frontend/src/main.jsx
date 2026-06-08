@@ -18,20 +18,16 @@ import Servicos from './pages/Servicos'
 import Usuarios from './pages/Usuarios'
 import Relatorios from './pages/Relatorios'
 import Financeiro from './pages/Financeiro'
-import Bancario from './pages/Bancario'
-import Fornecedores from './pages/Fornecedores'
-import Compras from './pages/Compras'
-import Recebimentos from './pages/Recebimentos'
-import CondicoesPagamento from './pages/CondicoesPagamento'
 import AgendarPublico from './pages/AgendarPublico'
 import AdminLogin from './pages/AdminLogin'
 import AdminPanel from './pages/AdminPanel'
-import Funcionarios from './pages/RH/Funcionarios'
-import Fechamento from './pages/RH/Fechamento'
-import RelatoriosRH from './pages/RH/RelatoriosRH'
+import Funcionarios from './pages/rh/Funcionarios'
+import Fechamento from './pages/rh/Fechamento'
+import RelatoriosRH from './pages/rh/RelatoriosRH'
 import Parametros from './pages/Parametros'
 import Bot from './pages/Parametros/Bot'
 import Vias from './pages/Cadastros/Vias'
+import GestaoVista from './pages/GestaoVista'
 
 function Protected({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/login" />
@@ -45,6 +41,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<Protected><AdminPanel /></Protected>} />
         <Route path="/agendar/:token" element={<AgendarPublico />} />
+
+        {/* Gestao a Vista — abre em tela cheia, sem Layout, sem auth por ora */}
+        <Route path="/gestao-vista" element={<Protected><GestaoVista /></Protected>} />
+
         <Route path="/" element={<Protected><Layout /></Protected>}>
           <Route index element={<Dashboard />} />
           <Route path="tutores" element={<Tutores />} />
@@ -60,11 +60,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="financeiro" element={<Financeiro />} />
-          <Route path="bancario" element={<Bancario />} />
-          <Route path="fornecedores" element={<Fornecedores />} />
-          <Route path="compras" element={<Compras />} />
-          <Route path="recebimentos" element={<Recebimentos />} />
-          <Route path="compras/condicoes" element={<CondicoesPagamento />} />
           <Route path="rh/funcionarios" element={<Funcionarios />} />
           <Route path="rh/fechamento" element={<Fechamento />} />
           <Route path="rh/relatorios" element={<RelatoriosRH />} />
