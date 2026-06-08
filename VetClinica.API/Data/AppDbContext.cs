@@ -36,6 +36,10 @@ public class AppDbContext : DbContext
     // Cadastros auxiliares
     public DbSet<ViaAdministracao> ViasAdministracao => Set<ViaAdministracao>();
 
+    // Movimentacao Bancaria
+    public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
+    public DbSet<MovimentacaoBancaria> MovimentacoesBancarias => Set<MovimentacaoBancaria>();
+
     // Bot WhatsApp
     public DbSet<BotConfig> BotConfigs => Set<BotConfig>();
     public DbSet<BotConversa> BotConversas => Set<BotConversa>();

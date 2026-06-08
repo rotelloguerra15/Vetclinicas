@@ -621,3 +621,43 @@ public class BotLog
     [Column("erro")]        public string? Erro { get; set; }
     [Column("criado_em")]   public DateTime CriadoEm { get; set; }
 }
+
+// ===================== MOVIMENTACAO BANCARIA =====================
+
+[Table("contas_bancarias")]
+public class ContaBancaria
+{
+    [Column("id")]             public Guid Id { get; set; }
+    [Column("tenant_id")]      public Guid TenantId { get; set; }
+    [Column("nome")]           public string Nome { get; set; } = "";
+    [Column("banco")]          public string? Banco { get; set; }
+    [Column("agencia")]        public string? Agencia { get; set; }
+    [Column("conta")]          public string? Conta { get; set; }
+    [Column("tipo")]           public string Tipo { get; set; } = "corrente";
+    [Column("saldo_inicial")]  public decimal SaldoInicial { get; set; }
+    [Column("ativo")]          public bool Ativo { get; set; } = true;
+    [Column("criado_em")]      public DateTime CriadoEm { get; set; }
+
+    public ICollection<MovimentacaoBancaria> Movimentacoes { get; set; } = new List<MovimentacaoBancaria>();
+}
+
+[Table("movimentacoes_bancarias")]
+public class MovimentacaoBancaria
+{
+    [Column("id")]                 public Guid Id { get; set; }
+    [Column("tenant_id")]          public Guid TenantId { get; set; }
+    [Column("conta_bancaria_id")]  public Guid ContaBancariaId { get; set; }
+    [Column("tipo")]               public string Tipo { get; set; } = "entrada"; // entrada | saida | transferencia
+    [Column("valor")]              public decimal Valor { get; set; }
+    [Column("descricao")]          public string Descricao { get; set; } = "";
+    [Column("data_movimentacao")]  public DateOnly DataMovimentacao { get; set; }
+    [Column("categoria_id")]       public Guid? CategoriaId { get; set; }
+    [Column("conta_id")]           public Guid? ContaId { get; set; }
+    [Column("conta_destino_id")]   public Guid? ContaDestinoId { get; set; }
+    [Column("conciliado")]         public bool Conciliado { get; set; }
+    [Column("criado_por")]         public Guid? CriadoPor { get; set; }
+    [Column("criado_em")]          public DateTime CriadoEm { get; set; }
+
+    public ContaBancaria? ContaBancaria { get; set; }
+    public CategoriaFinanceira? Categoria { get; set; }
+}

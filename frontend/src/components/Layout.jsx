@@ -14,6 +14,7 @@ const links = [
   { to: '/pdv', label: 'PDV / Vendas' },
   { to: '/estoque', label: 'Estoque' },
   { to: '/financeiro', label: 'Financeiro' },
+  { to: '/bancario', label: 'Movim. Bancária' },
   null,
   { to: '/usuarios', label: 'Usuários' },
   { to: '/promocoes', label: 'Promoções' },
