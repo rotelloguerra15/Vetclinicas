@@ -36,6 +36,11 @@ public class AppDbContext : DbContext
     // Cadastros auxiliares
     public DbSet<ViaAdministracao> ViasAdministracao => Set<ViaAdministracao>();
 
+    // M4 Compras
+    public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
+    public DbSet<PedidoCompra> PedidosCompra => Set<PedidoCompra>();
+    public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();
+
     // Movimentacao Bancaria
     public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
     public DbSet<MovimentacaoBancaria> MovimentacoesBancarias => Set<MovimentacaoBancaria>();

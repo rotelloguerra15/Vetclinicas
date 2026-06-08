@@ -1,155 +1,165 @@
 # VetClinica — Contexto do Projeto
 
-## Portas
-| Serviço   | Porta  |
-|-----------|--------|
-| Frontend  | 5173   |
-| Backend   | 5010   |
-| PostgreSQL| 5433   |
+## Stack
+- Backend: .NET 8 + EF Core + PostgreSQL
+- Frontend: React + Vite + Tailwind
+- Hospedagem: Railway (backend + banco) + Vercel (frontend)
 
-## Docker
-- Container PostgreSQL: `vetclinica-db`
-- Rodar migration: `Get-Content "C:\Projetos\vetclinica\database\ARQUIVO.sql" | docker exec -i vetclinica-db psql -U postgres -d vetclinica`
+## URLs de Produção
+- Frontend: https://vetclinicas.vercel.app
+- Backend:  https://vetclinicas-production.up.railway.app
+- Webhook bot: https://vetclinicas-production.up.railway.app/api/webhook/whatsapp/{tenantId}
 
-## Estrutura
+## Portas locais
+| Serviço   | Porta |
+|-----------|-------|
+| Frontend  | 5173  |
+| Backend   | 5010  |
+| PostgreSQL| 5433  |
+
+## Repositório
+https://github.com/rotelloguerra15/Vetclinicas.git
+
+## Banco de dados (Railway)
+- Host público: gondola.proxy.rlwy.net:16524
+- Host interno: postgres.railway.internal:5432
+- Database: railway / User: postgres
+- String local: Host=gondola.proxy.rlwy.net;Port=16524;Database=railway;Username=postgres;Password=eOpnNTdorWCkkphKLRlNogUWOtiwGibS
+
+## Tenant principal
+- ID: 4b19602f-0425-4101-914c-5b9aeaf5d4e7
+- Nome: Pet Shop e Consultorio Dra. Barbara Fonseca
+- Login: barbaratatschveterinaria@gmail.com / admin123
+
+## Docker local
+- Container: vetclinica-db (porta 5433)
+- Migration: Get-Content "C:\Projetos\vetclinica\database\ARQUIVO.sql" | docker exec -i vetclinica-db psql -U postgres -d vetclinica
+
+## Migration no Railway
+```powershell
+$DB = "postgresql://postgres:eOpnNTdorWCkkphKLRlNogUWOtiwGibS@gondola.proxy.rlwy.net:16524/railway"
+psql $DB -f "C:\Projetos\vetclinica\database\ARQUIVO.sql"
 ```
-C:\Projetos\vetclinica\
-  VetClinica.API\        → backend .NET 8
-  frontend\              → React + Vite
-  database\              → migrations SQL
-```
 
-## Credenciais
-- Login clínica: admin@clinicafonseca.com.br / admin123
-- Plataforma: rotello.guerra@ketra.com.br / Ketra@2026
-- Banco: Host=localhost;Port=5433;Database=vetclinica;Username=postgres;Password=postgres
+## Padrões do projeto
+- Multi-tenant: coluna `tenant_id` em todas as tabelas
+- Auth: JWT via TenantContext (_t.TenantId, _t.UserId, _t.Papel)
+- ORM: Entity Framework Core — NUNCA usar Dapper
+- Frontend: axios em src/api/client.js
+- Rotello prefere arquivos completos prontos para substituir
+- NUNCA usar emojis dentro de strings C# interpoladas (CS1010/CS1056)
+- DbSet nomes: OrdensServico, Vendas, Tutores, Pets, Funcionarios, Contas, etc.
+- Venda tem TutorId direto (não PetId)
+
+---
 
 ## Migrations aplicadas
 | # | Arquivo | Descrição |
-|---|---------|-----------| 
+|---|---------|-----------|
 | 01 | 01-schema.sql | Schema base |
 | 02 | 02-estoque-mensagens.sql | Estoque e mensagens |
 | 03 | 03-aniversario-tutor.sql | Aniversário tutor |
-| 04 | 04-branding-fonseca.sql | Branding Clínica Fonseca |
+| 04 | 04-branding-fonseca.sql | Branding |
 | 05 | 05-plataforma-saas.sql | Plataforma SaaS |
 | 06 | 06-promocoes.sql | Promoções |
 | 07 | 07-fix-enums-to-varchar.sql | Fix enums |
-| 08 | 08-prontuario-campos.sql | Campos prontuário |
+| 08 | 08-prontuario-campos.sql | Prontuário |
 | 09 | 09-caixa.sql | Caixa |
-| 10 | 010_funcionarios.sql | Funcionários (RH) |
-| 11 | 011_parametros_sistema.sql | Parâmetros do sistema |
+| 10 | 010_funcionarios.sql | Funcionários |
+| 11 | 011_parametros_sistema.sql | Parâmetros |
 | 12 | 012_comissoes.sql | Comissões |
 | 13 | 013_fechamento_mensal.sql | Fechamento mensal |
-| 14 | 014_os_funcionario.sql | Vínculo funcionário na OS |
-| 15 | 015_movimentacoes_caixa.sql | Retiradas e depósitos do caixa |
-| 16 | 016_m1_ajustes.sql | Endereço tutor + microchip + plano saúde pet |
-| 17 | 017_crmv_funcionario.sql | CRMV em funcionários |
-| 18 | 018_receituario_campos.sql | Registro MAPA + código sequencial pet |
-| 19 | 019_vias_administracao.sql | Cadastro de vias de administração |
-| 20 | 020_bot_whatsapp.sql | Bot WhatsApp (config, conversas, logs) |
-
-## Padrão do projeto
-- Multi-tenant: coluna `tenant_id` em todas as tabelas
-- Auth: JWT — `_t.TenantId` e `_t.UserId` via `TenantContext`
-- ORM: Entity Framework Core (AppDbContext) — NÃO usar Dapper
-- Frontend: chamadas via `api` (axios) em `src/api/client.js`
-- Rotello prefere receber **arquivos completos prontos para substituir**, nunca trechos para colar
-- Nunca usar emojis dentro de strings C# interpoladas (causa erro de compilação)
+| 14 | 014_os_funcionario.sql | OS funcionário |
+| 15 | 015_movimentacoes_caixa.sql | Caixa movimentações |
+| 16 | 016_m1_ajustes.sql | Endereço tutor + microchip + plano saúde |
+| 17 | 017_crmv_funcionario.sql | CRMV funcionários |
+| 18 | 018_receituario_campos.sql | Registro MAPA + código pet |
+| 19 | 019_vias_administracao.sql | Vias de administração |
+| 20 | 020_bot_whatsapp.sql | Bot WhatsApp |
+| 21 | 021_movimentacao_bancaria.sql | Contas bancárias e movimentações |
 
 ---
 
 ## Módulos implementados ✅
 
-- Auth, Tutores (endereço desmembrado), Pets (microchip, plano saúde, idade calculada), Prontuário
-- Agenda + Self-service agendamento (link WhatsApp + bot chatbot)
-- OS Kanban, PDV, Estoque
-- **M2 Financeiro** — Contas a pagar/receber, baixa, estorno, dashboard, fluxo de caixa ✅
-- Mensagens WhatsApp automáticas, Promoções
+- Auth, multi-tenant, JWT
+- Tutores (endereço desmembrado), Pets (microchip, plano saúde, idade)
+- Prontuário, Vacinas
+- Agenda + Self-service (link + bot WhatsApp chatbot)
+- OS Kanban, PDV, Estoque, Promoções
+- Receituário PDF (logo, 3 colunas, tipo, via, farmácia) + WhatsApp + reimpressão
+- M2 Financeiro completo (contas a pagar/receber, baixa, estorno, dashboard, fluxo de caixa)
+- M2 complementos: Movimentação bancária + histórico por cliente ✅
+- M3 RH (funcionários CRMV/MAPA, comissões, fechamento)
+- PDV/Caixa (retirada, depósito, fechamento, matemática)
+- Mensagens WhatsApp automáticas
 - Painel super-admin, white-label
-- **M3 RH** — Funcionários (CRMV + Registro MAPA), Comissões, Fechamento ✅
-- **PDV/Caixa** — Retirada, Depósito, Fechamento ✅
-- **Receituário** — PDF fiel ao modelo (logo, 3 colunas, tipo receita, via, farmácia), WhatsApp, reimpressão ✅
-- **Cadastros auxiliares** — Vias de administração ✅
-- **Parâmetros** — Logo upload, branding, Bot WhatsApp (config + mensagens + log) ✅
-- **Bot WhatsApp** — chatbot de agendamento via webhook Z-API, máquina de estados ✅
+- Cadastros auxiliares: Vias de administração
+- Parâmetros: logo upload, branding, toggles comissão OS/PDV, Bot WhatsApp
+- Bot WhatsApp: chatbot agendamento via webhook Z-API, máquina de estados, log
+- Deploy: Railway + Vercel ✅
 
 ---
 
-## ORDEM DE EXECUÇÃO DEFINIDA
+## ORDEM DE EXECUÇÃO
 
-### Próximos passos (em ordem):
-
-1. **Testar o bot** — configurar Z-API, apontar webhook, testar agendamento real pelo WhatsApp
-2. **Deploy** — Railway (backend .NET + PostgreSQL) + Vercel (frontend). Webhook precisa de URL pública.
-3. **M1 item 8** — Parâmetros: toggles de comissão OS/PDV
-4. **M2 complementos** — Movimentação bancária + histórico por cliente
-5. **M4 Compras** — Fornecedores, pedido compra → estoque, uso interno vs venda
-6. **M5 Cadastros auxiliares** — Fornecedores, planos de saúde, demais cadastros
-7. **M6 Gestão à vista** — TV recepção: pet em atendimento, animação, fullscreen, auto-refresh
-8. **M7 Metas** — Meta faturamento vs realizado, custo mensal vs receita, dashboard gerencial
+### Próximos passos:
+1. **M4 Compras** — Fornecedores, pedido de compra → estoque, uso interno vs venda ← **PRÓXIMO**
+2. **M5 Cadastros auxiliares** — Fornecedores, planos de saúde, demais
+3. **Testar bot WhatsApp** — configurar Z-API com URL pública
+4. **M6 Gestão à vista** — TV recepção: pet em atendimento, animação, fullscreen
+5. **M7 Metas** — Meta faturamento vs realizado, dashboard gerencial
 
 ---
 
-## BACKLOG COMPLETO
+## BACKLOG
 
-### M1 — Correções e ajustes
-- [x] Self-service de agendamento via WhatsApp ✅
-- [x] Endereço do tutor desmembrado ✅
-- [x] Pet: idade calculada, microchip, plano de saúde ✅
-- [x] Receituário PDF + WhatsApp + reimpressão ✅
-- [x] Renomear menu "Equipe" → "Usuários" ✅
-- [ ] Parâmetros — toggles comissão OS/PDV ← **PRÓXIMO após deploy**
+### M1 ✅ CONCLUÍDO
+- [x] Self-service agendamento WhatsApp
+- [x] Endereço tutor desmembrado
+- [x] Pet: microchip, plano saúde, idade calculada
+- [x] Receituário PDF + WhatsApp + reimpressão
+- [x] Renomear Equipe → Usuários
+- [x] Cadastro de Vias de administração
+- [x] Parâmetros: toggles comissão OS/PDV
 
-### M2 — Financeiro (complementos)
-- [x] Contas a pagar e receber ✅
-- [x] Baixa com data de pagamento/recebimento ✅
-- [x] Vinculação OS → PDV → financeiro ✅
-- [ ] Movimentação bancária
-- [ ] Histórico por cliente (quem pagou, quanto, qual serviço/produto)
+### M2 ✅ CONCLUÍDO
+- [x] Contas a pagar e receber
+- [x] Baixa com data pagamento/recebimento
+- [x] Vinculação OS → PDV → financeiro
+- [x] Movimentação bancária (contas, entradas, saídas, transferências, conciliação)
+- [x] Histórico por cliente
 
-### M3 — Gestão de pessoas (complementos)
-- [x] Cadastro de funcionários (CRMV, Registro MAPA) ✅
-- [x] Fechamento mensal ✅
-- [ ] Fechamento mensal incluindo impostos
+### M3 ✅ CONCLUÍDO
+- [x] Funcionários (CRMV, Registro MAPA)
+- [x] Comissões e fechamento mensal
 
 ### M4 — Compras e fornecedores
 - [ ] Cadastro de fornecedores
 - [ ] Pedido de compra → ao finalizar alimenta o estoque
-- [ ] Classificação: produto para venda ou uso interno
-- [ ] Composição do custo mensal da clínica
+- [ ] Classificação: venda ou uso interno
+- [ ] Composição do custo mensal
 
 ### M5 — Cadastros auxiliares
-- [x] Vias de administração ✅
-- [ ] Fornecedores
+- [x] Vias de administração
 - [ ] Planos de saúde
 - [ ] Demais cadastros de apoio
 
-### M6 — Gestão à vista (TV da recepção)
-- [ ] Tela animada mostrando pet, serviço em execução e status
-- [ ] Animação de cachorro/gato passando
+### M6 — Gestão à vista (TV recepção)
+- [ ] Tela animada: pet, serviço, status
+- [ ] Animação cachorro/gato
 - [ ] Fullscreen, auto-refresh
 
 ### M7 — Metas e relatórios
-- [ ] Meta de faturamento por mês vs realizado
+- [ ] Meta faturamento vs realizado
 - [ ] Custo mensal vs receita
-- [ ] Dashboard gerencial consolidado
+- [ ] Dashboard gerencial
 
 ---
 
-## Backlog técnico / Roadmap SaaS
-
-- [ ] Assinatura digital no receituário (avaliar gov.br/ITI ou hash + QR code)
-- [ ] Migrar bot WhatsApp para Meta Cloud API (quando em produção)
-- [ ] Storage de imagens (logo + fotos pets) — Cloudflare R2 ou Supabase
-- [ ] Integração de cobrança (Asaas — PIX/boleto) + suspensão automática por inadimplência
-- [ ] Self-service de cadastro (teste grátis 7 dias)
-- [ ] Subdomínio por clínica (`fonseca.seusistema.com.br`)
-
----
-
-## Notas importantes para retomada
-
-- **Bot WhatsApp**: webhook configurado em `POST /api/webhook/whatsapp/{tenantId}`. Configurar na Z-API em "Webhook de mensagens recebidas". URL precisa ser pública (deploy primeiro).
-- **Receituário**: usa QuestPDF 2024.3.5. Logo salva como base64 data-URL no banco (campo `logo_url` da tabela `tenants`). Upload em Parâmetros.
-- **AgendaService**: atualizado para respeitar duração do serviço e ler horários do `bot_config`.
-- **Emojis em C#**: NUNCA usar emojis dentro de strings interpoladas `$"..."` em C# — causa erro CS1010/CS1056. Usar texto simples.
+## Backlog técnico
+- [ ] Assinatura digital no receituário (gov.br/ITI ou hash + QR code)
+- [ ] Migrar bot para Meta Cloud API em produção
+- [ ] Storage de imagens (Cloudflare R2 ou Supabase)
+- [ ] Integração Asaas (PIX/boleto) + suspensão por inadimplência
+- [ ] Self-service cadastro tenant (teste grátis 7 dias)

@@ -661,3 +661,61 @@ public class MovimentacaoBancaria
     public ContaBancaria? ContaBancaria { get; set; }
     public CategoriaFinanceira? Categoria { get; set; }
 }
+
+// ===================== M4 COMPRAS =====================
+
+[Table("fornecedores")]
+public class Fornecedor
+{
+    [Column("id")]          public Guid Id { get; set; }
+    [Column("tenant_id")]   public Guid TenantId { get; set; }
+    [Column("nome")]        public string Nome { get; set; } = "";
+    [Column("cnpj")]        public string? Cnpj { get; set; }
+    [Column("telefone")]    public string? Telefone { get; set; }
+    [Column("email")]       public string? Email { get; set; }
+    [Column("contato")]     public string? Contato { get; set; }
+    [Column("logradouro")]  public string? Logradouro { get; set; }
+    [Column("num_end")]     public string? NumEnd { get; set; }
+    [Column("bairro")]      public string? Bairro { get; set; }
+    [Column("cidade")]      public string? Cidade { get; set; }
+    [Column("estado")]      public string? Estado { get; set; }
+    [Column("cep")]         public string? Cep { get; set; }
+    [Column("obs")]         public string? Obs { get; set; }
+    [Column("ativo")]       public bool Ativo { get; set; } = true;
+    [Column("criado_em")]   public DateTime CriadoEm { get; set; }
+}
+
+[Table("pedidos_compra")]
+public class PedidoCompra
+{
+    [Column("id")]               public Guid Id { get; set; }
+    [Column("tenant_id")]        public Guid TenantId { get; set; }
+    [Column("fornecedor_id")]    public Guid? FornecedorId { get; set; }
+    [Column("numero")]           public int Numero { get; set; }
+    [Column("status")]           public string Status { get; set; } = "rascunho";
+    [Column("data_pedido")]      public DateOnly DataPedido { get; set; }
+    [Column("data_recebimento")] public DateOnly? DataRecebimento { get; set; }
+    [Column("valor_total")]      public decimal ValorTotal { get; set; }
+    [Column("obs")]              public string? Obs { get; set; }
+    [Column("criado_por")]       public Guid? CriadoPor { get; set; }
+    [Column("criado_em")]        public DateTime CriadoEm { get; set; }
+    [Column("atualizado_em")]    public DateTime AtualizadoEm { get; set; }
+
+    public Fornecedor? Fornecedor { get; set; }
+    public ICollection<PedidoItem> Itens { get; set; } = new List<PedidoItem>();
+}
+
+[Table("pedido_itens")]
+public class PedidoItem
+{
+    [Column("id")]              public Guid Id { get; set; }
+    [Column("pedido_id")]       public Guid PedidoId { get; set; }
+    [Column("produto_id")]      public Guid? ProdutoId { get; set; }
+    [Column("nome_produto")]    public string NomeProduto { get; set; } = "";
+    [Column("quantidade")]      public decimal Quantidade { get; set; }
+    [Column("unidade")]         public string Unidade { get; set; } = "un";
+    [Column("valor_unitario")]  public decimal ValorUnitario { get; set; }
+    [Column("valor_total")]     public decimal ValorTotal { get; set; }
+    [Column("uso")]             public string Uso { get; set; } = "venda"; // venda | interno
+    [Column("criado_em")]       public DateTime CriadoEm { get; set; }
+}
