@@ -38,6 +38,8 @@ const menu = [
   { group: 'Cadastros' },
   { to: '/usuarios',         label: 'Usuarios' },
   { to: '/fornecedores',     label: 'Fornecedores' },
+  { to: '/compras',          label: 'Pedidos de Compra' },
+  { to: '/compras/condicoes', label: 'Cond. de Pagamento' },
   { to: '/cadastros/vias',   label: 'Vias de Administracao' },
 
   // Relatorios
