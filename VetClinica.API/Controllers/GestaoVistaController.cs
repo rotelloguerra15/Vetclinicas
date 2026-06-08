@@ -208,12 +208,12 @@ public class GestaoVistaController : ControllerBase
 
                     if (imageUrl == null && encoded.Contains("<img"))
                     {
-                        var m = System.Text.RegularExpressions.Regex.Match(encoded, @"<img[^>]+src=[""'"]([^""\'>]+)[""'"]");
+                        var m = System.Text.RegularExpressions.Regex.Match(encoded, @"src=.([^>\s""']+)");
                         if (m.Success) imageUrl = m.Groups[1].Value;
                     }
                     if (imageUrl == null && description.Contains("<img"))
                     {
-                        var m = System.Text.RegularExpressions.Regex.Match(description, @"<img[^>]+src=[""'"]([^""\'>]+)[""'"]");
+                        var m = System.Text.RegularExpressions.Regex.Match(description, @"src=.([^>\s""']+)");
                         if (m.Success) imageUrl = m.Groups[1].Value;
                     }
 
