@@ -15,11 +15,11 @@ public class GestaoVistaController : ControllerBase
 
     private static readonly List<(string Id, string Nome, string Cor, string Icone, string Url)> Feeds =
     [
-        ("bbc",    "BBC Brasil",       "#bb1919", "📰", "https://feeds.bbci.co.uk/portuguese/rss.xml"),
-        ("g1",     "G1 Brasil",        "#e83a3a", "🗞️", "https://g1.globo.com/rss/g1/"),
-        ("folha",  "Folha de SP",      "#0066cc", "📄", "https://feeds.folha.uol.com.br/emcimadahora/rss091.xml"),
-        ("r7",     "R7 Noticias",      "#e07000", "📺", "https://noticias.r7.com/feed.xml"),
-        ("saude",  "Saude Animal",     "#7c3aed", "🐾", "https://www.petlove.com.br/dicas/feed"),
+        ("bbc",      "BBC Brasil",        "#bb1919", "📰", "https://feeds.bbci.co.uk/portuguese/rss.xml"),
+        ("g1",       "G1 Brasil",         "#e83a3a", "🗞️", "https://g1.globo.com/rss/g1/"),
+        ("googlebr", "Google News BR",    "#4285f4", "🔎", "https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419"),
+        ("googlemg", "Google News MG",    "#34a853", "📍", "https://news.google.com/rss/search?q=minas+gerais&hl=pt-BR&gl=BR&ceid=BR:pt-419"),
+        ("saude",    "Saude Animal",      "#7c3aed", "🐾", "https://www.petlove.com.br/dicas/feed"),
     ];
 
     public GestaoVistaController(AppDbContext db, IHttpClientFactory http)
@@ -177,37 +177,54 @@ public class GestaoVistaController : ControllerBase
                     // Tenta extrair imagem em varias fontes
                     string? imageUrl = null;
 
-                    // 1. media:content url=
-                    imageUrl ??= node.SelectSingleNode("media:content", nsMgr)?.Attributes?["url"]?.Value;
+                    // 1. media:content — pega o de maior width (BBC serve varios tamanhos)
+                    var mediaContents = node.SelectNodes("media:content", nsMgr);
+                    if (mediaContents != null)
+                    {
+                        int bestWidth = 0;
+                        foreach (System.Xml.XmlNode mc in mediaContents)
+                        {
+                            var u = mc.Attributes?["url"]?.Value;
+                            if (u == null) continue;
+                            int.TryParse(mc.Attributes?["width"]?.Value, out int w);
+                            if (w > bestWidth || imageUrl == null) { imageUrl = u; bestWidth = w; }
+                        }
+                    }
 
-                    // 2. media:thumbnail url=
+                    // BBC serve thumbnails pequenos (170px) — substitui por versao maior
+                    if (imageUrl != null && imageUrl.Contains("bbci.co.uk") && imageUrl.Contains("px-"))
+                        imageUrl = System.Text.RegularExpressions.Regex.Replace(imageUrl, @"/\d+px-", "/800px-");
+
+                    // 2. media:thumbnail
                     imageUrl ??= node.SelectSingleNode("media:thumbnail", nsMgr)?.Attributes?["url"]?.Value;
 
-                    // 3. enclosure type="image/*"
+                    // 3. enclosure type image
                     var enclosure = node.SelectSingleNode("enclosure");
                     if (imageUrl == null && enclosure?.Attributes?["type"]?.Value?.StartsWith("image") == true)
                         imageUrl = enclosure.Attributes?["url"]?.Value;
 
-                    // 4. <img> dentro do description
+                    // 4 e 5. content:encoded e description — busca imagem E texto
+                    var encoded = node.SelectSingleNode("content:encoded", nsMgr)?.InnerText ?? "";
+
+                    if (imageUrl == null && encoded.Contains("<img"))
+                    {
+                        var m = System.Text.RegularExpressions.Regex.Match(encoded, @"<img[^>]+src=[""'"]([^""\'>]+)[""'"]");
+                        if (m.Success) imageUrl = m.Groups[1].Value;
+                    }
                     if (imageUrl == null && description.Contains("<img"))
                     {
-                        var imgMatch = System.Text.RegularExpressions.Regex.Match(description, @"<img[^>]+src=[""']([^""']+)[""']");
-                        if (imgMatch.Success) imageUrl = imgMatch.Groups[1].Value;
-                    }
-
-                    // 5. content:encoded
-                    if (imageUrl == null)
-                    {
-                        var encoded = node.SelectSingleNode("content:encoded", nsMgr)?.InnerText ?? "";
-                        if (encoded.Contains("<img"))
-                        {
-                            var imgMatch = System.Text.RegularExpressions.Regex.Match(encoded, @"<img[^>]+src=[""']([^""']+)[""']");
-                            if (imgMatch.Success) imageUrl = imgMatch.Groups[1].Value;
-                        }
+                        var m = System.Text.RegularExpressions.Regex.Match(description, @"<img[^>]+src=[""'"]([^""\'>]+)[""'"]");
+                        if (m.Success) imageUrl = m.Groups[1].Value;
                     }
 
                     // Limpa HTML do description
                     var descClean = System.Text.RegularExpressions.Regex.Replace(description, "<[^>]+>", "").Trim();
+
+                    // G1 deixa description vazio — usa content:encoded como fallback de texto
+                    if (string.IsNullOrWhiteSpace(descClean) && !string.IsNullOrWhiteSpace(encoded))
+                        descClean = System.Text.RegularExpressions.Regex.Replace(encoded, "<[^>]+>", "").Trim();
+
+                    if (descClean.Length > 280) descClean = descClean[..280].TrimEnd() + "...";
 
                     // Parseia data
                     DateTime.TryParse(pubDate, out var parsedDate);
