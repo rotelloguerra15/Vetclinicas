@@ -7,6 +7,8 @@ using VetClinica.API.Models;
 
 namespace VetClinica.API.Controllers;
 
+public record ComprasStatusUpdate(string Status);
+
 [ApiController]
 [Authorize]
 [Route("api/compras")]
@@ -96,7 +98,7 @@ public class ComprasController : ControllerBase
     }
 
     [HttpPut("{id}/status")]
-    public async Task<IActionResult> AtualizarStatus(Guid id, [FromBody] StatusUpdate dto)
+    public async Task<IActionResult> AtualizarStatus(Guid id, [FromBody] ComprasStatusUpdate dto)
     {
         var p = await _db.PedidosCompra.Include(x => x.Itens)
             .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == _t.TenantId);
