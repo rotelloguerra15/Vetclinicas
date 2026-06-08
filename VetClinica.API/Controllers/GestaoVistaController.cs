@@ -16,8 +16,8 @@ public class GestaoVistaController : ControllerBase
     private static readonly List<(string Id, string Nome, string Cor, string Icone, string Url)> Feeds =
     [
         ("bbc",    "BBC Brasil",       "#bb1919", "📰", "https://feeds.bbci.co.uk/portuguese/rss.xml"),
-        ("agbr",   "Agencia Brasil",   "#005CA9", "📡", "https://agenciabrasil.ebc.com.br/rss/ultimasnoticias/feed.rss"),
         ("g1",     "G1 Brasil",        "#e83a3a", "🗞️", "https://g1.globo.com/rss/g1/"),
+        ("folha",  "Folha de SP",      "#0066cc", "📄", "https://feeds.folha.uol.com.br/emcimadahora/rss091.xml"),
         ("r7",     "R7 Noticias",      "#e07000", "📺", "https://noticias.r7.com/feed.xml"),
         ("saude",  "Saude Animal",     "#7c3aed", "🐾", "https://www.petlove.com.br/dicas/feed"),
     ];
@@ -166,7 +166,7 @@ public class GestaoVistaController : ControllerBase
             {
                 foreach (System.Xml.XmlNode node in itemNodes)
                 {
-                    if (items.Count >= 6) break;
+                    if (items.Count >= 4) break;
 
                     var title = node.SelectSingleNode("title")?.InnerText ?? "";
                     var description = node.SelectSingleNode("description")?.InnerText ?? "";

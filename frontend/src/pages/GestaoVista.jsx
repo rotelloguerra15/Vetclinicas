@@ -108,7 +108,7 @@ function injectCSS() {
 .gv-news-badge{display:flex;align-items:center;gap:8px;padding:clamp(6px,0.8vh,10px) clamp(14px,1.5vw,20px);border-radius:40px;font-size:clamp(13px,1.2vw,18px);font-weight:800;color:#fff;}
 .gv-news-title{font-family:'Baloo 2',cursive;font-weight:800;font-size:clamp(16px,1.8vw,26px);color:#fff;}
 .gv-news-sub{font-size:clamp(10px,0.85vw,12px);color:#64748b;letter-spacing:1px;text-transform:uppercase;}
-.gv-news-grid{flex:1;overflow:hidden;display:grid;gap:clamp(7px,1vh,12px);grid-template-columns:1fr 1fr;grid-auto-rows:1fr;}
+.gv-news-grid{flex:1;overflow:hidden;display:grid;gap:clamp(7px,1vh,12px);grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
 .gv-news-card{background:#112240;border-radius:14px;padding:clamp(10px,1.3vh,16px) clamp(12px,1.3vw,18px);border:1px solid rgba(99,179,237,0.12);display:flex;flex-direction:column;gap:clamp(5px,0.7vh,8px);overflow:hidden;animation:gv-card-in .5s ease both;}
 .gv-news-card:nth-child(2){animation-delay:.07s;}.gv-news-card:nth-child(3){animation-delay:.14s;}.gv-news-card:nth-child(4){animation-delay:.21s;}
 .gv-news-cat{font-size:clamp(8px,0.65vw,10px);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;opacity:.7;}
@@ -418,21 +418,42 @@ export default function GestaoVista() {
 
         {news && news.items?.length > 0 && (
           <div className="gv-news-grid">
-            {news.items.slice(0, 6).map((item, i) => (
+            {news.items.slice(0, 4).map((item, i) => (
               <div key={i} className="gv-news-card" style={{ padding: 0, overflow: 'hidden' }}>
-                {item.imageUrl && (
-                  <div style={{
-                    width: '100%', height: 'clamp(80px, 10vh, 130px)',
-                    backgroundImage: `url(${item.imageUrl})`,
-                    backgroundSize: 'cover', backgroundPosition: 'center',
-                    flexShrink: 0
-                  }} />
-                )}
-                <div style={{ padding: 'clamp(8px,1vh,14px) clamp(10px,1.2vw,16px)', display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                {/* Imagem com aspect-ratio 16/7 para boa proporção em TV */}
+                <div style={{
+                  width: '100%',
+                  aspectRatio: '16/7',
+                  flexShrink: 0,
+                  position: 'relative',
+                  background: item.imageUrl ? 'transparent' : 'rgba(255,255,255,0.04)',
+                  overflow: 'hidden'
+                }}>
+                  {item.imageUrl && (
+                    <img
+                      src={item.imageUrl}
+                      alt=""
+                      style={{
+                        width: '100%', height: '100%',
+                        objectFit: 'cover', objectPosition: 'center top',
+                        display: 'block'
+                      }}
+                      onError={e => { e.target.parentNode.style.display = 'none' }}
+                    />
+                  )}
+                  {/* Gradiente sobre a imagem para o texto não sufocar */}
+                  {item.imageUrl && (
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%',
+                      background: 'linear-gradient(to top, rgba(17,34,64,0.85), transparent)'
+                    }} />
+                  )}
+                </div>
+                <div style={{ padding: 'clamp(8px,1vh,12px) clamp(10px,1.2vw,14px)', display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
                   <div className="gv-news-cat" style={{ color: feedMeta.cor }}>{feedMeta.nome}</div>
                   <div className="gv-news-headline">{item.title}</div>
                   {item.description && !item.imageUrl && (
-                    <div className="gv-news-desc">{item.description.slice(0, 200)}</div>
+                    <div className="gv-news-desc">{item.description.slice(0, 180)}</div>
                   )}
                   <div className="gv-news-date">
                     {item.pubDate ? new Date(item.pubDate).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
