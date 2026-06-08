@@ -6,7 +6,7 @@ import api from '../api/client'
 const menu = [
   // Clinica
   { group: 'Clinica' },
-  { to: '/',             label: 'Dashboard',          end: true },
+  { to: '/',             label: 'Dashboard',       end: true },
   { to: '/agenda',       label: 'Agenda' },
   { to: '/atendimentos', label: 'Atendimentos' },
   { to: '/pets',         label: 'Pets' },
@@ -14,9 +14,19 @@ const menu = [
 
   // Vendas
   { group: 'Vendas' },
-  { to: '/pdv',          label: 'PDV / Caixa',        highlight: true },
+  { to: '/pdv',          label: 'PDV / Caixa',     highlight: true },
   { to: '/servicos',     label: 'Servicos' },
-  { to: '/estoque',      label: 'Estoque' },
+
+  // Estoque
+  { group: 'Estoque' },
+  { to: '/estoque',           label: 'Controle de Estoque' },
+  { to: '/recebimentos',      label: 'Recebimento de Mercadoria' },
+
+  // Compras
+  { group: 'Compras' },
+  { to: '/compras',           label: 'Pedidos de Compra' },
+  { to: '/compras/condicoes', label: 'Cond. de Pagamento' },
+  { to: '/fornecedores',      label: 'Fornecedores' },
 
   // Financeiro
   { group: 'Financeiro' },
@@ -37,9 +47,6 @@ const menu = [
   // Cadastros
   { group: 'Cadastros' },
   { to: '/usuarios',         label: 'Usuarios' },
-  { to: '/fornecedores',     label: 'Fornecedores' },
-  { to: '/compras',          label: 'Pedidos de Compra' },
-  { to: '/compras/condicoes', label: 'Cond. de Pagamento' },
   { to: '/cadastros/vias',   label: 'Vias de Administracao' },
 
   // Relatorios
