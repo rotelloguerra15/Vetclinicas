@@ -512,6 +512,7 @@ public class Conta
     [Column("tenant_id")]        public Guid TenantId { get; set; }
     [Column("os_id")]            public Guid? OsId { get; set; }
     [Column("venda_id")]         public Guid? VendaId { get; set; }
+    [Column("pedido_id")]        public Guid? PedidoId { get; set; }
     [Column("tipo")]             public string Tipo { get; set; } = "receita"; // receita | despesa
     [Column("categoria_id")]     public Guid? CategoriaId { get; set; }
     [Column("descricao")]        public string Descricao { get; set; } = "";
