@@ -3,6 +3,8 @@ import api from '../api/client'
 
 export default function Parametros() {
   const [branding, setBranding] = useState({ nome: '', tagline: '', logoUrl: '', corPrimaria: '' })
+  const [comissao, setComissao] = useState({ comissaoOsAtivo: true, comissaoPdvAtivo: false })
+  const [salvandoComissao, setSalvandoComissao] = useState(false)
   const [logoPreview, setLogoPreview] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [msg, setMsg] = useState(null) // { tipo: 'ok'|'erro', texto }
@@ -77,6 +79,18 @@ export default function Parametros() {
       setMsg({ tipo: 'erro', texto: 'Erro ao salvar.' })
     } finally {
       setSalvando(false)
+    }
+  }
+
+  async function salvarComissao() {
+    setSalvandoComissao(true)
+    try {
+      await api.put('/parametros', comissao)
+      setMsg({ tipo: 'ok', texto: 'Configurações de comissão salvas!' })
+    } catch {
+      setMsg({ tipo: 'erro', texto: 'Erro ao salvar.' })
+    } finally {
+      setSalvandoComissao(false)
     }
   }
 
