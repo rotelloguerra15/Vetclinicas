@@ -119,16 +119,16 @@ public class ComprasController : ControllerBase
                     .FirstOrDefaultAsync(pr => pr.Id == item.ProdutoId!.Value);
                 if (produto != null)
                 {
-                    produto.QuantidadeEstoque += item.Quantidade;
+                    produto.EstoqueAtual += item.Quantidade;
                     _db.MovimentacoesEstoque.Add(new MovimentacaoEstoque
                     {
-                        Id        = Guid.NewGuid(),
-                        TenantId  = _t.TenantId,
-                        ProdutoId = produto.Id,
-                        Tipo      = "entrada",
+                        Id         = Guid.NewGuid(),
+                        TenantId   = _t.TenantId,
+                        ProdutoId  = produto.Id,
+                        Tipo       = "entrada",
                         Quantidade = item.Quantidade,
-                        Obs       = $"Pedido de compra #{p.Numero}",
-                        CriadoEm  = DateTime.UtcNow
+                        EstoqueApos = produto.EstoqueAtual,
+                        Motivo     = $"Pedido de compra #{p.Numero}"
                     });
                 }
             }
