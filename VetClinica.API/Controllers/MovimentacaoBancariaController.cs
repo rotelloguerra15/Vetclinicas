@@ -219,11 +219,10 @@ public class MovimentacaoBancariaController : ControllerBase
                      && c.DataCompetencia >= inicio
                      && c.DataCompetencia <= fim
                      && (
-                         _db.OrdemServico.Any(os => os.Id == c.OsId && os.PetId != null &&
+                         _db.OrdensServico.Any(os => os.Id == c.OsId &&
                              _db.Pets.Any(p => p.Id == os.PetId && p.TutorId == tutorId))
                          ||
-                         _db.Vendas.Any(v => v.Id == c.VendaId &&
-                             _db.Pets.Any(p => p.Id == v.PetId && p.TutorId == tutorId))
+                         _db.Vendas.Any(v => v.Id == c.VendaId && v.TutorId == tutorId)
                      ))
             .OrderByDescending(c => c.DataCompetencia)
             .Select(c => new {
@@ -284,11 +283,10 @@ public class MovimentacaoBancariaController : ControllerBase
                          && c.DataCompetencia >= inicio
                          && c.DataCompetencia <= fim
                          && (
-                             _db.OrdemServico.Any(os => os.Id == c.OsId && os.PetId != null &&
+                             _db.OrdensServico.Any(os => os.Id == c.OsId &&
                                  _db.Pets.Any(p => p.Id == os.PetId && p.TutorId == t.Id))
                              ||
-                             _db.Vendas.Any(v => v.Id == c.VendaId &&
-                                 _db.Pets.Any(p => p.Id == v.PetId && p.TutorId == t.Id))
+                             _db.Vendas.Any(v => v.Id == c.VendaId && v.TutorId == t.Id)
                          ))
                 .SumAsync(c => (decimal?)(c.ValorPago ?? 0)) ?? 0;
 
