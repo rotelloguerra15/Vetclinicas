@@ -106,6 +106,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+
 app.UseCors("front");
 app.UseAuthentication();
 app.UseMiddleware<TenantMiddleware>();   // popula TenantContext a partir do JWT
