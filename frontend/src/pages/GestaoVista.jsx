@@ -419,14 +419,24 @@ export default function GestaoVista() {
         {news && news.items?.length > 0 && (
           <div className="gv-news-grid">
             {news.items.slice(0, 6).map((item, i) => (
-              <div key={i} className="gv-news-card">
-                <div className="gv-news-cat" style={{ color: feedMeta.cor }}>{feedMeta.nome}</div>
-                <div className="gv-news-headline">{item.title}</div>
-                {item.description && (
-                  <div className="gv-news-desc">{item.description.replace(/<[^>]+>/g, '').slice(0, 220)}</div>
+              <div key={i} className="gv-news-card" style={{ padding: 0, overflow: 'hidden' }}>
+                {item.imageUrl && (
+                  <div style={{
+                    width: '100%', height: 'clamp(80px, 10vh, 130px)',
+                    backgroundImage: `url(${item.imageUrl})`,
+                    backgroundSize: 'cover', backgroundPosition: 'center',
+                    flexShrink: 0
+                  }} />
                 )}
-                <div className="gv-news-date">
-                  {item.pubDate ? new Date(item.pubDate).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                <div style={{ padding: 'clamp(8px,1vh,14px) clamp(10px,1.2vw,16px)', display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                  <div className="gv-news-cat" style={{ color: feedMeta.cor }}>{feedMeta.nome}</div>
+                  <div className="gv-news-headline">{item.title}</div>
+                  {item.description && !item.imageUrl && (
+                    <div className="gv-news-desc">{item.description.slice(0, 200)}</div>
+                  )}
+                  <div className="gv-news-date">
+                    {item.pubDate ? new Date(item.pubDate).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                  </div>
                 </div>
               </div>
             ))}

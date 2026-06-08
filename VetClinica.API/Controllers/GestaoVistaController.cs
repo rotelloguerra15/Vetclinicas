@@ -1,5 +1,3 @@
-using System.ServiceModel.Syndication;
-using System.Xml;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -153,16 +151,77 @@ public class GestaoVistaController : ControllerBase
 
             var xml = await client.GetStringAsync(feed.Url);
 
-            using var reader = XmlReader.Create(new StringReader(xml));
-            var syndi = SyndicationFeed.Load(reader);
+            // Parse manual do XML para extrair imagens (media:content, enclosure, og:image)
+            var doc = new System.Xml.XmlDocument();
+            doc.LoadXml(xml);
 
-            var items = syndi.Items.Take(6).Select(item => new
+            var nsMgr = new System.Xml.XmlNamespaceManager(doc.NameTable);
+            nsMgr.AddNamespace("media", "http://search.yahoo.com/mrss/");
+            nsMgr.AddNamespace("content", "http://purl.org/rss/1.0/modules/content/");
+
+            var itemNodes = doc.SelectNodes("//item");
+            var items = new List<object>();
+
+            if (itemNodes != null)
             {
-                title = item.Title?.Text ?? "",
-                description = item.Summary?.Text ?? "",
-                pubDate = item.PublishDate.ToString("o"),
-                link = item.Links.FirstOrDefault()?.Uri?.ToString() ?? ""
-            }).ToList();
+                foreach (System.Xml.XmlNode node in itemNodes)
+                {
+                    if (items.Count >= 6) break;
+
+                    var title = node.SelectSingleNode("title")?.InnerText ?? "";
+                    var description = node.SelectSingleNode("description")?.InnerText ?? "";
+                    var pubDate = node.SelectSingleNode("pubDate")?.InnerText ?? "";
+                    var link = node.SelectSingleNode("link")?.InnerText
+                               ?? node.SelectSingleNode("link")?.Attributes?["href"]?.Value ?? "";
+
+                    // Tenta extrair imagem em varias fontes
+                    string? imageUrl = null;
+
+                    // 1. media:content url=
+                    imageUrl ??= node.SelectSingleNode("media:content", nsMgr)?.Attributes?["url"]?.Value;
+
+                    // 2. media:thumbnail url=
+                    imageUrl ??= node.SelectSingleNode("media:thumbnail", nsMgr)?.Attributes?["url"]?.Value;
+
+                    // 3. enclosure type="image/*"
+                    var enclosure = node.SelectSingleNode("enclosure");
+                    if (imageUrl == null && enclosure?.Attributes?["type"]?.Value?.StartsWith("image") == true)
+                        imageUrl = enclosure.Attributes?["url"]?.Value;
+
+                    // 4. <img> dentro do description
+                    if (imageUrl == null && description.Contains("<img"))
+                    {
+                        var imgMatch = System.Text.RegularExpressions.Regex.Match(description, @"<img[^>]+src=[""']([^""']+)[""']");
+                        if (imgMatch.Success) imageUrl = imgMatch.Groups[1].Value;
+                    }
+
+                    // 5. content:encoded
+                    if (imageUrl == null)
+                    {
+                        var encoded = node.SelectSingleNode("content:encoded", nsMgr)?.InnerText ?? "";
+                        if (encoded.Contains("<img"))
+                        {
+                            var imgMatch = System.Text.RegularExpressions.Regex.Match(encoded, @"<img[^>]+src=[""']([^""']+)[""']");
+                            if (imgMatch.Success) imageUrl = imgMatch.Groups[1].Value;
+                        }
+                    }
+
+                    // Limpa HTML do description
+                    var descClean = System.Text.RegularExpressions.Regex.Replace(description, "<[^>]+>", "").Trim();
+
+                    // Parseia data
+                    DateTime.TryParse(pubDate, out var parsedDate);
+
+                    items.Add(new
+                    {
+                        title = System.Net.WebUtility.HtmlDecode(title),
+                        description = System.Net.WebUtility.HtmlDecode(descClean),
+                        pubDate = parsedDate != default ? parsedDate.ToString("o") : pubDate,
+                        link,
+                        imageUrl
+                    });
+                }
+            }
 
             return Ok(new
             {
