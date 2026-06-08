@@ -40,6 +40,9 @@ public class AppDbContext : DbContext
     public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
     public DbSet<PedidoCompra> PedidosCompra => Set<PedidoCompra>();
     public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();
+    public DbSet<CondicaoPagamento> CondicoesPagamento => Set<CondicaoPagamento>();
+    public DbSet<RecebimentoMercadoria> RecebimentosMercadoria => Set<RecebimentoMercadoria>();
+    public DbSet<RecebimentoItem> RecebimentoItens => Set<RecebimentoItem>();
 
     // Movimentacao Bancaria
     public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();

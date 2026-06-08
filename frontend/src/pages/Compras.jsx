@@ -7,18 +7,15 @@ const STATUS_COR = {
   recebido:  'bg-emerald-100 text-emerald-700',
   cancelado: 'bg-red-100 text-red-600'
 }
-
-const STATUS_LABEL = {
-  rascunho: 'Rascunho', enviado: 'Enviado', recebido: 'Recebido', cancelado: 'Cancelado'
-}
+const STATUS_LABEL = { rascunho: 'Rascunho', enviado: 'Enviado', recebido: 'Recebido', cancelado: 'Cancelado' }
 
 export default function Compras() {
-  const [pedidos, setPedidos]   = useState([])
-  const [total, setTotal]       = useState(0)
-  const [page, setPage]         = useState(1)
+  const [pedidos, setPedidos] = useState([])
+  const [total, setTotal]     = useState(0)
+  const [page, setPage]       = useState(1)
   const [filtroStatus, setFiltroStatus] = useState('')
   const [mostrarForm, setMostrarForm]   = useState(false)
-  const [detalhe, setDetalhe]   = useState(null)
+  const [detalhe, setDetalhe]           = useState(null)
 
   function carregar() {
     api.get('/compras', { params: { status: filtroStatus || undefined, page, pageSize: 20 } })
@@ -33,15 +30,22 @@ export default function Compras() {
     setDetalhe(data)
   }
 
-  async function atualizarStatus(id, status) {
-    const msg = status === 'recebido'
-      ? 'Marcar como recebido? O estoque sera atualizado automaticamente.'
-      : status === 'cancelado'
-      ? 'Cancelar este pedido?'
-      : `Mudar status para "${STATUS_LABEL[status]}"?`
-    if (!confirm(msg)) return
+  async function confirmar(id) {
+    if (!confirm('Confirmar pedido e gerar titulos a pagar no financeiro?')) return
     try {
-      await api.put(`/compras/${id}/status`, { status })
+      const { data } = await api.put(`/compras/${id}/confirmar`)
+      alert(`Pedido confirmado!\n${data.titulos} titulo(s) a pagar gerado(s).\nRecebimento criado em Estoque.`)
+      setDetalhe(null)
+      carregar()
+    } catch (err) {
+      alert(err.response?.data?.erro || 'Erro.')
+    }
+  }
+
+  async function cancelar(id) {
+    if (!confirm('Cancelar este pedido? Os titulos a pagar serao cancelados.')) return
+    try {
+      await api.put(`/compras/${id}/cancelar`)
       setDetalhe(null)
       carregar()
     } catch (err) {
@@ -59,8 +63,7 @@ export default function Compras() {
         </button>
       </div>
 
-      {/* Filtro status */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         {['', 'rascunho', 'enviado', 'recebido', 'cancelado'].map(s => (
           <button key={s} onClick={() => { setFiltroStatus(s); setPage(1) }}
             className={`px-3 py-1.5 rounded-lg text-sm border ${filtroStatus === s ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
@@ -69,7 +72,6 @@ export default function Compras() {
         ))}
       </div>
 
-      {/* Tabela */}
       <div className="bg-white rounded-2xl shadow overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left">
@@ -77,6 +79,7 @@ export default function Compras() {
               <th className="p-3">N.</th>
               <th className="p-3">Fornecedor</th>
               <th className="p-3">Data</th>
+              <th className="p-3">Cond. Pgto</th>
               <th className="p-3">Status</th>
               <th className="p-3 text-right">Total</th>
               <th className="p-3"></th>
@@ -90,46 +93,39 @@ export default function Compras() {
                 <td className="p-3 text-slate-500">
                   {new Date(p.dataPedido + 'T12:00:00').toLocaleDateString('pt-BR')}
                 </td>
+                <td className="p-3 text-slate-500 text-xs">{p.condicaoNome || '—'}</td>
                 <td className="p-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COR[p.status]}`}>
                     {STATUS_LABEL[p.status]}
                   </span>
                 </td>
-                <td className="p-3 text-right font-medium">R$ {p.valorTotal.toFixed(2)}</td>
+                <td className="p-3 text-right font-medium">R$ {p.valorTotal?.toFixed(2)}</td>
                 <td className="p-3 text-right">
-                  <button onClick={() => verDetalhe(p.id)} className="text-xs text-blue-600 hover:underline">
-                    Ver
-                  </button>
+                  <button onClick={() => verDetalhe(p.id)} className="text-xs text-blue-600 hover:underline">Ver</button>
                 </td>
               </tr>
             ))}
             {pedidos.length === 0 && (
-              <tr><td colSpan="6" className="p-6 text-center text-slate-400">Nenhum pedido encontrado</td></tr>
+              <tr><td colSpan="7" className="p-6 text-center text-slate-400">Nenhum pedido encontrado</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Modal detalhe */}
       {detalhe && (
         <ModalDetalhe pedido={detalhe} onClose={() => setDetalhe(null)}
-          onStatusChange={atualizarStatus} />
+          onConfirmar={confirmar} onCancelar={cancelar} />
       )}
 
-      {/* Modal novo pedido */}
       {mostrarForm && (
-        <ModalNovoPedido
-          onClose={() => setMostrarForm(false)}
-          onSaved={() => { setMostrarForm(false); carregar() }}
-        />
+        <ModalNovoPedido onClose={() => setMostrarForm(false)}
+          onSaved={() => { setMostrarForm(false); carregar() }} />
       )}
     </div>
   )
 }
 
-// ── Modal Detalhe ─────────────────────────────────────────────────────────────
-
-function ModalDetalhe({ pedido, onClose, onStatusChange }) {
+function ModalDetalhe({ pedido, onClose, onConfirmar, onCancelar }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-auto"
@@ -138,13 +134,17 @@ function ModalDetalhe({ pedido, onClose, onStatusChange }) {
           <div>
             <h3 className="font-bold text-lg">Pedido #{pedido.numero}</h3>
             <p className="text-sm text-slate-500">{pedido.fornecedor?.nome || 'Sem fornecedor'}</p>
+            {pedido.condicaoPagamento && (
+              <p className="text-xs text-slate-400 mt-0.5">
+                {pedido.condicaoPagamento.nome} · {pedido.formaPagamento || '—'}
+              </p>
+            )}
           </div>
           <span className={`text-xs px-3 py-1 rounded-full font-medium ${STATUS_COR[pedido.status]}`}>
             {STATUS_LABEL[pedido.status]}
           </span>
         </div>
 
-        {/* Itens */}
         <table className="w-full text-sm mb-4">
           <thead className="bg-slate-50">
             <tr>
@@ -162,8 +162,8 @@ function ModalDetalhe({ pedido, onClose, onStatusChange }) {
                 <td className="p-2">{item.nomeProduto}</td>
                 <td className="p-2 text-center">{item.quantidade}</td>
                 <td className="p-2 text-center text-slate-500">{item.unidade}</td>
-                <td className="p-2 text-right">R$ {item.valorUnitario.toFixed(2)}</td>
-                <td className="p-2 text-right font-medium">R$ {item.valorTotal.toFixed(2)}</td>
+                <td className="p-2 text-right">R$ {item.valorUnitario?.toFixed(2)}</td>
+                <td className="p-2 text-right font-medium">R$ {item.valorTotal?.toFixed(2)}</td>
                 <td className="p-2 text-center">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${item.uso === 'venda' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
                     {item.uso === 'venda' ? 'Venda' : 'Interno'}
@@ -183,22 +183,15 @@ function ModalDetalhe({ pedido, onClose, onStatusChange }) {
 
         {pedido.obs && <p className="text-sm text-slate-500 mb-4">Obs: {pedido.obs}</p>}
 
-        {/* Acoes */}
         <div className="flex gap-2 flex-wrap">
           {pedido.status === 'rascunho' && (
-            <button onClick={() => onStatusChange(pedido.id, 'enviado')}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">
-              Marcar como enviado
-            </button>
-          )}
-          {pedido.status === 'enviado' && (
-            <button onClick={() => onStatusChange(pedido.id, 'recebido')}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm">
-              Receber e atualizar estoque
+            <button onClick={() => onConfirmar(pedido.id)}
+              className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+              Confirmar e gerar titulos
             </button>
           )}
           {(pedido.status === 'rascunho' || pedido.status === 'enviado') && (
-            <button onClick={() => onStatusChange(pedido.id, 'cancelado')}
+            <button onClick={() => onCancelar(pedido.id)}
               className="border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm">
               Cancelar pedido
             </button>
@@ -210,21 +203,23 @@ function ModalDetalhe({ pedido, onClose, onStatusChange }) {
   )
 }
 
-// ── Modal Novo Pedido ─────────────────────────────────────────────────────────
-
 function ModalNovoPedido({ onClose, onSaved }) {
-  const [fornecedores, setFornecedores] = useState([])
-  const [produtos, setProdutos]         = useState([])
-  const [fornecedorId, setFornecedorId] = useState('')
-  const [dataPedido, setDataPedido]     = useState(new Date().toISOString().split('T')[0])
-  const [obs, setObs]                   = useState('')
-  const [itens, setItens]               = useState([
+  const [fornecedores, setFornecedores]     = useState([])
+  const [produtos, setProdutos]             = useState([])
+  const [condicoes, setCondicoes]           = useState([])
+  const [fornecedorId, setFornecedorId]     = useState('')
+  const [condicaoId, setCondicaoId]         = useState('')
+  const [formaPagamento, setFormaPagamento] = useState('boleto')
+  const [dataPedido, setDataPedido]         = useState(new Date().toISOString().split('T')[0])
+  const [obs, setObs]                       = useState('')
+  const [itens, setItens]                   = useState([
     { produtoId: '', nomeProduto: '', quantidade: 1, unidade: 'un', valorUnitario: '', uso: 'venda' }
   ])
 
   useEffect(() => {
     api.get('/fornecedores', { params: { pageSize: 100 } }).then(r => setFornecedores(r.data.items)).catch(() => {})
     api.get('/produtos', { params: { pageSize: 200 } }).then(r => setProdutos(r.data.items || r.data)).catch(() => {})
+    api.get('/compras/condicoes').then(r => setCondicoes(r.data)).catch(() => {})
   }, [])
 
   function addItem() {
@@ -235,12 +230,12 @@ function ModalNovoPedido({ onClose, onSaved }) {
     const novos = itens.map((item, idx) => {
       if (idx !== i) return item
       const updated = { ...item, [field]: val }
-      // Se selecionou produto, preenche nome e preco
       if (field === 'produtoId' && val) {
         const prod = produtos.find(p => p.id === val)
         if (prod) {
           updated.nomeProduto   = prod.nome
-          updated.valorUnitario = prod.precoVenda || prod.precoCusto || ''
+          updated.valorUnitario = prod.precoCusto || prod.precoVenda || ''
+          updated.unidade       = prod.unidade || 'un'
         }
       }
       return updated
@@ -250,15 +245,25 @@ function ModalNovoPedido({ onClose, onSaved }) {
 
   function removeItem(i) { setItens(itens.filter((_, idx) => idx !== i)) }
 
-  const totalGeral = itens.reduce((s, i) => s + (parseFloat(i.quantidade || 0) * parseFloat(i.valorUnitario || 0)), 0)
+  const totalGeral = itens.reduce((s, i) =>
+    s + (parseFloat(i.quantidade || 0) * parseFloat(i.valorUnitario || 0)), 0)
+
+  const condicaoSelecionada = condicoes.find(c => c.id === condicaoId)
 
   async function salvar(e) {
     e.preventDefault()
-    const payload = {
+    const itensFiltrados = itens.filter(i => i.nomeProduto || i.produtoId)
+    if (itensFiltrados.length === 0) {
+      alert('Adicione pelo menos um item ao pedido.')
+      return
+    }
+    await api.post('/compras', {
       fornecedorId: fornecedorId || null,
+      condicaoPagamentoId: condicaoId || null,
+      formaPagamento: formaPagamento || null,
       dataPedido,
       obs: obs || null,
-      itens: itens.filter(i => i.nomeProduto || i.produtoId).map(i => ({
+      itens: itensFiltrados.map(i => ({
         produtoId:     i.produtoId || null,
         nomeProduto:   i.nomeProduto,
         quantidade:    parseFloat(i.quantidade),
@@ -266,8 +271,7 @@ function ModalNovoPedido({ onClose, onSaved }) {
         valorUnitario: parseFloat(i.valorUnitario || 0),
         uso:           i.uso
       }))
-    }
-    await api.post('/compras', payload)
+    })
     onSaved()
   }
 
@@ -278,24 +282,49 @@ function ModalNovoPedido({ onClose, onSaved }) {
         <h3 className="font-bold text-lg mb-4">Novo Pedido de Compra</h3>
 
         <form onSubmit={salvar} className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          {/* Cabecalho */}
+          <div className="grid grid-cols-2 gap-3">
             <select className="border rounded-lg px-3 py-2 col-span-2"
               value={fornecedorId} onChange={e => setFornecedorId(e.target.value)}>
               <option value="">Fornecedor (opcional)</option>
               {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </select>
+
+            <select className="border rounded-lg px-3 py-2"
+              value={condicaoId} onChange={e => setCondicaoId(e.target.value)}>
+              <option value="">Condicao de pagamento</option>
+              {condicoes.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.parcelas}x)</option>)}
+            </select>
+
+            <select className="border rounded-lg px-3 py-2"
+              value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}>
+              <option value="boleto">Boleto</option>
+              <option value="pix">PIX</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="cartao">Cartao</option>
+              <option value="cheque">Cheque</option>
+            </select>
+
             <div>
               <label className="text-xs text-slate-500 block mb-1">Data do pedido</label>
               <input type="date" className="border rounded-lg px-3 py-2 w-full"
                 value={dataPedido} onChange={e => setDataPedido(e.target.value)} />
             </div>
+
+            {condicaoSelecionada && (
+              <div className="flex items-center bg-blue-50 rounded-lg px-3 py-2 text-sm text-blue-700">
+                {condicaoSelecionada.parcelas}x de R$ {(totalGeral / condicaoSelecionada.parcelas).toFixed(2)} — vence a cada {condicaoSelecionada.intervaloDias} dias
+              </div>
+            )}
           </div>
 
           {/* Itens */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <span className="font-semibold text-sm">Itens</span>
-              <button type="button" onClick={addItem} className="text-xs text-blue-600 hover:underline">+ Adicionar</button>
+              <span className="font-semibold text-sm">Itens do pedido</span>
+              <button type="button" onClick={addItem}
+                className="text-xs text-blue-600 hover:underline">+ Adicionar item</button>
             </div>
             <div className="space-y-2">
               {itens.map((item, i) => (
@@ -306,14 +335,14 @@ function ModalNovoPedido({ onClose, onSaved }) {
                     {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                   </select>
                   <input className="border rounded-lg px-2 py-1.5 text-sm col-span-3"
-                    placeholder="Nome do produto *"
-                    value={item.nomeProduto} onChange={e => updateItem(i, 'nomeProduto', e.target.value)} required />
+                    placeholder="Nome *" required
+                    value={item.nomeProduto} onChange={e => updateItem(i, 'nomeProduto', e.target.value)} />
                   <input className="border rounded-lg px-2 py-1.5 text-sm col-span-1 text-center"
                     type="number" placeholder="Qtd" min="0.001" step="0.001"
                     value={item.quantidade} onChange={e => updateItem(i, 'quantidade', e.target.value)} />
                   <input className="border rounded-lg px-2 py-1.5 text-sm col-span-1"
-                    placeholder="Un" value={item.unidade}
-                    onChange={e => updateItem(i, 'unidade', e.target.value)} />
+                    placeholder="Un"
+                    value={item.unidade} onChange={e => updateItem(i, 'unidade', e.target.value)} />
                   <input className="border rounded-lg px-2 py-1.5 text-sm col-span-2"
                     type="number" placeholder="V. unit." step="0.01"
                     value={item.valorUnitario} onChange={e => updateItem(i, 'valorUnitario', e.target.value)} />
@@ -324,12 +353,12 @@ function ModalNovoPedido({ onClose, onSaved }) {
                   </select>
                   {itens.length > 1 && (
                     <button type="button" onClick={() => removeItem(i)}
-                      className="col-span-1 text-red-400 text-xs hover:underline">Rem.</button>
+                      className="text-red-400 text-xs hover:underline">X</button>
                   )}
                 </div>
               ))}
             </div>
-            <div className="text-right text-sm font-semibold mt-2">
+            <div className="text-right text-sm font-semibold mt-2 text-slate-700">
               Total: R$ {totalGeral.toFixed(2)}
             </div>
           </div>
@@ -337,10 +366,14 @@ function ModalNovoPedido({ onClose, onSaved }) {
           <textarea className="border rounded-lg px-3 py-2 w-full text-sm" rows={2}
             placeholder="Observacoes" value={obs} onChange={e => setObs(e.target.value)} />
 
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+            O pedido sera salvo como Rascunho. Para gerar os titulos a pagar e o recebimento, abra o pedido e clique em "Confirmar".
+          </div>
+
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={onClose} className="border px-4 py-2 rounded-lg text-sm">Cancelar</button>
             <button type="submit" className="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm font-medium">
-              Criar pedido
+              Salvar rascunho
             </button>
           </div>
         </form>

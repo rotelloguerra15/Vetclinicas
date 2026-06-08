@@ -7,12 +7,14 @@ export default function Estoque() {
   const [produtos, setProdutos] = useState([])
   const [sugestoes, setSugestoes] = useState([])
   const [aba, setAba] = useState('lista')
+  const [recebimentos, setRecebimentos] = useState([])
   const [modal, setModal] = useState(false)
   const [ajuste, setAjuste] = useState(null)
 
   function carregar() {
     api.get('/produtos').then((r) => setProdutos(r.data)).catch(() => {})
     api.get('/produtos/sugestao-compra').then((r) => setSugestoes(r.data)).catch(() => {})
+    api.get('/recebimentos', { params: { status: 'pendente' } }).then(r => setRecebimentos(r.data)).catch(() => {})
   }
   useEffect(() => { carregar() }, [])
 
@@ -171,6 +173,176 @@ function Overlay({ titulo, children, onClose }) {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
         </div>
         {children}
+      </div>
+    </div>
+  )
+}
+
+
+// ── Aba Recebimento de Mercadoria ─────────────────────────────────────────────
+function AbaRecebimentos({ recebimentos, onAtualizar }) {
+  const [detalhe, setDetalhe] = useState(null)
+  const [todos, setTodos]     = useState([])
+
+  function carregarTodos() {
+    api.get('/recebimentos').then(r => setTodos(r.data)).catch(() => {})
+  }
+
+  useEffect(() => { carregarTodos() }, [])
+
+  const STATUS_COR = {
+    pendente:   'bg-amber-100 text-amber-700',
+    conferido:  'bg-blue-100 text-blue-700',
+    finalizado: 'bg-emerald-100 text-emerald-700',
+    cancelado:  'bg-red-100 text-red-600'
+  }
+
+  async function verDetalhe(id) {
+    const { data } = await api.get(`/recebimentos/${id}`)
+    setDetalhe(data)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl shadow overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left">
+            <tr>
+              <th className="p-3">Pedido</th>
+              <th className="p-3">Fornecedor</th>
+              <th className="p-3">Data estimada</th>
+              <th className="p-3">Status</th>
+              <th className="p-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {todos.map(r => (
+              <tr key={r.id} className="border-t hover:bg-slate-50">
+                <td className="p-3 font-mono text-slate-500">
+                  {r.pedidoNumero ? `#${r.pedidoNumero}` : '—'}
+                </td>
+                <td className="p-3 font-medium">{r.fornecedorNome || '—'}</td>
+                <td className="p-3 text-slate-500">
+                  {new Date(r.dataRecebimento + 'T12:00:00').toLocaleDateString('pt-BR')}
+                </td>
+                <td className="p-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COR[r.status]}`}>
+                    {r.status}
+                  </span>
+                </td>
+                <td className="p-3 text-right">
+                  {r.status !== 'finalizado' && r.status !== 'cancelado' && (
+                    <button onClick={() => verDetalhe(r.id)}
+                      className="text-xs text-blue-600 hover:underline">
+                      Conferir
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {todos.length === 0 && (
+              <tr><td colSpan="5" className="p-6 text-center text-slate-400">Nenhum recebimento</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {detalhe && (
+        <ModalConferencia recebimento={detalhe}
+          onClose={() => setDetalhe(null)}
+          onFinalizado={() => { setDetalhe(null); onAtualizar(); carregarTodos() }} />
+      )}
+    </div>
+  )
+}
+
+function ModalConferencia({ recebimento, onClose, onFinalizado }) {
+  const [itens, setItens] = useState(
+    recebimento.itens.map(i => ({ ...i, qtdRecebida: i.quantidadeRecebida || 0 }))
+  )
+  const [salvando, setSalvando] = useState(false)
+
+  async function conferir() {
+    setSalvando(true)
+    try {
+      await api.put(`/recebimentos/${recebimento.id}/itens`,
+        itens.map(i => ({ itemId: i.id, quantidadeRecebida: parseFloat(i.qtdRecebida) }))
+      )
+      alert('Conferencia salva! Clique em Finalizar para atualizar o estoque.')
+    } catch { alert('Erro ao salvar.') }
+    finally { setSalvando(false) }
+  }
+
+  async function finalizar() {
+    if (!confirm('Finalizar recebimento e atualizar o estoque?')) return
+    setSalvando(true)
+    try {
+      await api.put(`/recebimentos/${recebimento.id}/itens`,
+        itens.map(i => ({ itemId: i.id, quantidadeRecebida: parseFloat(i.qtdRecebida) }))
+      )
+      await api.put(`/recebimentos/${recebimento.id}/finalizar`)
+      alert('Estoque atualizado com sucesso!')
+      onFinalizado()
+    } catch (err) {
+      alert(err.response?.data?.erro || 'Erro ao finalizar.')
+    } finally { setSalvando(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-auto"
+        onClick={e => e.stopPropagation()}>
+        <h3 className="font-bold text-lg mb-1">Conferencia de Recebimento</h3>
+        <p className="text-sm text-slate-500 mb-4">
+          Pedido #{recebimento.pedido?.numero} · {recebimento.pedido?.fornecedor?.nome || 'Sem fornecedor'}
+        </p>
+        <p className="text-xs text-slate-400 mb-3">
+          Informe a quantidade fisicamente recebida de cada item. Ao finalizar, o estoque sera atualizado.
+        </p>
+
+        <table className="w-full text-sm mb-4">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="p-2 text-left">Produto</th>
+              <th className="p-2 text-center">Pedido</th>
+              <th className="p-2 text-center">Recebido</th>
+              <th className="p-2 text-center">Uso</th>
+            </tr>
+          </thead>
+          <tbody>
+            {itens.map((item, i) => (
+              <tr key={item.id} className="border-t">
+                <td className="p-2">{item.nomeProduto}</td>
+                <td className="p-2 text-center text-slate-500">{item.quantidadePedida} {item.uso === 'interno' ? '(int.)' : ''}</td>
+                <td className="p-2 text-center">
+                  <input type="number" min="0" step="0.001"
+                    className="border rounded-lg px-2 py-1 w-24 text-center text-sm"
+                    value={item.qtdRecebida}
+                    onChange={e => setItens(itens.map((it, idx) =>
+                      idx === i ? { ...it, qtdRecebida: e.target.value } : it
+                    ))} />
+                </td>
+                <td className="p-2 text-center">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${item.uso === 'venda' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {item.uso}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="border px-4 py-2 rounded-lg text-sm">Fechar</button>
+          <button onClick={conferir} disabled={salvando}
+            className="border border-blue-300 text-blue-600 px-4 py-2 rounded-lg text-sm disabled:opacity-40">
+            Salvar conferencia
+          </button>
+          <button onClick={finalizar} disabled={salvando}
+            className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40">
+            Finalizar e atualizar estoque
+          </button>
+        </div>
       </div>
     </div>
   )

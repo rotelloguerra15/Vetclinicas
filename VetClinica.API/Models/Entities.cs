@@ -696,12 +696,16 @@ public class PedidoCompra
     [Column("data_pedido")]      public DateOnly DataPedido { get; set; }
     [Column("data_recebimento")] public DateOnly? DataRecebimento { get; set; }
     [Column("valor_total")]      public decimal ValorTotal { get; set; }
+    [Column("condicao_pagamento_id")] public Guid? CondicaoPagamentoId { get; set; }
+    [Column("parcelas")]             public int Parcelas { get; set; } = 1;
+    [Column("forma_pagamento")]      public string? FormaPagamento { get; set; }
     [Column("obs")]              public string? Obs { get; set; }
     [Column("criado_por")]       public Guid? CriadoPor { get; set; }
     [Column("criado_em")]        public DateTime CriadoEm { get; set; }
     [Column("atualizado_em")]    public DateTime AtualizadoEm { get; set; }
 
     public Fornecedor? Fornecedor { get; set; }
+    public CondicaoPagamento? CondicaoPagamento { get; set; }
     public ICollection<PedidoItem> Itens { get; set; } = new List<PedidoItem>();
 }
 
@@ -718,4 +722,51 @@ public class PedidoItem
     [Column("valor_total")]     public decimal ValorTotal { get; set; }
     [Column("uso")]             public string Uso { get; set; } = "venda"; // venda | interno
     [Column("criado_em")]       public DateTime CriadoEm { get; set; }
+}
+
+// ===================== CONDICOES PAGAMENTO + RECEBIMENTO =====================
+
+[Table("condicoes_pagamento")]
+public class CondicaoPagamento
+{
+    [Column("id")]              public Guid Id { get; set; }
+    [Column("tenant_id")]       public Guid TenantId { get; set; }
+    [Column("nome")]            public string Nome { get; set; } = "";
+    [Column("parcelas")]        public int Parcelas { get; set; } = 1;
+    [Column("intervalo_dias")]  public int IntervaloDias { get; set; } = 30;
+    [Column("ativo")]           public bool Ativo { get; set; } = true;
+    [Column("criado_em")]       public DateTime CriadoEm { get; set; }
+}
+
+[Table("recebimentos_mercadoria")]
+public class RecebimentoMercadoria
+{
+    [Column("id")]               public Guid Id { get; set; }
+    [Column("tenant_id")]        public Guid TenantId { get; set; }
+    [Column("pedido_id")]        public Guid? PedidoId { get; set; }
+    [Column("data_recebimento")] public DateOnly DataRecebimento { get; set; }
+    [Column("status")]           public string Status { get; set; } = "pendente";
+    [Column("obs")]              public string? Obs { get; set; }
+    [Column("criado_por")]       public Guid? CriadoPor { get; set; }
+    [Column("criado_em")]        public DateTime CriadoEm { get; set; }
+
+    public PedidoCompra? Pedido { get; set; }
+    public ICollection<RecebimentoItem> Itens { get; set; } = new List<RecebimentoItem>();
+}
+
+[Table("recebimento_itens")]
+public class RecebimentoItem
+{
+    [Column("id")]                   public Guid Id { get; set; }
+    [Column("recebimento_id")]       public Guid RecebimentoId { get; set; }
+    [Column("pedido_item_id")]       public Guid? PedidoItemId { get; set; }
+    [Column("produto_id")]           public Guid? ProdutoId { get; set; }
+    [Column("nome_produto")]         public string NomeProduto { get; set; } = "";
+    [Column("quantidade_pedida")]    public decimal QuantidadePedida { get; set; }
+    [Column("quantidade_recebida")]  public decimal QuantidadeRecebida { get; set; }
+    [Column("valor_unitario")]       public decimal ValorUnitario { get; set; }
+    [Column("uso")]                  public string Uso { get; set; } = "venda";
+    [Column("criado_em")]            public DateTime CriadoEm { get; set; }
+
+    public Produto? Produto { get; set; }
 }
