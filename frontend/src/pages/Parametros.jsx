@@ -10,7 +10,18 @@ export default function Parametros() {
   const [msg, setMsg] = useState(null) // { tipo: 'ok'|'erro', texto }
   const fileRef = useRef()
 
+  // IA
+  const [iaStatus, setIaStatus]     = useState({ ativo: false })
+  const [iaChave, setIaChave]       = useState('')
+  const [iaAtivo, setIaAtivo]       = useState(false)
+  const [salvandoIa, setSalvandoIa] = useState(false)
+  const [mostrarChave, setMostrarChave] = useState(false)
+
   function carregar() {
+    api.get('/ia/status').then(r => {
+      setIaStatus(r.data)
+      setIaAtivo(r.data.ativo)
+    }).catch(() => {})
     api.get('/tenant/branding').then(r => {
       setBranding({
         nome: r.data.nome || '',
@@ -91,6 +102,35 @@ export default function Parametros() {
       setMsg({ tipo: 'erro', texto: 'Erro ao salvar.' })
     } finally {
       setSalvandoComissao(false)
+    }
+  }
+
+  async function salvarIa() {
+    setSalvandoIa(true)
+    try {
+      const r = await api.put('/ia/configurar', {
+        anthropicApiKey: iaChave || null,
+        iaAtivo
+      })
+      setIaStatus({ ativo: r.data.ativo })
+      setIaChave('')
+      setMsg({ tipo: 'ok', texto: 'Configuração de IA salva!' })
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: e.response?.data?.erro || 'Erro ao salvar IA.' })
+    } finally {
+      setSalvandoIa(false)
+    }
+  }
+
+  async function removerChaveIa() {
+    if (!confirm('Remover a chave API? A IA será desativada.')) return
+    try {
+      await api.delete('/ia/chave')
+      setIaStatus({ ativo: false })
+      setIaAtivo(false)
+      setMsg({ tipo: 'ok', texto: 'Chave removida.' })
+    } catch {
+      setMsg({ tipo: 'erro', texto: 'Erro ao remover chave.' })
     }
   }
 
@@ -206,6 +246,78 @@ export default function Parametros() {
           {salvando ? '⏳ Salvando...' : '💾 Salvar configurações'}
         </button>
       </form>
+
+      {/* ── Assistente IA ──────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl shadow p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-700">🤖 Assistente IA — Diagnóstico</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Powered by Claude (Anthropic). Cada clínica usa sua própria chave — o custo vai direto para sua conta Anthropic.
+            </p>
+          </div>
+          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${iaStatus.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+            {iaStatus.ativo ? '✓ Ativo' : 'Inativo'}
+          </span>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 space-y-1">
+          <p>📌 Para obter sua chave API acesse <strong>console.anthropic.com/settings/keys</strong></p>
+          <p>💡 Recomendamos criar uma chave exclusiva para esta clínica.</p>
+          <p>💰 O custo por consulta é de aproximadamente <strong>US$ 0,003</strong> (claude-sonnet).</p>
+        </div>
+
+        <div>
+          <label className="text-xs text-slate-500 block mb-1">Chave API Anthropic</label>
+          <div className="flex gap-2">
+            <input
+              type={mostrarChave ? 'text' : 'password'}
+              className="border rounded-lg px-3 py-2 flex-1 font-mono text-sm"
+              placeholder={iaStatus.ativo ? '••••••••••••• (chave já salva)' : 'sk-ant-api03-...'}
+              value={iaChave}
+              onChange={e => setIaChave(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarChave(v => !v)}
+              className="border px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-50">
+              {mostrarChave ? '🙈' : '👁️'}
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Deixe em branco para manter a chave atual.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIaAtivo(v => !v)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${iaAtivo ? 'bg-emerald-600' : 'bg-slate-200'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${iaAtivo ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+          <span className="text-sm text-slate-700">
+            {iaAtivo ? 'IA ativada no receituário' : 'IA desativada'}
+          </span>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={salvarIa}
+            disabled={salvandoIa}
+            className="bg-slate-900 text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-slate-800">
+            {salvandoIa ? '⏳ Salvando...' : '💾 Salvar configuração IA'}
+          </button>
+          {iaStatus.ativo && (
+            <button
+              onClick={removerChaveIa}
+              className="border border-red-200 text-red-500 px-5 py-2 rounded-lg text-sm hover:bg-red-50">
+              🗑️ Remover chave
+            </button>
+          )}
+        </div>
+      </div>
+
     </div>
   )
 }

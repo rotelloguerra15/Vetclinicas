@@ -42,8 +42,11 @@ builder.Services.AddScoped<FuncionarioService>();
 builder.Services.AddScoped<ComissaoService>();
 builder.Services.AddScoped<FechamentoService>();
 
+// IA Diagnostico — HttpClient generico para IaController
+builder.Services.AddHttpClient();
+
 // ---------- JWT ----------
-var jwtKey = builder.Configuration["Jwt:Key"] 
+var jwtKey = builder.Configuration["Jwt:Key"]
     ?? Environment.GetEnvironmentVariable("Jwt__Key")
     ?? throw new InvalidOperationException("Jwt:Key nao configurado. Adicione a variavel Jwt__Key no Railway.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -62,7 +65,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// ---------- CORS (reaproveitado da lavanderia) ----------
+// ---------- CORS ----------
 builder.Services.AddCors(opt =>
     opt.AddPolicy("front", p => p
         .WithOrigins(builder.Configuration["App:FrontendUrl"] ?? "http://localhost:5173")
@@ -106,7 +109,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-
 app.UseCors("front");
 app.UseAuthentication();
 app.UseMiddleware<TenantMiddleware>();   // popula TenantContext a partir do JWT
@@ -117,5 +119,3 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", ts = DateTime.UtcNow }));
 
 app.Run();
-
-// rebuild

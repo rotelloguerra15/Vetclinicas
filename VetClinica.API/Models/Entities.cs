@@ -100,10 +100,12 @@ public class ParametrosSistema
 {
     [Column("id")] public Guid Id { get; set; }
     [Column("tenant_id")] public Guid TenantId { get; set; }
-    [Column("comissao_os_ativo")] public bool ComissaoOsAtivo { get; set; } = true;
-    [Column("comissao_pdv_ativo")] public bool ComissaoPdvAtivo { get; set; } = false;
-    [Column("criado_em")] public DateTime CriadoEm { get; set; }
-    [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
+    [Column("comissao_os_ativo")]    public bool ComissaoOsAtivo { get; set; } = true;
+    [Column("comissao_pdv_ativo")]   public bool ComissaoPdvAtivo { get; set; } = false;
+    [Column("anthropic_api_key")]    public string? AnthropicApiKey { get; set; }
+    [Column("ia_ativo")]             public bool IaAtivo { get; set; } = false;
+    [Column("criado_em")]            public DateTime CriadoEm { get; set; }
+    [Column("atualizado_em")]        public DateTime AtualizadoEm { get; set; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

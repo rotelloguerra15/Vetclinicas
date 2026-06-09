@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 
@@ -358,6 +358,98 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
   const [loading, setLoading] = useState(false)
   const [resultado, setResultado] = useState(null) // { whatsapp: bool }
 
+  // ── IA Diagnóstico ──────────────────────────────────────────────
+  const [iaDisponivel, setIaDisponivel] = useState(false)
+  const [iaAberto, setIaAberto]         = useState(false)
+  const [iaSintomas, setIaSintomas]     = useState('')
+  const [iaResposta, setIaResposta]     = useState('')
+  const [iaCarregando, setIaCarregando] = useState(false)
+  const [ouvindo, setOuvindo]           = useState(false)
+  const recognitionRef                  = useRef(null)
+
+  useEffect(() => {
+    api.get('/ia/status').then(r => setIaDisponivel(r.data.ativo)).catch(() => {})
+  }, [])
+
+  function iniciarMicrofone() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { alert('Seu navegador não suporta reconhecimento de voz. Use Chrome.'); return }
+    const rec = new SR()
+    rec.lang = 'pt-BR'
+    rec.continuous = true
+    rec.interimResults = true
+    rec.onresult = (e) => {
+      const texto = Array.from(e.results).map(r => r[0].transcript).join(' ')
+      setIaSintomas(texto)
+    }
+    rec.onerror = () => { setOuvindo(false) }
+    rec.onend   = () => { setOuvindo(false) }
+    recognitionRef.current = rec
+    rec.start()
+    setOuvindo(true)
+  }
+
+  function pararMicrofone() {
+    recognitionRef.current?.stop()
+    setOuvindo(false)
+  }
+
+  async function consultarIa() {
+    if (!iaSintomas.trim()) return
+    setIaCarregando(true)
+    setIaResposta('')
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/ia/diagnostico`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            sintomas: iaSintomas,
+            petNome: petNome,
+            especie: null,
+            raca: null,
+            idade: null,
+            pesoKg: null
+          })
+        }
+      )
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6)
+          if (data === '[DONE]') break
+          try {
+            const text = JSON.parse(data)
+            setIaResposta(prev => prev + text)
+          } catch {}
+        }
+      }
+    } catch {
+      setIaResposta('Erro ao consultar a IA. Verifique a conexão.')
+    } finally {
+      setIaCarregando(false)
+    }
+  }
+
+  function usarDiagnostico() {
+    if (iaResposta) {
+      setMotivo(iaResposta)
+      setIaAberto(false)
+    }
+  }
+
   useEffect(() => {
     api.get('/receituario/veterinarios').then(r => setVeterinarios(r.data)).catch(() => {})
     api.get('/cadastros/vias').then(r => setViasDisponiveis(r.data)).catch(() => {})
@@ -462,11 +554,103 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
           </div>
         </div>
 
+        {/* ── Assistente IA ──────────────────────────────────────────── */}
+        {iaDisponivel && (
+          <div className="border border-violet-200 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIaAberto(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-violet-50 hover:bg-violet-100 transition">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🤖</span>
+                <span className="text-sm font-semibold text-violet-800">Assistente IA — Apoio ao Diagnóstico</span>
+                <span className="text-xs bg-violet-200 text-violet-700 px-2 py-0.5 rounded-full">Beta</span>
+              </div>
+              <span className="text-violet-500 text-sm">{iaAberto ? '▲' : '▼'}</span>
+            </button>
+
+            {iaAberto && (
+              <div className="p-4 space-y-3 bg-white">
+                <p className="text-xs text-slate-500">
+                  Descreva os sintomas e histórico do paciente. A IA vai sugerir diagnósticos diferenciais, exames e conduta. O veterinário valida antes de usar.
+                </p>
+
+                {/* Área de sintomas + microfone */}
+                <div className="relative">
+                  <textarea
+                    className="border rounded-xl px-3 py-2 w-full text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    rows={3}
+                    placeholder="Ex: Golden Retriever 3 anos, vômito há 2 dias, prostrado, febre 39.8°C, sem apetite..."
+                    value={iaSintomas}
+                    onChange={e => setIaSintomas(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={ouvindo ? pararMicrofone : iniciarMicrofone}
+                    className={`absolute bottom-2 right-2 p-2 rounded-lg text-sm transition ${
+                      ouvindo
+                        ? 'bg-red-500 text-white animate-pulse'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                    title={ouvindo ? 'Parar gravação' : 'Falar sintomas'}>
+                    {ouvindo ? '⏹ Parar' : '🎙️ Falar'}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={consultarIa}
+                  disabled={iaCarregando || !iaSintomas.trim()}
+                  className="w-full bg-violet-700 text-white py-2 rounded-xl text-sm font-medium disabled:opacity-40 hover:bg-violet-800 transition">
+                  {iaCarregando ? '⏳ Analisando...' : '✨ Analisar com IA'}
+                </button>
+
+                {/* Resposta streaming */}
+                {(iaResposta || iaCarregando) && (
+                  <div className="bg-slate-50 border rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Parecer da IA</span>
+                      {iaCarregando && (
+                        <span className="text-xs text-violet-600 animate-pulse">● escrevendo...</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {iaResposta}
+                      {iaCarregando && <span className="inline-block w-2 h-4 bg-violet-400 animate-pulse ml-0.5 align-text-bottom" />}
+                    </div>
+                    {!iaCarregando && iaResposta && (
+                      <div className="pt-2 border-t flex gap-2">
+                        <button
+                          type="button"
+                          onClick={usarDiagnostico}
+                          className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition">
+                          ✅ Usar como Diagnóstico
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIaResposta('')}
+                          className="border px-4 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-50">
+                          Descartar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Motivo */}
         <div>
           <label className="text-xs text-slate-500 block mb-1">Motivo / Diagnóstico</label>
-          <input className="border rounded-lg px-3 py-2 w-full" placeholder="ex: Infecção urinária"
-            value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+          <textarea
+            className="border rounded-lg px-3 py-2 w-full text-sm resize-none"
+            rows={2}
+            placeholder="ex: Infecção urinária — preenchido automaticamente pela IA ou manualmente"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+          />
         </div>
 
         {/* Medicamentos */}
