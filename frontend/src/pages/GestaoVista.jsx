@@ -163,6 +163,7 @@ export default function GestaoVista() {
   const [progresso, setProgresso] = useState(0)
   const [transitioning, setTransitioning] = useState(false)
   const [newsCache, setNewsCache] = useState({})
+  const newsCacheRef = useRef({})
   const [clock, setClock] = useState({ hora: '', data: '' })
 
   const progressRef = useRef(0)
@@ -218,16 +219,20 @@ export default function GestaoVista() {
   }, [fetchDados])
 
   // Busca notícias do backend
+  // FIX: usa ref para verificar cache sem criar dependência circular no useCallback
   const fetchNews = useCallback(async (feedId) => {
-    if (newsCache[feedId] !== undefined) return
+    if (newsCacheRef.current[feedId] !== undefined) return
+    newsCacheRef.current[feedId] = 'loading' // marca como em andamento para evitar duplo fetch
     try {
       const r = await fetch(`${apiBase}/gestao-vista/noticias/${feedId}`, { headers: { Authorization: `Bearer ${token}` } })
       const data = await r.json()
+      newsCacheRef.current[feedId] = data
       setNewsCache(prev => ({ ...prev, [feedId]: data }))
     } catch {
+      newsCacheRef.current[feedId] = null
       setNewsCache(prev => ({ ...prev, [feedId]: null }))
     }
-  }, [newsCache, apiBase, token])
+  }, [apiBase, token])
 
   // Avanca slide
   const avancarSlide = useCallback(() => {
