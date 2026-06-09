@@ -14,7 +14,7 @@ const VAZIO = {
   nome: '', codigo: '', cpf: '', rg: '', dataNascimento: '',
   logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '',
   telefone: '', email: '', cargo: '', crmv: '', registroMapa: '', dataAdmissao: '',
-  salario: '', percentualComissao: '', status: 'trabalhando'
+  salario: '', percentualComissao: '', status: 'trabalhando', assinaReceituario: false
 }
 
 function maskCpf(v)   { return v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2') }
@@ -47,7 +47,8 @@ function Form({ initial, onSalvar, onCancelar }) {
     dataNascimento: initial.dataNascimento ? String(initial.dataNascimento).slice(0,10) : '',
     dataAdmissao:   initial.dataAdmissao   ? String(initial.dataAdmissao).slice(0,10)   : '',
     salario: initial.salario ?? '',
-    percentualComissao: initial.percentualComissao ?? ''
+    percentualComissao: initial.percentualComissao ?? '',
+    assinaReceituario: initial.assinaReceituario ?? false
   } : { ...VAZIO })
   const [saving, setSaving] = useState(false)
 
@@ -161,6 +162,18 @@ function Form({ initial, onSalvar, onCancelar }) {
       <Sec title="Dados Profissionais">
         {campo('Cargo', 'cargo')}
         {campo('CRMV (Conselho Regional de Medicina Veterinária)', 'crmv')}
+        <div className="col-span-2 flex items-center gap-3 mt-1">
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, assinaReceituario: !f.assinaReceituario }))}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${form.assinaReceituario ? 'bg-emerald-600' : 'bg-slate-200'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.assinaReceituario ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+          <div>
+            <span className="text-sm font-medium text-slate-700">Assina receituário</span>
+            <p className="text-xs text-slate-400">Aparece na lista de veterinários no receituário</p>
+          </div>
+        </div>
         {campo('Registro no MAPA', 'registroMapa')}
         {campo('Data de Admissão', 'dataAdmissao', 'date')}
         {campo('Salário (R$)', 'salario', 'number')}
