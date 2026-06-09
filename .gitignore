@@ -24,3 +24,6 @@ Thumbs.db
 # Segredos — NUNCA commitar
 **/appsettings.json
 !**/appsettings.example.json
+
+.vercel
+.env*

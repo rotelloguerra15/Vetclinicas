@@ -41,6 +41,7 @@ public class AppDbContext : DbContext
     public DbSet<PedidoCompra> PedidosCompra => Set<PedidoCompra>();
     public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();
     public DbSet<CondicaoPagamento> CondicoesPagamento => Set<CondicaoPagamento>();
+    public DbSet<MetaFaturamento> MetasFaturamento => Set<MetaFaturamento>();
     public DbSet<RecebimentoMercadoria> RecebimentosMercadoria => Set<RecebimentoMercadoria>();
     public DbSet<RecebimentoItem> RecebimentoItens => Set<RecebimentoItem>();
 
