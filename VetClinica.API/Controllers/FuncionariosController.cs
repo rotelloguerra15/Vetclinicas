@@ -55,6 +55,7 @@ public class FuncionariosController : ControllerBase
             Id = Guid.NewGuid(),
             TenantId = _t.TenantId,
             Nome = dto.Nome.Trim(),
+            Codigo = dto.Codigo,
             Cpf = dto.Cpf, Rg = dto.Rg,
             DataNascimento = dto.DataNascimento,
             Logradouro = dto.Logradouro, Numero = dto.Numero,
@@ -81,6 +82,7 @@ public class FuncionariosController : ControllerBase
             .FirstOrDefaultAsync(f => f.Id == id && f.TenantId == _t.TenantId);
         if (func == null) return NotFound();
 
+        func.Codigo = dto.Codigo;
         func.Nome = dto.Nome.Trim();
         func.Cpf = dto.Cpf; func.Rg = dto.Rg;
         func.DataNascimento = dto.DataNascimento;

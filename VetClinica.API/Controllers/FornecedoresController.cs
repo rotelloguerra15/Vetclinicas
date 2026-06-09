@@ -40,7 +40,7 @@ public class FornecedoresController : ControllerBase
     }
 
     public record FornecedorCreate(
-        string Nome, string? Cnpj, string? Telefone, string? Email, string? Contato,
+        string Nome, string? Codigo, string? Cnpj, string? Telefone, string? Email, string? Contato,
         string? Logradouro, string? NumEnd, string? Bairro, string? Cidade, string? Estado, string? Cep,
         string? Obs);
 
@@ -50,7 +50,7 @@ public class FornecedoresController : ControllerBase
         var f = new Fornecedor
         {
             Id = Guid.NewGuid(), TenantId = _t.TenantId,
-            Nome = dto.Nome, Cnpj = dto.Cnpj, Telefone = dto.Telefone,
+            Nome = dto.Nome, Codigo = dto.Codigo, Cnpj = dto.Cnpj, Telefone = dto.Telefone,
             Email = dto.Email, Contato = dto.Contato,
             Logradouro = dto.Logradouro, NumEnd = dto.NumEnd, Bairro = dto.Bairro,
             Cidade = dto.Cidade, Estado = dto.Estado, Cep = dto.Cep, Obs = dto.Obs,
@@ -66,7 +66,7 @@ public class FornecedoresController : ControllerBase
     {
         var f = await _db.Fornecedores.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == _t.TenantId);
         if (f == null) return NotFound();
-        f.Nome = dto.Nome; f.Cnpj = dto.Cnpj; f.Telefone = dto.Telefone;
+        f.Nome = dto.Nome; f.Codigo = dto.Codigo; f.Cnpj = dto.Cnpj; f.Telefone = dto.Telefone;
         f.Email = dto.Email; f.Contato = dto.Contato;
         f.Logradouro = dto.Logradouro; f.NumEnd = dto.NumEnd; f.Bairro = dto.Bairro;
         f.Cidade = dto.Cidade; f.Estado = dto.Estado; f.Cep = dto.Cep; f.Obs = dto.Obs;

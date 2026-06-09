@@ -11,7 +11,7 @@ const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG
   'PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
 const VAZIO = {
-  nome: '', cpf: '', rg: '', dataNascimento: '',
+  nome: '', codigo: '', cpf: '', rg: '', dataNascimento: '',
   logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '',
   telefone: '', email: '', cargo: '', crmv: '', registroMapa: '', dataAdmissao: '',
   salario: '', percentualComissao: '', status: 'trabalhando'
@@ -121,7 +121,10 @@ function Form({ initial, onSalvar, onCancelar }) {
       </div>
 
       <Sec title="Dados Pessoais">
-        {campo('Nome completo *', 'nome', 'text', 'col-span-2')}
+        <div className="flex gap-2 col-span-2">
+          <div className="w-28">{campo('Codigo', 'codigo')}</div>
+          <div className="flex-1">{campo('Nome completo *', 'nome', 'text')}</div>
+        </div>
         {campoMask('CPF', 'cpf', maskCpf)}
         {campo('RG', 'rg')}
         {campo('Data de Nascimento', 'dataNascimento', 'date')}

@@ -42,6 +42,7 @@ public class ProdutosController : ControllerBase
             Id = Guid.NewGuid(),
             TenantId = _t.TenantId,
             Nome = dto.Nome,
+            Codigo = dto.Codigo,
             CodigoBarras = dto.CodigoBarras,
             Categoria = dto.Categoria,
             Unidade = dto.Unidade,

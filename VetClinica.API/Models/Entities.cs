@@ -11,6 +11,8 @@ public class Funcionario
     [Column("id")] public Guid Id { get; set; }
     [Column("tenant_id")] public Guid TenantId { get; set; }
 
+    [Column("codigo")] public string? Codigo { get; set; }
+
     // Pessoal
     [Column("nome")] public string Nome { get; set; } = "";
     [Column("cpf")] public string? Cpf { get; set; }
@@ -363,6 +365,7 @@ public class Produto
     [Column("id")] public Guid Id { get; set; }
     [Column("tenant_id")] public Guid TenantId { get; set; }
     [Column("nome")] public string Nome { get; set; } = "";
+    [Column("codigo")] public string? Codigo { get; set; }
     [Column("codigo_barras")] public string? CodigoBarras { get; set; }
     [Column("categoria")] public string? Categoria { get; set; }
     [Column("unidade")] public string Unidade { get; set; } = "un";
@@ -671,6 +674,7 @@ public class Fornecedor
     [Column("id")]          public Guid Id { get; set; }
     [Column("tenant_id")]   public Guid TenantId { get; set; }
     [Column("nome")]        public string Nome { get; set; } = "";
+    [Column("codigo")]       public string? Codigo { get; set; }
     [Column("cnpj")]        public string? Cnpj { get; set; }
     [Column("telefone")]    public string? Telefone { get; set; }
     [Column("email")]       public string? Email { get; set; }

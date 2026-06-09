@@ -80,7 +80,7 @@ public record StatusUpdate(string Status);
 public record ProdutoDto(Guid Id, string Nome, string? Categoria, string Unidade,
     decimal PrecoCusto, decimal PrecoVenda, decimal EstoqueAtual, decimal EstoqueMinimo,
     decimal? EstoqueIdeal, bool AbaixoMinimo);
-public record ProdutoCreate(string Nome, string? CodigoBarras, string? Categoria, string Unidade,
+public record ProdutoCreate(string Nome, string? Codigo, string? CodigoBarras, string? Categoria, string Unidade,
     decimal PrecoCusto, decimal PrecoVenda, decimal EstoqueAtual, decimal EstoqueMinimo,
     decimal? EstoqueIdeal, bool ControlaValidade);
 public record AjusteEstoque(decimal Quantidade, string Tipo, string? Motivo);
@@ -228,6 +228,7 @@ public record FuncionarioDto(
 
 public record FuncionarioCreate(
     string Nome,
+    string? Codigo,
     string? Cpf,
     string? Rg,
     DateOnly? DataNascimento,

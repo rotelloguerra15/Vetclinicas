@@ -104,30 +104,43 @@ export default function Estoque() {
 }
 
 function ModalProduto({ onClose, onSaved }) {
-  const [f, setF] = useState({ nome: '', categoria: 'racao', unidade: 'un', precoCusto: '', precoVenda: '', estoqueAtual: '', estoqueMinimo: '', estoqueIdeal: '' })
+  const [f, setF] = useState({
+    nome: '', codigo: '', categoria: 'racao', unidade: 'un',
+    precoCusto: '', precoVenda: '', estoqueAtual: '0',
+    estoqueMinimo: '0', estoqueIdeal: ''
+  })
   async function salvar(e) {
     e.preventDefault()
     await api.post('/produtos', {
-      ...f, codigoBarras: null, controlaValidade: false,
-      precoCusto: +f.precoCusto || 0, precoVenda: +f.precoVenda || 0,
-      estoqueAtual: +f.estoqueAtual || 0, estoqueMinimo: +f.estoqueMinimo || 0,
-      estoqueIdeal: f.estoqueIdeal ? +f.estoqueIdeal : null
+      nome: f.nome,
+      codigo: f.codigo || null,
+      codigoBarras: null,
+      categoria: f.categoria,
+      unidade: f.unidade,
+      controlaValidade: false,
+      precoCusto: parseFloat(f.precoCusto) || 0,
+      precoVenda: parseFloat(f.precoVenda) || 0,
+      estoqueAtual: parseFloat(f.estoqueAtual) || 0,
+      estoqueMinimo: parseFloat(f.estoqueMinimo) || 0,
+      estoqueIdeal: f.estoqueIdeal ? parseFloat(f.estoqueIdeal) : null
     })
     onSaved()
   }
   return (
     <Overlay titulo="Novo produto" onClose={onClose}>
       <form onSubmit={salvar} className="grid grid-cols-2 gap-3">
-        <input className="border rounded-lg px-3 py-2 col-span-2" placeholder="Nome do produto" required
+        <input className="border rounded-lg px-3 py-2" placeholder="Codigo (ex: PRD0001)"
+          value={f.codigo} onChange={(e) => setF({ ...f, codigo: e.target.value })} />
+        <input className="border rounded-lg px-3 py-2 col-span-1" placeholder="Nome do produto *" required
           value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
         <select className="border rounded-lg px-3 py-2" value={f.categoria} onChange={(e) => setF({ ...f, categoria: e.target.value })}>
           {Object.entries(CAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <input className="border rounded-lg px-3 py-2" placeholder="Unidade (un, kg)" value={f.unidade} onChange={(e) => setF({ ...f, unidade: e.target.value })} />
-        <input className="border rounded-lg px-3 py-2" placeholder="Preço custo" type="number" step="0.01" value={f.precoCusto} onChange={(e) => setF({ ...f, precoCusto: e.target.value })} />
-        <input className="border rounded-lg px-3 py-2" placeholder="Preço venda" type="number" step="0.01" value={f.precoVenda} onChange={(e) => setF({ ...f, precoVenda: e.target.value })} />
+        <input className="border rounded-lg px-3 py-2" placeholder="Unidade (un, kg, cx)" value={f.unidade} onChange={(e) => setF({ ...f, unidade: e.target.value })} />
+        <input className="border rounded-lg px-3 py-2" placeholder="Preco custo" type="number" step="0.01" value={f.precoCusto} onChange={(e) => setF({ ...f, precoCusto: e.target.value })} />
+        <input className="border rounded-lg px-3 py-2" placeholder="Preco venda" type="number" step="0.01" value={f.precoVenda} onChange={(e) => setF({ ...f, precoVenda: e.target.value })} />
         <input className="border rounded-lg px-3 py-2" placeholder="Estoque atual" type="number" step="0.01" value={f.estoqueAtual} onChange={(e) => setF({ ...f, estoqueAtual: e.target.value })} />
-        <input className="border rounded-lg px-3 py-2" placeholder="Estoque mínimo" type="number" step="0.01" value={f.estoqueMinimo} onChange={(e) => setF({ ...f, estoqueMinimo: e.target.value })} />
+        <input className="border rounded-lg px-3 py-2" placeholder="Estoque minimo" type="number" step="0.01" value={f.estoqueMinimo} onChange={(e) => setF({ ...f, estoqueMinimo: e.target.value })} />
         <input className="border rounded-lg px-3 py-2 col-span-2" placeholder="Estoque ideal (p/ sugestão de compra)" type="number" step="0.01" value={f.estoqueIdeal} onChange={(e) => setF({ ...f, estoqueIdeal: e.target.value })} />
         <button className="bg-emerald-600 text-white py-2 rounded-lg col-span-2">Salvar</button>
       </form>

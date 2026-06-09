@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../api/client'
 
 const FORM_VAZIO = {
-  nome: '', cnpj: '', telefone: '', email: '', contato: '',
+  nome: '', codigo: '', cnpj: '', telefone: '', email: '', contato: '',
   logradouro: '', numEnd: '', bairro: '', cidade: '', estado: '', cep: '', obs: ''
 }
 
@@ -29,7 +29,7 @@ export default function Fornecedores() {
   async function editar(id) {
     const { data } = await api.get(`/fornecedores/${id}`)
     setForm({
-      nome: data.nome || '', cnpj: data.cnpj || '', telefone: data.telefone || '',
+      nome: data.nome || '', codigo: data.codigo || '', cnpj: data.cnpj || '', telefone: data.telefone || '',
       email: data.email || '', contato: data.contato || '',
       logradouro: data.logradouro || '', numEnd: data.numEnd || '',
       bairro: data.bairro || '', cidade: data.cidade || '',
@@ -82,7 +82,10 @@ export default function Fornecedores() {
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            <input className="border rounded-lg px-3 py-2 col-span-2" placeholder="Nome *" required {...f('nome')} />
+            <div className="flex gap-2">
+            <input className="border rounded-lg px-3 py-2 w-28" placeholder="Codigo" {...f('codigo')} />
+            <input className="border rounded-lg px-3 py-2 flex-1" placeholder="Nome *" required {...f('nome')} />
+          </div>
             <input className="border rounded-lg px-3 py-2" placeholder="CNPJ" {...f('cnpj')} />
             <input className="border rounded-lg px-3 py-2" placeholder="Nome do contato" {...f('contato')} />
             <input className="border rounded-lg px-3 py-2" placeholder="Telefone" {...f('telefone')} />
@@ -122,6 +125,7 @@ export default function Fornecedores() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left">
             <tr>
+              <th className="p-3">Codigo</th>
               <th className="p-3">Nome</th>
               <th className="p-3">CNPJ</th>
               <th className="p-3">Contato</th>
@@ -133,6 +137,7 @@ export default function Fornecedores() {
           <tbody>
             {fornecedores.map(f => (
               <tr key={f.id} className="border-t hover:bg-slate-50">
+                <td className="p-3 font-mono text-slate-500 text-xs">{f.codigo || '—'}</td>
                 <td className="p-3 font-medium">{f.nome}</td>
                 <td className="p-3 text-slate-500">{f.cnpj || '—'}</td>
                 <td className="p-3 text-slate-500">{f.contato || '—'}</td>
