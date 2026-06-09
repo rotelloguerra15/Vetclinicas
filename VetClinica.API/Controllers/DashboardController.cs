@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VetClinica.API.Data;
 using VetClinica.API.Middleware;
+using VetClinica.API.Models;
 
 namespace VetClinica.API.Controllers;
 
