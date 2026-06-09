@@ -66,19 +66,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // ---------- CORS ----------
-var frontendUrl = builder.Configuration["App:FrontendUrl"]
-    ?? Environment.GetEnvironmentVariable("App__FrontendUrl")
-    ?? "http://localhost:5173";
-
-// Suporta múltiplas origens separadas por vírgula
-var origens = frontendUrl.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
 builder.Services.AddCors(opt =>
     opt.AddPolicy("front", p => p
-        .WithOrigins(origens)
+        .AllowAnyOrigin()
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .WithExposedHeaders("X-WhatsApp-Enviado", "Content-Disposition")));
+        .WithExposedHeaders("X-WhatsApp-Enviado", "Content-Disposition", "X-WhatsApp-Enviado")));
 
 // ---------- Controllers + Swagger ----------
 builder.Services.AddControllers()
