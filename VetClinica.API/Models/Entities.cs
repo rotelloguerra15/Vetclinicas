@@ -40,6 +40,8 @@ public class Funcionario
     [Column("salario")] public decimal Salario { get; set; }
     [Column("percentual_comissao")] public decimal PercentualComissao { get; set; }
 
+    [Column("assina_receituario")] public bool AssinaReceituario { get; set; } = false;
+
     // trabalhando | ferias | demitido
     [Column("status")] public string Status { get; set; } = "trabalhando";
 

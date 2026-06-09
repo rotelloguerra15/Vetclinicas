@@ -49,7 +49,9 @@ public class ReceituarioController : ControllerBase
     public async Task<IActionResult> ListarVeterinarios()
     {
         var lista = await _db.Funcionarios
-            .Where(f => f.TenantId == _t.TenantId && f.Status == "trabalhando")
+            .Where(f => f.TenantId == _t.TenantId
+                     && f.Status == "trabalhando"
+                     && f.AssinaReceituario)
             .OrderBy(f => f.Nome)
             .Select(f => new { f.Id, f.Nome, f.Cargo, f.Crmv, f.RegistroMapa, f.Telefone, f.Email })
             .ToListAsync();

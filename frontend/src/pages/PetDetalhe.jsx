@@ -347,6 +347,7 @@ function ModalVacina({ petId, onClose, onSaved }) {
 
 function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
   const [motivo, setMotivo] = useState('')
+  const motivoRef = useRef(null)
   const [obs, setObs] = useState('')
   const [funcionarioId, setFuncionarioId] = useState('')
   const [veterinarios, setVeterinarios] = useState([])
@@ -407,7 +408,9 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
         idade: null,
         pesoKg: null
       })
-      setIaResposta(r.data.texto || 'Sem resposta da IA.')
+      console.log('IA response:', r.data)
+      const textoResposta = r.data?.texto || r.data?.text || r.data?.content || JSON.stringify(r.data)
+      setIaResposta(textoResposta || 'Sem resposta da IA.')
     } catch (err) {
       const msg = err.response?.data?.erro || err.response?.data?.detalhe || 'Erro ao consultar a IA.'
       setIaResposta(`Erro: ${msg}`)
@@ -415,6 +418,13 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
       setIaCarregando(false)
     }
   }
+
+  useEffect(() => {
+    if (motivoRef.current) {
+      motivoRef.current.style.height = 'auto'
+      motivoRef.current.style.height = motivoRef.current.scrollHeight + 'px'
+    }
+  }, [motivo])
 
   function usarDiagnostico() {
     if (iaResposta) {
@@ -466,8 +476,15 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
       const whatsappEnviado = resp.headers['x-whatsapp-enviado'] === 'true'
       setResultado({ whatsapp: whatsappEnviado })
       onSaved()
-    } catch {
-      alert('Erro ao gerar o receituário. Tente novamente.')
+    } catch (err) {
+      // Se o backend retornou JSON de erro (não PDF), extrai a mensagem
+      if (err.response?.data instanceof Blob) {
+        const txt = await err.response.data.text()
+        try { const j = JSON.parse(txt); alert('Erro: ' + (j.erro || j.message || txt)) }
+        catch { alert('Erro ao gerar receituário: ' + txt) }
+      } else {
+        alert('Erro ao gerar receituário: ' + (err.response?.data?.erro || err.message || 'Tente novamente.'))
+      }
     } finally {
       setLoading(false)
     }
@@ -493,221 +510,202 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
   }
 
   return (
-    <Overlay onClose={onClose} titulo="Receituário Veterinário">
-      <div className="grid gap-3 max-h-[75vh] overflow-auto">
-        {/* Tipo receita + via + farmácia */}
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="text-xs text-slate-500 block mb-1">Tipo de receita</label>
-            <select className="border rounded-lg px-3 py-2 w-full text-sm"
-              value={tipoReceita} onChange={e => setTipoReceita(e.target.value)}>
-              <option>Receita Veterinária</option>
-              <option>Receita de Controle Especial</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-slate-500 block mb-1">Via de uso</label>
-            <select className="border rounded-lg px-3 py-2 w-full text-sm"
-              value={viaUso} onChange={e => setViaUso(e.target.value)}>
-              <option value="">— Selecionar —</option>
-              {viasDisponiveis.map(v => (
-                <option key={v.id} value={`USO ${v.nome.toUpperCase()}`}>
-                  USO {v.nome.toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-slate-500 block mb-1">Tipo de farmácia</label>
-            <select className="border rounded-lg px-3 py-2 w-full text-sm"
-              value={tipoFarmacia} onChange={e => setTipoFarmacia(e.target.value)}>
-              <option>Farmácia Veterinária</option>
-              <option>Farmácia Humana</option>
-            </select>
-          </div>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full flex flex-col" style={{ maxWidth: 900, height: '92vh' }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
+          <h3 className="font-bold text-lg">📋 Receituário Veterinário</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
         </div>
 
-        {/* ── Assistente IA ──────────────────────────────────────────── */}
-        {iaDisponivel && (
-          <div className="border border-violet-200 rounded-xl overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setIaAberto(v => !v)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-violet-50 hover:bg-violet-100 transition">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🤖</span>
-                <span className="text-sm font-semibold text-violet-800">Assistente IA — Apoio ao Diagnóstico</span>
-                <span className="text-xs bg-violet-200 text-violet-700 px-2 py-0.5 rounded-full">Beta</span>
-              </div>
-              <span className="text-violet-500 text-sm">{iaAberto ? '▲' : '▼'}</span>
-            </button>
+        {/* Body scrollável */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
 
-            {iaAberto && (
-              <div className="p-4 space-y-3 bg-white">
-                <p className="text-xs text-slate-500">
-                  Descreva os sintomas e histórico do paciente. A IA vai sugerir diagnósticos diferenciais, exames e conduta. O veterinário valida antes de usar.
-                </p>
+          {/* Linha 1: tipo receita + via + farmácia */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Tipo de receita</label>
+              <select className="border rounded-lg px-3 py-2 w-full text-sm"
+                value={tipoReceita} onChange={e => setTipoReceita(e.target.value)}>
+                <option>Receita Veterinária</option>
+                <option>Receita de Controle Especial</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Via de uso</label>
+              <select className="border rounded-lg px-3 py-2 w-full text-sm"
+                value={viaUso} onChange={e => setViaUso(e.target.value)}>
+                <option value="">— Selecionar —</option>
+                {viasDisponiveis.map(v => (
+                  <option key={v.id} value={`USO ${v.nome.toUpperCase()}`}>USO {v.nome.toUpperCase()}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Tipo de farmácia</label>
+              <select className="border rounded-lg px-3 py-2 w-full text-sm"
+                value={tipoFarmacia} onChange={e => setTipoFarmacia(e.target.value)}>
+                <option>Farmácia Veterinária</option>
+                <option>Farmácia Humana</option>
+              </select>
+            </div>
+          </div>
 
-                {/* Área de sintomas + microfone */}
-                <div className="relative">
-                  <textarea
-                    className="border rounded-xl px-3 py-2 w-full text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
-                    rows={3}
-                    placeholder="Ex: Golden Retriever 3 anos, vômito há 2 dias, prostrado, febre 39.8°C, sem apetite..."
-                    value={iaSintomas}
-                    onChange={e => setIaSintomas(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={ouvindo ? pararMicrofone : iniciarMicrofone}
-                    className={`absolute bottom-2 right-2 p-2 rounded-lg text-sm transition ${
-                      ouvindo
-                        ? 'bg-red-500 text-white animate-pulse'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                    title={ouvindo ? 'Parar gravação' : 'Falar sintomas'}>
-                    {ouvindo ? '⏹ Parar' : '🎙️ Falar'}
-                  </button>
+          {/* IA */}
+          {iaDisponivel && (
+            <div className="border border-violet-200 rounded-xl overflow-hidden">
+              <button type="button" onClick={() => setIaAberto(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-violet-50 hover:bg-violet-100 transition">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🤖</span>
+                  <span className="text-sm font-semibold text-violet-800">Assistente IA — Apoio ao Diagnóstico</span>
+                  <span className="text-xs bg-violet-200 text-violet-700 px-2 py-0.5 rounded-full">Beta</span>
                 </div>
+                <span className="text-violet-500 text-sm">{iaAberto ? '▲' : '▼'}</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={consultarIa}
-                  disabled={iaCarregando || !iaSintomas.trim()}
-                  className="w-full bg-violet-700 text-white py-2 rounded-xl text-sm font-medium disabled:opacity-40 hover:bg-violet-800 transition">
-                  {iaCarregando ? '⏳ Analisando...' : '✨ Analisar com IA'}
-                </button>
-
-                {/* Resposta streaming */}
-                {(iaResposta || iaCarregando) && (
-                  <div className="bg-slate-50 border rounded-xl p-3 space-y-2">
-                    <div className="flex items-center justify-between">
+              {iaAberto && (
+                <div className="p-4 space-y-3 bg-white">
+                  <p className="text-xs text-slate-500">
+                    Descreva os sintomas. A IA sugere diagnósticos diferenciais, exames e conduta. O veterinário valida antes de usar.
+                  </p>
+                  <div className="relative">
+                    <textarea
+                      className="border rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      rows={3}
+                      placeholder="Ex: Golden Retriever 3 anos, vômito há 2 dias, prostrado, febre 39.8°C..."
+                      value={iaSintomas}
+                      onChange={e => setIaSintomas(e.target.value)}
+                    />
+                    <button type="button" onClick={ouvindo ? pararMicrofone : iniciarMicrofone}
+                      className={`absolute bottom-2 right-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${ouvindo ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                      {ouvindo ? '⏹ Parar' : '🎙️ Falar'}
+                    </button>
+                  </div>
+                  <button type="button" onClick={consultarIa}
+                    disabled={iaCarregando || !iaSintomas.trim()}
+                    className="w-full bg-violet-700 text-white py-2 rounded-xl text-sm font-medium disabled:opacity-40 hover:bg-violet-800 transition">
+                    {iaCarregando ? '⏳ Analisando...' : '✨ Analisar com IA'}
+                  </button>
+                  {iaResposta && !iaCarregando && (
+                    <div className="bg-slate-50 border rounded-xl p-3 space-y-2">
                       <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Parecer da IA</span>
-                      {iaCarregando && (
-                        <span className="text-xs text-violet-600 animate-pulse">● escrevendo...</span>
-                      )}
-                    </div>
-                    <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                      {iaResposta}
-
-                    </div>
-                    {!iaCarregando && iaResposta && (
+                      <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{iaResposta}</div>
                       <div className="pt-2 border-t flex gap-2">
-                        <button
-                          type="button"
-                          onClick={usarDiagnostico}
-                          className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition">
+                        <button type="button" onClick={usarDiagnostico}
+                          className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">
                           ✅ Usar como Diagnóstico
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setIaResposta('')}
+                        <button type="button" onClick={() => setIaResposta('')}
                           className="border px-4 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-50">
                           Descartar
                         </button>
                       </div>
+                    </div>
+                  )}
+                  {iaCarregando && (
+                    <div className="text-center text-sm text-violet-600 animate-pulse py-2">⏳ Consultando IA...</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Motivo / Diagnóstico — GRANDE */}
+          <div>
+            <label className="text-xs text-slate-500 block mb-1">Motivo / Diagnóstico</label>
+            <textarea
+              ref={motivoRef}
+              className="border rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+              style={{ minHeight: 100, resize: 'vertical' }}
+              placeholder="Preenchido automaticamente pela IA ou manualmente..."
+              value={motivo}
+              onChange={e => setMotivo(e.target.value)}
+            />
+          </div>
+
+          {/* Medicamentos */}
+          <div className="border-t pt-3">
+            <div className="flex justify-between items-center mb-3">
+              <label className="text-sm font-semibold">Medicamentos</label>
+              <button type="button" onClick={addMed} className="text-xs text-blue-600 hover:underline font-medium">+ Adicionar</button>
+            </div>
+            <div className="space-y-3">
+              {meds.map((m, i) => (
+                <div key={i} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-semibold text-slate-500">Medicamento {i + 1}</span>
+                    {meds.length > 1 && (
+                      <button type="button" onClick={() => removeMed(i)} className="text-xs text-red-400 hover:underline">Remover</button>
                     )}
                   </div>
-                )}
-              </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className="border rounded-lg px-2 py-1.5 text-sm col-span-2"
+                      placeholder="Nome do medicamento * (ex: Trazodona 50 mg)"
+                      value={m.nome} onChange={e => updateMed(i, 'nome', e.target.value)} />
+                    <input className="border rounded-lg px-2 py-1.5 text-sm col-span-2"
+                      placeholder="Apresentação (ex: comprimido 30 un)"
+                      value={m.apresentacao} onChange={e => updateMed(i, 'apresentacao', e.target.value)} />
+                    <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="Dosagem (ex: 500mg)"
+                      value={m.dosagem} onChange={e => updateMed(i, 'dosagem', e.target.value)} />
+                    <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="Frequência (ex: 12/12h)"
+                      value={m.frequencia} onChange={e => updateMed(i, 'frequencia', e.target.value)} />
+                    <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="Duração (ex: 7 dias)"
+                      value={m.duracao} onChange={e => updateMed(i, 'duracao', e.target.value)} />
+                    <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="Quantidade (ex: 1 UNIDADE)"
+                      value={m.quantidade} onChange={e => updateMed(i, 'quantidade', e.target.value)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Observações */}
+          <textarea className="border rounded-xl px-3 py-2 text-sm w-full" placeholder="Observações gerais" rows={2}
+            value={obs} onChange={e => setObs(e.target.value)} />
+
+          {/* Veterinário */}
+          <div>
+            <label className="text-xs text-slate-500 block mb-1">Veterinário responsável</label>
+            <select className="border rounded-lg px-3 py-2 w-full text-sm"
+              value={funcionarioId} onChange={e => setFuncionarioId(e.target.value)}>
+              <option value="">— Selecionar veterinário —</option>
+              {veterinarios.map(v => (
+                <option key={v.id} value={v.id}>
+                  {v.nome}{v.crmv ? ` (CRMV ${v.crmv})` : ''}{v.cargo ? ` — ${v.cargo}` : ''}
+                </option>
+              ))}
+            </select>
+            {vetSelecionado?.crmv && (
+              <p className="text-xs text-slate-400 mt-1">CRMV: {vetSelecionado.crmv}</p>
             )}
           </div>
-        )}
 
-        {/* Motivo */}
-        <div>
-          <label className="text-xs text-slate-500 block mb-1">Motivo / Diagnóstico</label>
-          <textarea
-            className="border rounded-lg px-3 py-2 w-full text-sm resize-none"
-            rows={2}
-            placeholder="ex: Infecção urinária — preenchido automaticamente pela IA ou manualmente"
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-          />
         </div>
 
-        {/* Medicamentos */}
-        <div className="border-t pt-3">
-          <div className="flex justify-between items-center mb-2">
-            <label className="text-sm font-semibold">Medicamentos</label>
-            <button type="button" onClick={addMed} className="text-xs text-blue-600 hover:underline">+ Adicionar</button>
-          </div>
-          {meds.map((m, i) => (
-            <div key={i} className="bg-slate-50 rounded-lg p-3 mb-2">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-semibold text-slate-500">Medicamento {i + 1}</span>
-                {meds.length > 1 && (
-                  <button type="button" onClick={() => removeMed(i)} className="text-xs text-red-400 hover:underline">
-                    Remover
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input className="border rounded-lg px-2 py-1.5 text-sm col-span-2"
-                  placeholder="Nome do medicamento * (ex: Trazodona 50 mg)"
-                  value={m.nome} onChange={(e) => updateMed(i, 'nome', e.target.value)} />
-                <input className="border rounded-lg px-2 py-1.5 text-sm col-span-2"
-                  placeholder="Apresentação (ex: comprimido (30 un))"
-                  value={m.apresentacao} onChange={(e) => updateMed(i, 'apresentacao', e.target.value)} />
-                <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="Dosagem (ex: 500mg)"
-                  value={m.dosagem} onChange={(e) => updateMed(i, 'dosagem', e.target.value)} />
-                <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="Frequência (ex: 12/12h)"
-                  value={m.frequencia} onChange={(e) => updateMed(i, 'frequencia', e.target.value)} />
-                <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="Duração (ex: 7 dias)"
-                  value={m.duracao} onChange={(e) => updateMed(i, 'duracao', e.target.value)} />
-                <input className="border rounded-lg px-2 py-1.5 text-sm" placeholder="Quantidade (ex: 1 UNIDADE)"
-                  value={m.quantidade} onChange={(e) => updateMed(i, 'quantidade', e.target.value)} />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Observações */}
-        <textarea className="border rounded-lg px-3 py-2 text-sm" placeholder="Observações gerais" rows="2"
-          value={obs} onChange={(e) => setObs(e.target.value)} />
-
-        {/* Veterinário do cadastro */}
-        <div>
-          <label className="text-xs text-slate-500 block mb-1">Veterinário responsável</label>
-          <select className="border rounded-lg px-3 py-2 w-full text-sm"
-            value={funcionarioId} onChange={(e) => setFuncionarioId(e.target.value)}>
-            <option value="">— Selecionar veterinário —</option>
-            {veterinarios.map(v => (
-              <option key={v.id} value={v.id}>
-                {v.nome}{v.crmv ? ` (CRMV ${v.crmv})` : ''}{v.cargo ? ` — ${v.cargo}` : ''}
-              </option>
-            ))}
-          </select>
-          {vetSelecionado && vetSelecionado.crmv && (
-            <p className="text-xs text-slate-400 mt-1">CRMV: {vetSelecionado.crmv}</p>
-          )}
-        </div>
-
-        {/* Ações */}
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t">
-          <button
-            disabled={loading}
-            onClick={() => emitir(false)}
-            className="bg-slate-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+        {/* Footer fixo */}
+        <div className="flex gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-2xl flex-shrink-0">
+          <button disabled={loading} onClick={() => emitir(false)}
+            className="flex-1 bg-slate-900 text-white py-3 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-slate-800">
             {loading ? '⏳' : '🖨️'} Imprimir PDF
           </button>
-          <button
-            disabled={loading}
-            onClick={() => emitir(true)}
-            className="bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+          <button disabled={loading} onClick={() => emitir(true)}
+            className="flex-1 bg-emerald-600 text-white py-3 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-emerald-700">
             {loading ? '⏳' : '📲'} PDF + WhatsApp
           </button>
         </div>
+
       </div>
-    </Overlay>
+    </div>
   )
 }
 
-function Overlay({ titulo, children, onClose }) {
+function Overlay({ titulo, children, onClose, largo }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
       onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className={`bg-white rounded-2xl shadow-xl p-6 w-full ${largo ? 'max-w-2xl' : 'max-w-md'}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-lg">{titulo}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
