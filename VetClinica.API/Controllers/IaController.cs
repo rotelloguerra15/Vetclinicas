@@ -144,16 +144,19 @@ public class IaController : ControllerBase
 
                     if (type == "content_block_delta")
                     {
-                        var delta = doc.RootElement
-                            .GetProperty("delta")
-                            .GetProperty("text")
-                            .GetString();
+                        // Anthropic streaming: delta.type = "text_delta", delta.text = "..."
+                        var deltaEl = doc.RootElement.GetProperty("delta");
+                        var deltaType = deltaEl.TryGetProperty("type", out var dt) ? dt.GetString() : null;
 
-                        if (!string.IsNullOrEmpty(delta))
+                        if (deltaType == "text_delta")
                         {
-                            var escaped = JsonSerializer.Serialize(delta);
-                            await Response.WriteAsync($"data: {escaped}\n\n", ct);
-                            await Response.Body.FlushAsync(ct);
+                            var delta = deltaEl.TryGetProperty("text", out var txt) ? txt.GetString() : null;
+                            if (!string.IsNullOrEmpty(delta))
+                            {
+                                var escaped = JsonSerializer.Serialize(delta);
+                                await Response.WriteAsync($"data: {escaped}\n\n", ct);
+                                await Response.Body.FlushAsync(ct);
+                            }
                         }
                     }
                 }

@@ -431,8 +431,18 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
           const data = line.slice(6)
           if (data === '[DONE]') break
           try {
-            const text = JSON.parse(data)
-            setIaResposta(prev => prev + text)
+            const parsed = JSON.parse(data)
+            // Backend envia string serializada: "texto aqui"
+            // Mas pode vir como objeto com campo text ou erro
+            let text = ''
+            if (typeof parsed === 'string') {
+              text = parsed
+            } else if (parsed?.text) {
+              text = parsed.text
+            } else if (parsed?.erro) {
+              text = `Erro: ${parsed.erro}`
+            }
+            if (text) setIaResposta(prev => prev + text)
           } catch {}
         }
       }
