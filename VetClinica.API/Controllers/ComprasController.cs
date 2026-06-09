@@ -219,13 +219,17 @@ public class ComprasController : ControllerBase
             CriadoEm       = DateTime.UtcNow
         };
 
-        // Copia itens do pedido para o recebimento
-        var itens = await _db.PedidoItens.Where(i => i.PedidoId == id).ToListAsync();
-        foreach (var item in itens)
+        _db.RecebimentosMercadoria.Add(recebimento);
+        await _db.SaveChangesAsync();
+
+        // Agora adiciona os itens com FK valida
+        var itensParaAdicionar = await _db.PedidoItens.Where(i => i.PedidoId == id).ToListAsync();
+        foreach (var item in itensParaAdicionar)
         {
-            recebimento.Itens.Add(new RecebimentoItem
+            _db.RecebimentoItens.Add(new RecebimentoItem
             {
                 Id                 = Guid.NewGuid(),
+                RecebimentoId      = recebimento.Id,
                 PedidoItemId       = item.Id,
                 ProdutoId          = item.ProdutoId,
                 NomeProduto        = item.NomeProduto,
@@ -233,11 +237,9 @@ public class ComprasController : ControllerBase
                 QuantidadeRecebida = 0,
                 ValorUnitario      = item.ValorUnitario,
                 Uso                = item.Uso,
-                CriadoEm          = DateTime.UtcNow
+                CriadoEm           = DateTime.UtcNow
             });
         }
-
-        _db.RecebimentosMercadoria.Add(recebimento);
         await _db.SaveChangesAsync();
 
         return Ok(new { titulos = parcelas, recebimentoId = recebimento.Id });
