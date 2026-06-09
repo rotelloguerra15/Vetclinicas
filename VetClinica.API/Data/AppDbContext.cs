@@ -67,6 +67,17 @@ public class AppDbContext : DbContext
             .HasOne(m => m.Caixa)
             .WithMany(c => c.Movimentacoes)
             .HasForeignKey(m => m.CaixaId);
+        // Compras
+        mb.Entity<PedidoCompra>()
+            .HasMany(p => p.Itens)
+            .WithOne()
+            .HasForeignKey(i => i.PedidoId);
+
+        mb.Entity<RecebimentoMercadoria>()
+            .HasMany(r => r.Itens)
+            .WithOne()
+            .HasForeignKey(i => i.RecebimentoId);
+
         mb.Entity<Conta>()
             .HasOne(c => c.Categoria)
             .WithMany()
