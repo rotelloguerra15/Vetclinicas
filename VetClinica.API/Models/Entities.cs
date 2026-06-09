@@ -148,7 +148,7 @@ public class Tutor
     [Column("cpf_cnpj")] public string? CpfCnpj { get; set; }
     [Column("telefone")] public string? Telefone { get; set; }
     [Column("email")] public string? Email { get; set; }
-    [Column("endereco")] public string? Endereco { get; set; }  // legado — mantido para compatibilidade
+    [Column("endereco")] public string? Endereco { get; set; }  // legado
 
     // Endereço desmembrado
     [Column("logradouro")] public string? Logradouro { get; set; }
@@ -659,11 +659,35 @@ public class MovimentacaoBancaria
     [Column("conta_id")]           public Guid? ContaId { get; set; }
     [Column("conta_destino_id")]   public Guid? ContaDestinoId { get; set; }
     [Column("conciliado")]         public bool Conciliado { get; set; }
+    [Column("origem")]             public string? Origem { get; set; } // manual | baixa_financeiro | caixa
     [Column("criado_por")]         public Guid? CriadoPor { get; set; }
     [Column("criado_em")]          public DateTime CriadoEm { get; set; }
 
     public ContaBancaria? ContaBancaria { get; set; }
     public CategoriaFinanceira? Categoria { get; set; }
+}
+
+// ===================== CONCILIAÇÃO BANCÁRIA DIÁRIA =====================
+
+[Table("conciliacoes_diarias")]
+public class ConciliacaoDiaria
+{
+    [Column("id")]                 public Guid Id { get; set; }
+    [Column("tenant_id")]          public Guid TenantId { get; set; }
+    [Column("conta_bancaria_id")]  public Guid ContaBancariaId { get; set; }
+    [Column("data_conciliacao")]   public DateOnly DataConciliacao { get; set; }
+    [Column("saldo_anterior")]     public decimal SaldoAnterior { get; set; }
+    [Column("total_entradas")]     public decimal TotalEntradas { get; set; }
+    [Column("total_saidas")]       public decimal TotalSaidas { get; set; }
+    [Column("saldo_final")]        public decimal SaldoFinal { get; set; }
+    [Column("saldo_extrato")]      public decimal? SaldoExtrato { get; set; }
+    [Column("diferenca")]          public decimal? Diferenca { get; set; }
+    [Column("observacao")]         public string? Observacao { get; set; }
+    [Column("fechado_por")]        public Guid? FechadoPor { get; set; }
+    [Column("fechado_em")]         public DateTime FechadoEm { get; set; }
+    [Column("criado_em")]          public DateTime CriadoEm { get; set; }
+
+    public ContaBancaria? ContaBancaria { get; set; }
 }
 
 // ===================== M4 COMPRAS =====================
@@ -787,5 +811,3 @@ public class MetaFaturamento
     [Column("criado_em")]     public DateTime CriadoEm { get; set; }
     [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
 }
-
-// rebuild

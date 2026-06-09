@@ -26,7 +26,6 @@ public class MovimentacaoBancariaController : ControllerBase
             .OrderBy(c => c.Nome)
             .ToListAsync();
 
-        // Calcula saldo atual para cada conta
         var result = new List<object>();
         foreach (var conta in contas)
         {
@@ -74,7 +73,7 @@ public class MovimentacaoBancariaController : ControllerBase
         };
         _db.ContasBancarias.Add(c);
         await _db.SaveChangesAsync();
-        return Ok(new { c.Id });
+        return Ok(new { c.Id, c.Nome });
     }
 
     [HttpPut("contas/{id}")]
@@ -133,7 +132,7 @@ public class MovimentacaoBancariaController : ControllerBase
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(m => new {
                 m.Id, m.Tipo, m.Valor, m.Descricao, m.DataMovimentacao,
-                m.Conciliado,
+                m.Conciliado, m.Origem,
                 ContaNome = m.ContaBancaria!.Nome,
                 CategoriaNome = m.Categoria != null ? m.Categoria.Nome : null,
                 m.ContaId
@@ -166,8 +165,9 @@ public class MovimentacaoBancariaController : ControllerBase
             DataMovimentacao = dto.DataMovimentacao,
             CategoriaId      = dto.CategoriaId,
             ContaDestinoId   = dto.ContaDestinoId,
+            Origem           = "manual",
             CriadoPor        = _t.UserId,
-            CriadoEm         = DateTime.UtcNow
+            CriadoEm        = DateTime.UtcNow
         };
         _db.MovimentacoesBancarias.Add(m);
         await _db.SaveChangesAsync();
@@ -198,6 +198,264 @@ public class MovimentacaoBancariaController : ControllerBase
         return NoContent();
     }
 
+    // ── Conciliação Diária ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// GET /api/bancario/conciliacao/{contaId}/{data}
+    /// Retorna o resumo do dia: saldo anterior, movimentações, saldo calculado,
+    /// e se já existe um fechamento para esse dia.
+    /// </summary>
+    [HttpGet("conciliacao/{contaId}/{data}")]
+    public async Task<IActionResult> ObterDia(Guid contaId, DateOnly data)
+    {
+        var conta = await _db.ContasBancarias
+            .FirstOrDefaultAsync(c => c.Id == contaId && c.TenantId == _t.TenantId && c.Ativo);
+        if (conta == null) return NotFound(new { erro = "Conta não encontrada." });
+
+        // Saldo anterior: busca o fechamento do dia imediatamente anterior
+        // Se não houver fechamento anterior, usa saldo_inicial da conta
+        var fechamentoAnterior = await _db.ConciliacoesDiarias
+            .Where(c => c.ContaBancariaId == contaId
+                     && c.TenantId == _t.TenantId
+                     && c.DataConciliacao < data)
+            .OrderByDescending(c => c.DataConciliacao)
+            .FirstOrDefaultAsync();
+
+        decimal saldoAnterior;
+        if (fechamentoAnterior != null)
+            saldoAnterior = fechamentoAnterior.SaldoFinal;
+        else
+        {
+            // Calcula desde o início até o dia anterior
+            var entradasAnt = await _db.MovimentacoesBancarias
+                .Where(m => m.ContaBancariaId == contaId && m.TenantId == _t.TenantId
+                         && m.Tipo == "entrada" && m.DataMovimentacao < data)
+                .SumAsync(m => (decimal?)m.Valor) ?? 0;
+            var saidasAnt = await _db.MovimentacoesBancarias
+                .Where(m => m.ContaBancariaId == contaId && m.TenantId == _t.TenantId
+                         && m.Tipo == "saida" && m.DataMovimentacao < data)
+                .SumAsync(m => (decimal?)m.Valor) ?? 0;
+            var transEntAnt = await _db.MovimentacoesBancarias
+                .Where(m => m.ContaDestinoId == contaId && m.TenantId == _t.TenantId
+                         && m.Tipo == "transferencia" && m.DataMovimentacao < data)
+                .SumAsync(m => (decimal?)m.Valor) ?? 0;
+            var transSaiAnt = await _db.MovimentacoesBancarias
+                .Where(m => m.ContaBancariaId == contaId && m.TenantId == _t.TenantId
+                         && m.Tipo == "transferencia" && m.DataMovimentacao < data)
+                .SumAsync(m => (decimal?)m.Valor) ?? 0;
+
+            saldoAnterior = conta.SaldoInicial + entradasAnt - saidasAnt + transEntAnt - transSaiAnt;
+        }
+
+        // Movimentações do dia
+        var movsDia = await _db.MovimentacoesBancarias
+            .Include(m => m.Categoria)
+            .Where(m => m.ContaBancariaId == contaId
+                     && m.TenantId == _t.TenantId
+                     && m.DataMovimentacao == data)
+            .OrderBy(m => m.CriadoEm)
+            .Select(m => new {
+                m.Id, m.Tipo, m.Valor, m.Descricao, m.Conciliado, m.Origem,
+                CategoriaNome = m.Categoria != null ? m.Categoria.Nome : null
+            })
+            .ToListAsync();
+
+        var totalEntradas    = movsDia.Where(m => m.Tipo == "entrada").Sum(m => m.Valor);
+        var totalSaidas      = movsDia.Where(m => m.Tipo == "saida").Sum(m => m.Valor);
+        var totalTransfSaida = movsDia.Where(m => m.Tipo == "transferencia").Sum(m => m.Valor);
+        // Transferências recebidas de outras contas no mesmo dia
+        var totalTransfEntrada = await _db.MovimentacoesBancarias
+            .Where(m => m.ContaDestinoId == contaId
+                     && m.TenantId == _t.TenantId
+                     && m.DataMovimentacao == data
+                     && m.Tipo == "transferencia")
+            .SumAsync(m => (decimal?)m.Valor) ?? 0;
+
+        var saldoCalculado = saldoAnterior + totalEntradas - totalSaidas
+                           + totalTransfEntrada - totalTransfSaida;
+
+        // Verifica se já foi fechado
+        var fechamento = await _db.ConciliacoesDiarias
+            .FirstOrDefaultAsync(c => c.ContaBancariaId == contaId
+                                   && c.TenantId == _t.TenantId
+                                   && c.DataConciliacao == data);
+
+        return Ok(new {
+            conta = new { conta.Id, conta.Nome, conta.Banco },
+            data,
+            saldoAnterior,
+            movimentacoes = movsDia,
+            totalEntradas,
+            totalSaidas,
+            totalTransferencias = totalTransfEntrada - totalTransfSaida,
+            saldoCalculado,
+            fechamento = fechamento == null ? null : new {
+                fechamento.Id,
+                fechamento.SaldoExtrato,
+                fechamento.Diferenca,
+                fechamento.Observacao,
+                fechamento.FechadoEm
+            }
+        });
+    }
+
+    public record FecharDiaRequest(
+        Guid ContaBancariaId,
+        DateOnly DataConciliacao,
+        decimal? SaldoExtrato,    // saldo informado pelo extrato do banco (opcional)
+        string? Observacao);
+
+    /// <summary>
+    /// POST /api/bancario/conciliacao/fechar
+    /// Fecha o dia: calcula saldo, registra conciliação, marca movimentações do dia como conciliadas.
+    /// </summary>
+    [HttpPost("conciliacao/fechar")]
+    public async Task<IActionResult> FecharDia(FecharDiaRequest dto)
+    {
+        var conta = await _db.ContasBancarias
+            .FirstOrDefaultAsync(c => c.Id == dto.ContaBancariaId
+                                   && c.TenantId == _t.TenantId && c.Ativo);
+        if (conta == null) return NotFound(new { erro = "Conta não encontrada." });
+
+        // Impede duplo fechamento
+        var jaFechado = await _db.ConciliacoesDiarias
+            .AnyAsync(c => c.ContaBancariaId == dto.ContaBancariaId
+                        && c.TenantId == _t.TenantId
+                        && c.DataConciliacao == dto.DataConciliacao);
+        if (jaFechado)
+            return BadRequest(new { erro = "Este dia já foi fechado para esta conta." });
+
+        // Recalcula saldo anterior (mesmo algoritmo do GET)
+        var fechamentoAnterior = await _db.ConciliacoesDiarias
+            .Where(c => c.ContaBancariaId == dto.ContaBancariaId
+                     && c.TenantId == _t.TenantId
+                     && c.DataConciliacao < dto.DataConciliacao)
+            .OrderByDescending(c => c.DataConciliacao)
+            .FirstOrDefaultAsync();
+
+        decimal saldoAnterior;
+        if (fechamentoAnterior != null)
+            saldoAnterior = fechamentoAnterior.SaldoFinal;
+        else
+        {
+            var entradasAnt = await _db.MovimentacoesBancarias
+                .Where(m => m.ContaBancariaId == dto.ContaBancariaId && m.TenantId == _t.TenantId
+                         && m.Tipo == "entrada" && m.DataMovimentacao < dto.DataConciliacao)
+                .SumAsync(m => (decimal?)m.Valor) ?? 0;
+            var saidasAnt = await _db.MovimentacoesBancarias
+                .Where(m => m.ContaBancariaId == dto.ContaBancariaId && m.TenantId == _t.TenantId
+                         && m.Tipo == "saida" && m.DataMovimentacao < dto.DataConciliacao)
+                .SumAsync(m => (decimal?)m.Valor) ?? 0;
+            var transEntAnt = await _db.MovimentacoesBancarias
+                .Where(m => m.ContaDestinoId == dto.ContaBancariaId && m.TenantId == _t.TenantId
+                         && m.Tipo == "transferencia" && m.DataMovimentacao < dto.DataConciliacao)
+                .SumAsync(m => (decimal?)m.Valor) ?? 0;
+            var transSaiAnt = await _db.MovimentacoesBancarias
+                .Where(m => m.ContaBancariaId == dto.ContaBancariaId && m.TenantId == _t.TenantId
+                         && m.Tipo == "transferencia" && m.DataMovimentacao < dto.DataConciliacao)
+                .SumAsync(m => (decimal?)m.Valor) ?? 0;
+
+            saldoAnterior = conta.SaldoInicial + entradasAnt - saidasAnt + transEntAnt - transSaiAnt;
+        }
+
+        // Calcula totais do dia
+        var movsDia = await _db.MovimentacoesBancarias
+            .Where(m => m.ContaBancariaId == dto.ContaBancariaId
+                     && m.TenantId == _t.TenantId
+                     && m.DataMovimentacao == dto.DataConciliacao)
+            .ToListAsync();
+
+        var totalEntradas    = movsDia.Where(m => m.Tipo == "entrada").Sum(m => m.Valor);
+        var totalSaidas      = movsDia.Where(m => m.Tipo == "saida").Sum(m => m.Valor);
+        var totalTransfSaida = movsDia.Where(m => m.Tipo == "transferencia").Sum(m => m.Valor);
+        var totalTransfEntrada = await _db.MovimentacoesBancarias
+            .Where(m => m.ContaDestinoId == dto.ContaBancariaId
+                     && m.TenantId == _t.TenantId
+                     && m.DataMovimentacao == dto.DataConciliacao
+                     && m.Tipo == "transferencia")
+            .SumAsync(m => (decimal?)m.Valor) ?? 0;
+
+        var saldoFinal = saldoAnterior + totalEntradas - totalSaidas
+                       + totalTransfEntrada - totalTransfSaida;
+
+        decimal? diferenca = dto.SaldoExtrato.HasValue
+            ? saldoFinal - dto.SaldoExtrato.Value
+            : null;
+
+        // Cria registro de conciliação
+        var conciliacao = new ConciliacaoDiaria
+        {
+            Id               = Guid.NewGuid(),
+            TenantId         = _t.TenantId,
+            ContaBancariaId  = dto.ContaBancariaId,
+            DataConciliacao  = dto.DataConciliacao,
+            SaldoAnterior    = saldoAnterior,
+            TotalEntradas    = totalEntradas,
+            TotalSaidas      = totalSaidas,
+            SaldoFinal       = saldoFinal,
+            SaldoExtrato     = dto.SaldoExtrato,
+            Diferenca        = diferenca,
+            Observacao       = dto.Observacao,
+            FechadoPor       = _t.UserId,
+            FechadoEm        = DateTime.UtcNow,
+            CriadoEm        = DateTime.UtcNow
+        };
+        _db.ConciliacoesDiarias.Add(conciliacao);
+
+        // Marca todas as movimentações do dia como conciliadas
+        foreach (var m in movsDia)
+            m.Conciliado = true;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new {
+            mensagem = "Dia fechado com sucesso.",
+            conciliacaoId = conciliacao.Id,
+            saldoAnterior,
+            totalEntradas,
+            totalSaidas,
+            saldoFinal,
+            saldoExtrato = dto.SaldoExtrato,
+            diferenca
+        });
+    }
+
+    /// <summary>
+    /// GET /api/bancario/conciliacao/historico/{contaId}
+    /// Lista os fechamentos diários de uma conta.
+    /// </summary>
+    [HttpGet("conciliacao/historico/{contaId}")]
+    public async Task<IActionResult> HistoricoConciliacao(
+        Guid contaId,
+        [FromQuery] DateOnly? de,
+        [FromQuery] DateOnly? ate)
+    {
+        var inicio = de ?? DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
+        var fim    = ate ?? DateOnly.FromDateTime(DateTime.Today);
+
+        var historico = await _db.ConciliacoesDiarias
+            .Where(c => c.ContaBancariaId == contaId
+                     && c.TenantId == _t.TenantId
+                     && c.DataConciliacao >= inicio
+                     && c.DataConciliacao <= fim)
+            .OrderByDescending(c => c.DataConciliacao)
+            .Select(c => new {
+                c.Id,
+                c.DataConciliacao,
+                c.SaldoAnterior,
+                c.TotalEntradas,
+                c.TotalSaidas,
+                c.SaldoFinal,
+                c.SaldoExtrato,
+                c.Diferenca,
+                c.Observacao,
+                c.FechadoEm
+            })
+            .ToListAsync();
+
+        return Ok(historico);
+    }
+
     // ── Histórico por cliente ─────────────────────────────────────────────────
 
     [HttpGet("historico-cliente/{tutorId}")]
@@ -211,7 +469,6 @@ public class MovimentacaoBancariaController : ControllerBase
             .FirstOrDefaultAsync(t => t.Id == tutorId && t.TenantId == _t.TenantId);
         if (tutor == null) return NotFound();
 
-        // Contas pagas/recebidas vinculadas a OS ou PDV do tutor
         var contas = await _db.Contas
             .Include(c => c.Categoria)
             .Where(c => c.TenantId == _t.TenantId
@@ -244,8 +501,6 @@ public class MovimentacaoBancariaController : ControllerBase
         });
     }
 
-    // ── Histórico geral (lista tutores com total pago) ────────────────────────
-
     [HttpGet("historico-clientes")]
     public async Task<IActionResult> HistoricoClientes(
         [FromQuery] DateOnly? de,
@@ -263,7 +518,7 @@ public class MovimentacaoBancariaController : ControllerBase
         if (!string.IsNullOrEmpty(busca))
             query = query.Where(t => t.Nome.ToLower().Contains(busca.ToLower()));
 
-        var total  = await query.CountAsync();
+        var total   = await query.CountAsync();
         var tutores = await query.OrderBy(t => t.Nome)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(t => new {
@@ -272,7 +527,6 @@ public class MovimentacaoBancariaController : ControllerBase
             })
             .ToListAsync();
 
-        // Para cada tutor, busca total pago no periodo
         var result = new List<object>();
         foreach (var t in tutores)
         {

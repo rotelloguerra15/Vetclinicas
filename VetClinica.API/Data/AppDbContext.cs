@@ -48,6 +48,7 @@ public class AppDbContext : DbContext
     // Movimentacao Bancaria
     public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
     public DbSet<MovimentacaoBancaria> MovimentacoesBancarias => Set<MovimentacaoBancaria>();
+    public DbSet<ConciliacaoDiaria> ConciliacoesDiarias => Set<ConciliacaoDiaria>();
 
     // Bot WhatsApp
     public DbSet<BotConfig> BotConfigs => Set<BotConfig>();
@@ -102,6 +103,22 @@ public class AppDbContext : DbContext
 
         mb.Entity<ParametrosSistema>()
             .HasIndex(p => p.TenantId)
+            .IsUnique();
+
+        // Bancário
+        mb.Entity<ContaBancaria>()
+            .HasMany(c => c.Movimentacoes)
+            .WithOne(m => m.ContaBancaria)
+            .HasForeignKey(m => m.ContaBancariaId);
+
+        // Conciliação Diária
+        mb.Entity<ConciliacaoDiaria>()
+            .HasOne(c => c.ContaBancaria)
+            .WithMany()
+            .HasForeignKey(c => c.ContaBancariaId);
+
+        mb.Entity<ConciliacaoDiaria>()
+            .HasIndex(c => new { c.TenantId, c.ContaBancariaId, c.DataConciliacao })
             .IsUnique();
 
         base.OnModelCreating(mb);

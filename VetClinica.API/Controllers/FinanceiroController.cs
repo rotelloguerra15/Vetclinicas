@@ -238,6 +238,7 @@ public class FinanceiroController : ControllerBase
 
     // ================================================================
     //  BAIXA (pagamento / recebimento)
+    //  FIX: agora cria MovimentacaoBancaria quando ContaBancariaId é informado
     // ================================================================
 
     [HttpPost("contas/{id:guid}/baixar")]
@@ -253,31 +254,61 @@ public class FinanceiroController : ControllerBase
             return BadRequest(new { erro = $"Conta já está com status '{conta.Status}'" });
 
         // Registra baixa
-        conta.ValorPago = dto.ValorPago;
-        conta.DataBaixa = dto.DataBaixa;
-        conta.FormaPagamento = dto.FormaPagamento ?? conta.FormaPagamento;
-        conta.ContaBancaria = dto.ContaBancaria ?? conta.ContaBancaria;
-        conta.ObsBaixa = dto.ObsBaixa;
-        conta.Status = conta.Tipo == "receita" ? "recebida" : "paga";
-        conta.AtualizadoEm = DateTime.UtcNow;
+        conta.ValorPago       = dto.ValorPago;
+        conta.DataBaixa       = dto.DataBaixa;
+        conta.FormaPagamento  = dto.FormaPagamento ?? conta.FormaPagamento;
+        conta.ContaBancaria   = dto.ContaBancariaNome ?? conta.ContaBancaria;
+        conta.ObsBaixa        = dto.ObsBaixa;
+        conta.Status          = conta.Tipo == "receita" ? "recebida" : "paga";
+        conta.AtualizadoEm    = DateTime.UtcNow;
 
-        // Gera lançamento contábil
+        // Gera lançamento contábil (histórico)
         var lanc = new Lancamento
         {
-            Id = Guid.NewGuid(),
-            TenantId = _t.TenantId,
-            OsId = conta.OsId,
+            Id          = Guid.NewGuid(),
+            TenantId    = _t.TenantId,
+            OsId        = conta.OsId,
             CategoriaId = conta.CategoriaId,
-            Data = dto.DataBaixa,
-            Tipo = conta.Tipo,
-            Valor = dto.ValorPago,
-            Descricao = $"Baixa: {conta.Descricao}",
-            CriadoEm = DateTime.UtcNow
+            Data        = dto.DataBaixa,
+            Tipo        = conta.Tipo,
+            Valor       = dto.ValorPago,
+            Descricao   = $"Baixa: {conta.Descricao}",
+            CriadoEm   = DateTime.UtcNow
         };
-
         _db.Lancamentos.Add(lanc);
-        await _db.SaveChangesAsync();
 
+        // ── FIX: cria MovimentacaoBancaria para atualizar saldo ──────────────
+        if (dto.ContaBancariaId.HasValue)
+        {
+            var contaBancariaExiste = await _db.ContasBancarias
+                .AnyAsync(cb => cb.Id == dto.ContaBancariaId.Value && cb.TenantId == _t.TenantId);
+
+            if (contaBancariaExiste)
+            {
+                // receita = entrada na conta bancária; despesa = saída
+                var tipoMov = conta.Tipo == "receita" ? "entrada" : "saida";
+
+                var mov = new MovimentacaoBancaria
+                {
+                    Id               = Guid.NewGuid(),
+                    TenantId         = _t.TenantId,
+                    ContaBancariaId  = dto.ContaBancariaId.Value,
+                    Tipo             = tipoMov,
+                    Valor            = dto.ValorPago,
+                    Descricao        = $"Baixa financeiro: {conta.Descricao}",
+                    DataMovimentacao = dto.DataBaixa,
+                    CategoriaId      = conta.CategoriaId,
+                    ContaId          = conta.Id,
+                    Conciliado       = false,
+                    Origem           = "baixa_financeiro",
+                    CriadoPor        = _t.UserId,
+                    CriadoEm        = DateTime.UtcNow
+                };
+                _db.MovimentacoesBancarias.Add(mov);
+            }
+        }
+
+        await _db.SaveChangesAsync();
         return Ok(new { mensagem = "Baixa registrada com sucesso", lancamentoId = lanc.Id });
     }
 
@@ -290,11 +321,20 @@ public class FinanceiroController : ControllerBase
         if (conta.Status is not ("paga" or "recebida"))
             return BadRequest(new { erro = "Somente contas baixadas podem ser estornadas" });
 
-        conta.Status = "aberta";
-        conta.ValorPago = null;
-        conta.DataBaixa = null;
-        conta.ObsBaixa = null;
+        conta.Status      = "aberta";
+        conta.ValorPago   = null;
+        conta.DataBaixa   = null;
+        conta.ObsBaixa    = null;
         conta.AtualizadoEm = DateTime.UtcNow;
+
+        // Remove movimentacao bancaria gerada pela baixa, se existir e não conciliada
+        var movBaixa = await _db.MovimentacoesBancarias
+            .FirstOrDefaultAsync(m => m.ContaId == id
+                                   && m.Origem == "baixa_financeiro"
+                                   && m.TenantId == _t.TenantId
+                                   && !m.Conciliado);
+        if (movBaixa != null)
+            _db.MovimentacoesBancarias.Remove(movBaixa);
 
         await _db.SaveChangesAsync();
         return Ok(new { mensagem = "Estorno realizado" });
@@ -315,7 +355,6 @@ public class FinanceiroController : ControllerBase
             .Where(c => c.TenantId == _t.TenantId)
             .ToListAsync();
 
-        // Baixadas no período
         var baixadas = contas.Where(c =>
             c.DataBaixa.HasValue && c.DataBaixa >= inicio && c.DataBaixa <= fim &&
             c.Status is "paga" or "recebida").ToList();
@@ -323,12 +362,10 @@ public class FinanceiroController : ControllerBase
         var receitas = baixadas.Where(c => c.Tipo == "receita").Sum(c => c.ValorPago ?? 0);
         var despesas = baixadas.Where(c => c.Tipo == "despesa").Sum(c => c.ValorPago ?? 0);
 
-        // Em aberto
         var abertas = contas.Where(c => c.Status == "aberta").ToList();
         var receber = abertas.Where(c => c.Tipo == "receita").Sum(c => c.Valor);
-        var pagar = abertas.Where(c => c.Tipo == "despesa").Sum(c => c.Valor);
+        var pagar   = abertas.Where(c => c.Tipo == "despesa").Sum(c => c.Valor);
 
-        // Vencidas
         var vencidas = abertas.Where(c => c.DataVencimento < hoje).ToList();
 
         return Ok(new ResumoFinanceiroM2(
@@ -367,7 +404,7 @@ public class FinanceiroController : ControllerBase
     }
 
     // ================================================================
-    //  LANÇAMENTOS (histórico — mantém compatibilidade com código antigo)
+    //  LANÇAMENTOS (histórico — mantém compatibilidade)
     // ================================================================
 
     [HttpGet("lancamentos")]

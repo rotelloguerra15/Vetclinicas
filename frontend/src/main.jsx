@@ -33,6 +33,7 @@ import Parametros from './pages/Parametros'
 import Bot from './pages/Parametros/Bot'
 import Vias from './pages/Cadastros/Vias'
 import GestaoVista from './pages/GestaoVista'
+import Categorias from './pages/Categorias'
 
 function Protected({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/login" />
@@ -71,6 +72,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="rh/fechamento" element={<Fechamento />} />
           <Route path="rh/relatorios" element={<RelatoriosRH />} />
           <Route path="cadastros/vias" element={<Vias />} />
+          <Route path="financeiro/categorias" element={<Categorias />} />
           <Route path="parametros" element={<Parametros />} />
           <Route path="parametros/bot" element={<Bot />} />
         </Route>

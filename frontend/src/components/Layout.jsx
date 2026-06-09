@@ -26,7 +26,8 @@ const menu = [
 
   { group: 'Financeiro' },
   { to: '/financeiro',   label: 'Contas' },
-  { to: '/bancario',     label: 'Movim. Bancaria' },
+  { to: '/bancario',                label: 'Movim. Bancaria' },
+  { to: '/financeiro/categorias',   label: 'Categorias' },
 
   { group: 'RH' },
   { to: '/rh/funcionarios', label: 'Funcionarios' },

@@ -132,9 +132,6 @@ public record CaixaDetalheDto(Guid Id, DateOnly Data, decimal SaldoInicial, deci
 public record RelatorioMensal(int Ano, int Mes, decimal Receitas, decimal Despesas,
     decimal Saldo, int TotalAtendimentos, int TotalVendas, int NovosClientes);
 public record VendaDia(DateOnly Data, int Qtd, decimal Total);
-// ============================================================
-//  ADICIONAR ao arquivo DTOs/Dtos.cs — Seção Financeiro M2
-// ============================================================
 
 // ===================== FINANCEIRO M2 =====================
 
@@ -175,11 +172,14 @@ public record ContaCreate(
     Guid? VendaId
 );
 
+// FIX: adicionado ContaBancariaId (Guid) para criar MovimentacaoBancaria ao dar baixa
+// ContaBancariaNome mantém compatibilidade com campo string existente na tabela contas
 public record BaixaContaRequest(
     decimal ValorPago,
     DateOnly DataBaixa,
     string? FormaPagamento,
-    string? ContaBancaria,
+    string? ContaBancariaNome,   // nome do banco (armazenado em contas.conta_bancaria)
+    Guid? ContaBancariaId,       // id da conta bancária (para criar MovimentacaoBancaria)
     string? ObsBaixa
 );
 
@@ -197,7 +197,6 @@ public record ResumoFinanceiroM2(
 public record FluxoDia(DateOnly Data, decimal Receitas, decimal Despesas);
 
 // --- Atualizar LancamentoDto para incluir conta_id ---
-// (substituir o record existente)
 public record LancamentoDtoV2(
     Guid Id,
     DateOnly Data,

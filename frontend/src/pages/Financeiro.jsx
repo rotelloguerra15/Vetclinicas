@@ -2,9 +2,9 @@ import { useEffect, useState, useCallback } from 'react'
 import api from '../api/client'
 
 const STATUS_LABEL = {
-  aberta: { label: 'Em aberto', cls: 'bg-yellow-100 text-yellow-800' },
-  paga: { label: 'Pago', cls: 'bg-green-100 text-green-700' },
-  recebida: { label: 'Recebido', cls: 'bg-green-100 text-green-700' },
+  aberta:    { label: 'Em aberto', cls: 'bg-yellow-100 text-yellow-800' },
+  paga:      { label: 'Pago',      cls: 'bg-green-100 text-green-700' },
+  recebida:  { label: 'Recebido',  cls: 'bg-green-100 text-green-700' },
   cancelada: { label: 'Cancelada', cls: 'bg-slate-100 text-slate-500' },
 }
 
@@ -36,25 +36,38 @@ function Badge({ status, diasAtraso }) {
 }
 
 // ─── Modal de baixa ────────────────────────────────────────────────
+// Agora busca as contas bancárias e passa contaBancariaId no payload
 function ModalBaixa({ conta, onClose, onOk }) {
+  const [contasBancarias, setContasBancarias] = useState([])
   const [form, setForm] = useState({
-    valorPago: conta.valor,
-    dataBaixa: hoje(),
-    formaPagamento: conta.formaPagamento || 'PIX',
-    contaBancaria: conta.contaBancaria || 'Caixa',
-    obsBaixa: ''
+    valorPago:       conta.valor,
+    dataBaixa:       hoje(),
+    formaPagamento:  conta.formaPagamento || 'PIX',
+    contaBancariaId: '',
+    obsBaixa:        ''
   })
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.get('/bancario/contas')
+      .then(r => {
+        setContasBancarias(r.data)
+        if (r.data.length > 0) setForm(f => ({ ...f, contaBancariaId: r.data[0].id }))
+      })
+      .catch(() => {})
+  }, [])
 
   async function salvar() {
     setSaving(true)
     try {
+      const cb = contasBancarias.find(c => c.id === form.contaBancariaId)
       await api.post(`/financeiro/contas/${conta.id}/baixar`, {
-        valorPago: Number(form.valorPago),
-        dataBaixa: form.dataBaixa,
-        formaPagamento: form.formaPagamento,
-        contaBancaria: form.contaBancaria,
-        obsBaixa: form.obsBaixa || null
+        valorPago:        Number(form.valorPago),
+        dataBaixa:        form.dataBaixa,
+        formaPagamento:   form.formaPagamento,
+        contaBancariaNome: cb?.nome ?? null,
+        contaBancariaId:  form.contaBancariaId || null,
+        obsBaixa:         form.obsBaixa || null
       })
       onOk()
     } catch (e) {
@@ -93,13 +106,20 @@ function ModalBaixa({ conta, onClose, onOk }) {
               {FORMAS.map(f => <option key={f}>{f}</option>)}
             </select>
           </div>
-          <div>
-            <label className="text-xs text-slate-500 font-medium">Conta/Caixa</label>
-            <input className="input w-full mt-1" placeholder="Ex: Caixa, Banco X"
-              value={form.contaBancaria}
-              onChange={e => setForm(f => ({ ...f, contaBancaria: e.target.value }))} />
+          <div className="col-span-2">
+            <label className="text-xs text-slate-500 font-medium">Conta bancária</label>
+            <select className="input w-full mt-1"
+              value={form.contaBancariaId}
+              onChange={e => setForm(f => ({ ...f, contaBancariaId: e.target.value }))}>
+              <option value="">Selecione a conta</option>
+              {contasBancarias.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}{c.banco ? ` — ${c.banco}` : ''} · {fmt(c.saldoAtual)}
+                </option>
+              ))}
+            </select>
           </div>
-          <div>
+          <div className="col-span-2">
             <label className="text-xs text-slate-500 font-medium">Observação</label>
             <input className="input w-full mt-1" placeholder="Opcional"
               value={form.obsBaixa}
@@ -109,7 +129,8 @@ function ModalBaixa({ conta, onClose, onOk }) {
 
         <div className="flex gap-2 mt-5 justify-end">
           <button className="btn-secondary" onClick={onClose}>Cancelar</button>
-          <button className={`btn-primary ${conta.tipo === 'despesa' ? 'bg-red-600 hover:bg-red-700' : ''}`}
+          <button
+            className={`btn-primary ${conta.tipo === 'despesa' ? 'bg-red-600 hover:bg-red-700' : ''}`}
             onClick={salvar} disabled={saving}>
             {saving ? 'Salvando...' : conta.tipo === 'receita' ? 'Confirmar Recebimento' : 'Confirmar Pagamento'}
           </button>
@@ -119,157 +140,29 @@ function ModalBaixa({ conta, onClose, onOk }) {
   )
 }
 
-// ─── Modal nova conta ──────────────────────────────────────────────
-function ModalConta({ categorias, onClose, onOk }) {
-  const [form, setForm] = useState({
-    tipo: 'receita',
-    descricao: '',
-    valor: '',
-    dataCompetencia: hoje(),
-    dataVencimento: hoje(),
-    formaPagamento: 'PIX',
-    categoriaId: '',
-    contaBancaria: 'Caixa'
-  })
-  const [saving, setSaving] = useState(false)
-
-  const cats = categorias.filter(c => c.tipo === form.tipo)
-
-  async function salvar() {
-    if (!form.descricao.trim()) return alert('Informe uma descrição')
-    if (!form.valor || Number(form.valor) <= 0) return alert('Valor inválido')
-    setSaving(true)
-    try {
-      await api.post('/financeiro/contas', {
-        tipo: form.tipo,
-        descricao: form.descricao,
-        valor: Number(form.valor),
-        dataCompetencia: form.dataCompetencia,
-        dataVencimento: form.dataVencimento,
-        formaPagamento: form.formaPagamento,
-        categoriaId: form.categoriaId || null,
-        contaBancaria: form.contaBancaria
-      })
-      onOk()
-    } catch (e) {
-      alert(e.response?.data?.erro || 'Erro ao criar conta')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
-        <h3 className="font-bold text-lg mb-4">Nova Conta</h3>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
-            <label className="text-xs text-slate-500 font-medium">Tipo</label>
-            <div className="flex gap-2 mt-1">
-              {['receita', 'despesa'].map(t => (
-                <button key={t}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition
-                    ${form.tipo === t
-                      ? t === 'receita' ? 'bg-green-600 text-white border-green-600' : 'bg-red-600 text-white border-red-600'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                  onClick={() => setForm(f => ({ ...f, tipo: t, categoriaId: '' }))}>
-                  {t === 'receita' ? '💰 Receita' : '💸 Despesa'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="col-span-2">
-            <label className="text-xs text-slate-500 font-medium">Descrição *</label>
-            <input className="input w-full mt-1" placeholder="Ex: Consulta Dr. João, Conta de luz..."
-              value={form.descricao}
-              onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} />
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 font-medium">Valor (R$) *</label>
-            <input type="number" step="0.01" className="input w-full mt-1" placeholder="0,00"
-              value={form.valor}
-              onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} />
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 font-medium">Categoria</label>
-            <select className="input w-full mt-1"
-              value={form.categoriaId}
-              onChange={e => setForm(f => ({ ...f, categoriaId: e.target.value }))}>
-              <option value="">Sem categoria</option>
-              {cats.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 font-medium">Competência</label>
-            <input type="date" className="input w-full mt-1"
-              value={form.dataCompetencia}
-              onChange={e => setForm(f => ({ ...f, dataCompetencia: e.target.value }))} />
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 font-medium">Vencimento *</label>
-            <input type="date" className="input w-full mt-1"
-              value={form.dataVencimento}
-              onChange={e => setForm(f => ({ ...f, dataVencimento: e.target.value }))} />
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 font-medium">Forma de pagamento</label>
-            <select className="input w-full mt-1"
-              value={form.formaPagamento}
-              onChange={e => setForm(f => ({ ...f, formaPagamento: e.target.value }))}>
-              {FORMAS.map(f => <option key={f}>{f}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500 font-medium">Conta/Caixa</label>
-            <input className="input w-full mt-1" placeholder="Ex: Caixa, Banco X"
-              value={form.contaBancaria}
-              onChange={e => setForm(f => ({ ...f, contaBancaria: e.target.value }))} />
-          </div>
-        </div>
-
-        <div className="flex gap-2 mt-5 justify-end">
-          <button className="btn-secondary" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary" onClick={salvar} disabled={saving}>
-            {saving ? 'Salvando...' : 'Criar Conta'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Página principal ──────────────────────────────────────────────
 export default function Financeiro() {
-  const [contas, setContas] = useState([])
-  const [resumo, setResumo] = useState(null)
+  const [contas, setContas]         = useState([])
+  const [resumo, setResumo]         = useState(null)
   const [categorias, setCategorias] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]       = useState(true)
 
   // Filtros
-  const [aba, setAba] = useState('todas')         // todas | receber | pagar | vencidas
-  const [statusFiltro, setStatusFiltro] = useState('aberta')
-  const [busca, setBusca] = useState('')
+  const [aba, setAba]               = useState('todas')
+  const [statusFiltro, setStatus]   = useState('aberta')
+  const [busca, setBusca]           = useState('')
 
   // Modais
-  const [modalBaixa, setModalBaixa] = useState(null)   // { conta }
-  const [modalNova, setModalNova] = useState(false)
+  const [modalBaixa, setModalBaixa] = useState(null)
 
   const carregar = useCallback(async () => {
     setLoading(true)
     try {
       const params = {}
-      if (aba === 'receber') params.tipo = 'receita'
-      if (aba === 'pagar') params.tipo = 'despesa'
+      if (aba === 'receber')  params.tipo = 'receita'
+      if (aba === 'pagar')    params.tipo = 'despesa'
       if (aba === 'vencidas') params.vencidas = true
-      else if (statusFiltro) params.status = statusFiltro
+      else if (statusFiltro)  params.status = statusFiltro
 
       const [rContas, rResumo, rCats] = await Promise.all([
         api.get('/financeiro/contas', { params }),
@@ -309,14 +202,15 @@ export default function Financeiro() {
   }
 
   const contasFiltradas = contas.filter(c =>
-    !busca || c.descricao.toLowerCase().includes(busca.toLowerCase()) ||
+    !busca ||
+    c.descricao.toLowerCase().includes(busca.toLowerCase()) ||
     (c.categoriaNome || '').toLowerCase().includes(busca.toLowerCase())
   )
 
   const abas = [
-    { id: 'todas', label: 'Todas' },
+    { id: 'todas',   label: 'Todas' },
     { id: 'receber', label: '💰 A Receber' },
-    { id: 'pagar', label: '💸 A Pagar' },
+    { id: 'pagar',   label: '💸 A Pagar' },
     { id: 'vencidas', label: `⚠️ Vencidas${resumo?.contasVencidas > 0 ? ` (${resumo.contasVencidas})` : ''}` },
   ]
 
@@ -324,9 +218,9 @@ export default function Financeiro() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">💼 Financeiro</h1>
-        <button className="btn-primary" onClick={() => setModalNova(true)}>
-          + Nova Conta
-        </button>
+        <p className="text-sm text-slate-400">
+          Para lançar movimentações vá em <strong>Movim. Bancária</strong>
+        </p>
       </div>
 
       {/* Cards de resumo */}
@@ -362,7 +256,7 @@ export default function Financeiro() {
             <button key={a.id}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition
                 ${aba === a.id ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-              onClick={() => { setAba(a.id); setStatusFiltro(a.id === 'vencidas' ? '' : 'aberta') }}>
+              onClick={() => { setAba(a.id); setStatus(a.id === 'vencidas' ? '' : 'aberta') }}>
               {a.label}
             </button>
           ))}
@@ -371,7 +265,7 @@ export default function Financeiro() {
         {aba !== 'vencidas' && (
           <select className="input text-sm"
             value={statusFiltro}
-            onChange={e => setStatusFiltro(e.target.value)}>
+            onChange={e => setStatus(e.target.value)}>
             <option value="">Todos os status</option>
             <option value="aberta">Em aberto</option>
             <option value="paga">Pagas</option>
@@ -487,20 +381,12 @@ export default function Financeiro() {
         </div>
       )}
 
-      {/* Modais */}
+      {/* Modal baixa */}
       {modalBaixa && (
         <ModalBaixa
           conta={modalBaixa}
           onClose={() => setModalBaixa(null)}
           onOk={() => { setModalBaixa(null); carregar() }}
-        />
-      )}
-
-      {modalNova && (
-        <ModalConta
-          categorias={categorias}
-          onClose={() => setModalNova(false)}
-          onOk={() => { setModalNova(false); carregar() }}
         />
       )}
     </div>

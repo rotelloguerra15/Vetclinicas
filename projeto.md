@@ -1,156 +1,206 @@
 # VetClinica — Contexto do Projeto
 
+## LEIA ISSO PRIMEIRO
+Este arquivo é o contexto completo do projeto. Sempre leia antes de iniciar qualquer tarefa.
+O projeto é um SaaS veterinário multi-tenant chamado "Gestão Inteligente" / VetClinica.
+
+---
+
 ## Stack
-- Backend: .NET 8 + EF Core + PostgreSQL
-- Frontend: React + Vite + Tailwind + Recharts
-- Hospedagem: Railway (backend + banco) + Vercel (frontend via CLI)
+- **Backend:** .NET 8 + EF Core + PostgreSQL
+- **Frontend:** React + Vite + Tailwind + Recharts
+- **Hospedagem:** Railway (backend + banco) + Vercel (frontend via CLI manual)
+- **Repositório:** https://github.com/rotelloguerra15/Vetclinicas.git
 
-## URLs de Producao
+## URLs de Produção
 - Frontend: https://vetclinicas.vercel.app
-- Backend:  https://vetclinicas-production.up.railway.app
-- Webhook bot: https://vetclinicas-production.up.railway.app/api/webhook/whatsapp/{tenantId}
+- Backend: https://vetclinicas-production.up.railway.app
+- Webhook bot WhatsApp: https://vetclinicas-production.up.railway.app/api/webhook/whatsapp/{tenantId}
 
-## Deploy manual (Vercel nao faz auto-deploy - webhook quebrado)
+## Deploy Manual (OBRIGATÓRIO — webhook Vercel quebrado, não faz auto-deploy)
 ```powershell
 cd C:\Projetos\vetclinica\frontend
-# Garante .env.production com URL correta
 echo "VITE_API_URL=https://vetclinicas-production.up.railway.app" > .env.production
 npm run build
 cd C:\Projetos\vetclinica
+New-Item -ItemType Directory -Force -Path ".vercel\output\static"
 Copy-Item -Recurse -Force "frontend\dist\*" ".vercel\output\static\"
 vercel deploy --prod --yes --prebuilt
 ```
 
-## Portas locais
-| Servico   | Porta |
-|-----------|-------|
-| Frontend  | 5173  |
-| Backend   | 5010  |
-| PostgreSQL| 5433  |
-
-## Repositorio
-https://github.com/rotelloguerra15/Vetclinicas.git
-
-## Banco Railway
-- Host publico: gondola.proxy.rlwy.net:16524
+## Banco de Dados (Railway)
+- Host público: gondola.proxy.rlwy.net:16524
+- Host interno: postgres.railway.internal:5432
 - Database: railway / User: postgres
 - Password: eOpnNTdorWCkkphKLRlNogUWOtiwGibS
-- String: postgresql://postgres:eOpnNTdorWCkkphKLRlNogUWOtiwGibS@gondola.proxy.rlwy.net:16524/railway
+- Connection string: `postgresql://postgres:eOpnNTdorWCkkphKLRlNogUWOtiwGibS@gondola.proxy.rlwy.net:16524/railway`
 
-## Tenant principal
-- ID: 4b19602f-0425-4101-914c-5b9aeaf5d4e7
-- Nome: Pet Shop e Consultorio Dra. Barbara Fonseca
+## Rodar Migration no Railway
+```powershell
+$DB = "postgresql://postgres:eOpnNTdorWCkkphKLRlNogUWOtiwGibS@gondola.proxy.rlwy.net:16524/railway"
+psql $DB -f "C:\Projetos\vetclinica\database\ARQUIVO.sql"
+```
+
+## Tenant Principal (Produção)
+- ID: `4b19602f-0425-4101-914c-5b9aeaf5d4e7`
+- Nome: Pet Shop e Consultório Dra. Barbara Fonseca
 - Login: barbaratatschveterinaria@gmail.com / admin123
 
-## Padroes CRITICOS do projeto
-- Multi-tenant: coluna tenant_id em TODAS as tabelas
-- Auth: JWT via TenantContext (_t.TenantId, _t.UserId, _t.Papel)
-- ORM: EF Core — NUNCA usar Dapper
-- NUNCA emojis dentro de strings C# interpoladas (CS1010/CS1056)
-- FK violations: sempre SaveChanges() no pai ANTES de adicionar filhos
-- DbSet corretos: OrdensServico, Vendas, Tutores, Pets, Contas, PedidosCompra, etc.
-- Venda.TutorId (nao PetId)
-- Tabela financeira: "contas" (nao "lancamentos" - lancamentos e schema antigo)
-- PedidoItem FK: configurar HasForeignKey no OnModelCreating
-- Arquivos entregues sempre com nome final correto (sem _cur, _fix, etc.)
+---
+
+## PADRÕES CRÍTICOS (não ignorar)
+
+1. **Multi-tenant:** coluna `tenant_id` em TODAS as tabelas
+2. **Auth:** JWT via `TenantContext` — usar `_t.TenantId`, `_t.UserId`, `_t.Papel`
+3. **ORM:** EF Core — NUNCA usar Dapper
+4. **NUNCA emojis em strings C# interpoladas** — causa CS1010/CS1056
+5. **FK violations:** sempre `SaveChanges()` no pai ANTES de adicionar filhos
+6. **Tabela financeira:** chama `contas` (não `lancamentos` — legado do schema antigo)
+7. **Venda:** tem `TutorId` direto (não `PetId`)
+8. **PedidoItem FK:** configurar `HasForeignKey` no `OnModelCreating`
+9. **DbSets corretos:** `OrdensServico`, `Vendas`, `Tutores`, `Pets`, `Contas`, `PedidosCompra`, `MetasFaturamento`, etc.
+10. **Arquivos:** sempre entregar com nome final correto (sem `_cur`, `_fix`, `_v2` etc.)
+11. **Railway cache:** quando `COPY VetClinica.API/` aparece como `cached`, forçar com `Add-Content` em qualquer arquivo + commit
+12. **using:** sempre incluir `using VetClinica.API.Models;` em controllers que usam entities
 
 ---
 
-## Migrations aplicadas (26 total)
-| # | Arquivo | Descricao |
+## Migrations Aplicadas (27 total)
+| # | Arquivo | Descrição |
 |---|---------|-----------|
-| 01 | 01-schema.sql | Schema base (inclui tabela lancamentos legada) |
+| 01 | 01-schema.sql | Schema base (tabela `lancamentos` — legado) |
 | 02 | 02-estoque-mensagens.sql | Estoque, mensagens, vendas, triggers |
-| 03-09 | ... | Ajustes diversos |
-| 10 | 010_funcionarios.sql | Funcionarios RH |
-| 11 | 011_parametros_sistema.sql | Parametros |
-| 12 | 012_comissoes.sql | Comissoes |
-| 13 | 013_fechamento_mensal.sql | Fechamento |
-| 14 | 014_os_funcionario.sql | OS funcionario |
-| 15 | 015_movimentacoes_caixa.sql | Caixa |
-| 16 | 016_m1_ajustes.sql | Endereco tutor + microchip + plano saude |
-| 17 | 017_crmv_funcionario.sql | CRMV funcionarios |
-| 18 | 018_receituario_campos.sql | Registro MAPA + codigo pet |
-| 19 | 019_vias_administracao.sql | Vias de administracao |
-| 20 | 020_bot_whatsapp.sql | Bot WhatsApp (config, conversas, logs) |
-| 21 | 021_movimentacao_bancaria.sql | Contas bancarias e movimentacoes |
+| 03 | 03-aniversario-tutor.sql | Campos aniversário tutor |
+| 04 | 04-branding-fonseca.sql | Branding inicial |
+| 05 | 05-plataforma-saas.sql | Plataforma SaaS multi-tenant |
+| 06 | 06-promocoes.sql | Promoções/campanhas |
+| 07 | 07-fix-enums-to-varchar.sql | Fix enums |
+| 08 | 08-prontuario-campos.sql | Prontuário |
+| 09 | 09-caixa.sql | Caixa PDV |
+| 10 | 010_funcionarios.sql | Funcionários RH |
+| 11 | 011_parametros_sistema.sql | Parâmetros sistema |
+| 12 | 012_comissoes.sql | Comissões |
+| 13 | 013_fechamento_mensal.sql | Fechamento mensal |
+| 14 | 014_os_funcionario.sql | Vínculo OS/funcionário |
+| 15 | 015_movimentacoes_caixa.sql | Movimentações caixa |
+| 16 | 016_m1_ajustes.sql | Endereço tutor + microchip + plano saúde |
+| 17 | 017_crmv_funcionario.sql | CRMV funcionários |
+| 18 | 018_receituario_campos.sql | Registro MAPA + código pet |
+| 19 | 019_vias_administracao.sql | Vias de administração |
+| 20 | 020_bot_whatsapp.sql | Bot WhatsApp |
+| 21 | 021_movimentacao_bancaria.sql | Contas bancárias e movimentações |
 | 22 | 022_fornecedores_compras.sql | Fornecedores e pedidos de compra |
-| 23 | 023_condicoes_recebimento.sql | Condicoes pagamento + recebimento mercadoria |
-| 24 | 024_codigo_cadastros.sql | Campo codigo em produtos/fornecedores/funcionarios |
-| 25 | 025_seed_mensagens.sql | Templates padrao de mensagens automaticas |
-| 26 | 026_contas_financeiro.sql | Tabela contas (financeiro a pagar/receber) |
+| 23 | 023_condicoes_recebimento.sql | Condições pagamento + recebimento mercadoria |
+| 24 | 024_codigo_cadastros.sql | Campo `codigo` em produtos/fornecedores/funcionários |
+| 25 | 025_seed_mensagens.sql | Templates padrão mensagens automáticas |
+| 26 | 026_contas_financeiro.sql | Tabela `contas` (financeiro a pagar/receber) |
+| 27 | 027_metas_faturamento.sql | Tabela `metas_faturamento` |
 
 ---
 
-## Modulos implementados
+## Módulos Implementados ✅
 
-### CLINICA
+### Clínica
 - Auth, multi-tenant, JWT
-- Tutores (endereco desmembrado, codigo), Pets (microchip, plano saude, idade)
-- Prontuario, Vacinas
-- Agenda + Self-service (link WhatsApp + bot chatbot)
+- Tutores (endereço desmembrado, código, aniversário), Pets (microchip, plano saúde, idade, código)
+- Prontuário, Vacinas
+- Agenda + Self-service (link WhatsApp + bot chatbot via webhook Z-API)
 - OS Kanban, Atendimentos
-- Receituario PDF (logo, 3 colunas, tipo, via, farmacia) + WhatsApp + reimpressao
+- Receituário PDF (QuestPDF — logo, 3 colunas, tipo, via, farmácia) + WhatsApp + reimpressão
 
-### VENDAS
-- PDV/Caixa (retirada, deposito, fechamento)
-- Servicos e valores
-- Estoque com controle, codigo, sugestao de compra
+### Vendas
+- PDV/Caixa (retirada, depósito, fechamento)
+- Serviços, Estoque (código, sugestão de compra)
 
-### COMPRAS (M4)
-- Fornecedores (com codigo de controle)
-- Condicoes de pagamento cadastraveis (parcelas + intervalo)
-- Pedidos de compra: ao confirmar gera titulos a pagar no financeiro automaticamente
-- Recebimento de Mercadoria: conferencia fisica -> alimenta estoque
+### Compras (M4)
+- Fornecedores (com código de controle)
+- Condições de pagamento cadastráveis (parcelas + intervalo)
+- Pedidos de compra → ao confirmar gera títulos a pagar no financeiro automaticamente
+- Recebimento de Mercadoria: conferência física → alimenta estoque
 
-### FINANCEIRO (M2)
-- Tabela: contas (a pagar/receber, baixa, estorno) -- migration 026
-- Movimentacao bancaria (contas bancarias, entradas, saidas, conciliacao)
-- Historico por cliente
+### Financeiro (M2)
+- Tabela `contas` (a pagar/receber, baixa, estorno) — migration 026
+- Movimentação bancária (contas bancárias, entradas, saídas, conciliação)
+- Histórico por cliente
 
 ### RH (M3)
-- Funcionarios (CRMV, Registro MAPA, codigo)
-- Comissoes, fechamento mensal, relatorios
+- Funcionários (CRMV, Registro MAPA, código)
+- Comissões, fechamento mensal, relatórios
 
-### MARKETING
-- Mensagens automaticas WhatsApp (7 gatilhos com templates)
-- Promocoes/Campanhas
+### Marketing
+- Mensagens automáticas WhatsApp (7 gatilhos com templates pré-cadastrados via migration 025)
+- Promoções/Campanhas
 
-### CADASTROS
-- Usuarios, Vias de administracao, Condicoes de pagamento, Fornecedores
+### Cadastros
+- Usuários, Vias de administração, Condições de pagamento, Fornecedores
 
-### CONFIGURACOES
-- Parametros: logo, branding, toggles comissao OS/PDV
-- Bot WhatsApp: config + mensagens editaveis + log detalhado
+### Configurações
+- Parâmetros: logo upload, branding, toggles comissão OS/PDV
+- Bot WhatsApp: config + mensagens editáveis + log
 
-### GESTAO A VISTA
-- Tela para TV da recepcao (GestaoVista.jsx + GestaoVistaController.cs)
-- STATUS: implementado mas com ERRO nos loops das noticias - precisa validar
+### Dashboard BI
+- Seletor mês/ano com auto-refresh a cada 5 min
+- KPIs: vendas, meta, agendamentos, resultado
+- Gráfico Metas x Realizado (ComposedChart — barras + linha %)
+- Gráfico pizza: agendamentos por status
+- Próximos agendamentos do dia
+- Aniversariantes do dia (pets e tutores) com cards animados
+- Alertas: contas vencidas, estoque em falta, agendamentos pendentes
 
-### DASHBOARD
-- KPIs: vendas, receita, OS, agendamentos, alertas
-- Grafico de barras: vendas 6 meses (Recharts)
-- Grafico pizza: agendamentos por status
-- Proximos agendamentos do dia
-- Indicadores rapidos + resultado do mes
+### Layout Responsivo
+- Desktop: sidebar fixa
+- Mobile/Tablet: topbar + drawer com menu hamburguer
+- Fecha automaticamente ao navegar
+
+### Gestão à Vista (TV Recepção)
+- Implementado (GestaoVista.jsx + GestaoVistaController.cs)
+- STATUS: com ERRO nos loops das notícias/animação — pendente validação
 
 ---
 
 ## BACKLOG — O que falta
 
-### Bugs conhecidos
-- [ ] **Movimentacao bancaria nao alimentada na baixa de contas** — ao dar baixa em contas a pagar/receber, o saldo da conta bancaria nao e atualizado automaticamente. O saldo superior nao reflete o pagamento. Investigar FinanceiroController metodo de baixa.
-- [ ] **M6 Gestao a Vista** — implementado mas com erro nos loops das noticias/animacao. Precisa validar e corrigir.
+### Bugs Conhecidos
+- [ ] **Movimentação bancária não atualizada na baixa** — ao dar baixa em contas a pagar/receber, o saldo da conta bancária não é atualizado automaticamente. Investigar `FinanceiroController` método de baixa — deve criar `MovimentacaoBancaria` ao dar baixa.
+- [ ] **Gestão à Vista** — erro nos loops das notícias/animação. Precisa validar e corrigir.
 
-### Funcionalidades pendentes
-- [ ] M5 Planos de saude (cadastro e vinculo com pet)
-- [ ] M7 Metas de faturamento vs realizado por mes
-- [ ] M7 Dashboard gerencial com custo vs receita
+### Funcionalidades Pendentes
+- [ ] M5 — Planos de saúde (cadastro e vínculo com pet)
+- [ ] M7 — Metas de faturamento: tela de gestão de metas por mês (já tem tabela e endpoint)
+- [ ] M7 — Dashboard gerencial com custo vs receita completo
+- [ ] Reconectar webhook Vercel ao GitHub (atualmente deploy é manual via CLI)
 
-### Tecnico / SaaS
-- [ ] Reconectar webhook Vercel ao GitHub (atualmente deploy e manual via CLI)
-- [ ] Assinatura digital no receituario (gov.br/ITI ou hash + QR code)
-- [ ] Migrar bot para Meta Cloud API em producao
-- [ ] Storage de imagens (Cloudflare R2 ou Supabase)
-- [ ] Integracao Asaas (PIX/boleto) + suspensao por inadimplencia
-- [ ] Self-service cadastro tenant (teste gratis 7 dias)
+### Backlog Técnico / SaaS
+- [ ] Assinatura digital no receituário (gov.br/ITI ou hash + QR code)
+- [ ] Migrar bot WhatsApp para Meta Cloud API (substituir Z-API em produção)
+- [ ] Storage de imagens (Cloudflare R2 ou Supabase) — logo e fotos de pets
+- [ ] Integração Asaas (PIX/boleto) + suspensão automática por inadimplência
+- [ ] Self-service cadastro de tenant (teste grátis 7 dias)
+
+---
+
+## Estrutura de Arquivos Relevantes
+```
+C:\Projetos\vetclinica\
+  VetClinica.API\
+    Controllers\   (32 controllers)
+    Models\        Entities.cs — todas as entities
+    DTOs\          Dtos.cs — todos os DTOs/records
+    Data\          AppDbContext.cs — DbSets e OnModelCreating
+    Services\      ReceituarioPdfService.cs, BotWhatsAppService.cs, etc.
+    Middleware\    TenantMiddleware.cs — injeta TenantContext
+  frontend\
+    src\
+      pages\       (31 páginas)
+      components\  Layout.jsx, Logo.jsx
+      api\         client.js — axios com JWT
+  database\        (27 migrations .sql)
+  projeto.md       este arquivo
+```
+
+## Páginas Existentes
+AdminLogin, AdminPanel, Agenda, AgendarPublico, Atendimentos, Bancario,
+Cadastros/Vias, Compras, CondicoesPagamento, Dashboard, Estoque, Fechamento,
+Financeiro, Fornecedores, GestaoVista, Login, Mensagens, PDV, Parametros,
+Parametros/Bot, PetDetalhe, Pets, Promocoes, RH/Fechamento, RH/Funcionarios,
+RH/RelatoriosRH, Recebimentos, Relatorios, Servicos, Tutores, Usuarios
