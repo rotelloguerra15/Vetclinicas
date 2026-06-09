@@ -45,17 +45,51 @@ public class ReceituarioController : ControllerBase
     public ReceituarioController(AppDbContext db, TenantContext t, ReceituarioPdfService pdf, ZApiService zapi)
     { _db = db; _t = t; _pdf = pdf; _zapi = zapi; }
 
+    // GET /api/receituario/veterinarios
+    // Retorna quem pode assinar: cargo.pode_receituario = true OU assinaReceituario legacy
     [HttpGet("veterinarios")]
     public async Task<IActionResult> ListarVeterinarios()
     {
         var lista = await _db.Funcionarios
+            .Include(f => f.CargoObj)
             .Where(f => f.TenantId == _t.TenantId
                      && f.Status == "trabalhando"
-                     && f.AssinaReceituario)
+                     && (f.AssinaReceituario
+                         || (f.CargoObj != null && f.CargoObj.PodeReceituario)))
             .OrderBy(f => f.Nome)
-            .Select(f => new { f.Id, f.Nome, f.Cargo, f.Crmv, f.RegistroMapa, f.Telefone, f.Email })
+            .Select(f => new {
+                f.Id, f.Nome, f.Crmv, f.RegistroMapa, f.Telefone, f.Email,
+                f.UsuarioId,
+                CargoNome = f.CargoObj != null ? f.CargoObj.Nome : f.Cargo
+            })
             .ToListAsync();
         return Ok(lista);
+    }
+
+    // GET /api/receituario/vet-logado
+    // Verifica se o usuário logado é veterinário — preenche automaticamente no frontend
+    [HttpGet("vet-logado")]
+    public async Task<IActionResult> VetLogado()
+    {
+        var func = await _db.Funcionarios
+            .Include(f => f.CargoObj)
+            .FirstOrDefaultAsync(f => f.TenantId == _t.TenantId
+                                   && f.UsuarioId == _t.UserId
+                                   && f.Status == "trabalhando"
+                                   && (f.AssinaReceituario
+                                       || (f.CargoObj != null && f.CargoObj.PodeReceituario)));
+
+        if (func == null)
+            return Ok(new { ehVet = false });
+
+        return Ok(new {
+            ehVet       = true,
+            id          = func.Id,
+            nome        = func.Nome,
+            crmv        = func.Crmv,
+            registroMapa = func.RegistroMapa,
+            cargoNome   = func.CargoObj?.Nome ?? func.Cargo
+        });
     }
 
     [HttpPost]

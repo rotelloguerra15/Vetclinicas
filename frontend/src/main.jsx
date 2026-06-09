@@ -32,6 +32,7 @@ import RelatoriosRH from './pages/RH/RelatoriosRH'
 import Parametros from './pages/Parametros'
 import Bot from './pages/Parametros/Bot'
 import Vias from './pages/Cadastros/Vias'
+import Cargos from './pages/RH/Cargos'
 import GestaoVista from './pages/GestaoVista'
 import Categorias from './pages/Categorias'
 
@@ -69,6 +70,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="recebimentos" element={<Recebimentos />} />
           <Route path="compras/condicoes" element={<CondicoesPagamento />} />
           <Route path="rh/funcionarios" element={<Funcionarios />} />
+          <Route path="rh/cargos" element={<Cargos />} />
           <Route path="rh/fechamento" element={<Fechamento />} />
           <Route path="rh/relatorios" element={<RelatoriosRH />} />
           <Route path="cadastros/vias" element={<Vias />} />

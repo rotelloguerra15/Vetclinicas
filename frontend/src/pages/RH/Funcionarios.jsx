@@ -14,7 +14,7 @@ const VAZIO = {
   nome: '', codigo: '', cpf: '', rg: '', dataNascimento: '',
   logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '',
   telefone: '', email: '', cargo: '', crmv: '', registroMapa: '', dataAdmissao: '',
-  salario: '', percentualComissao: '', status: 'trabalhando', assinaReceituario: false
+  salario: '', percentualComissao: '', status: 'trabalhando', cargoId: '', usuarioId: ''
 }
 
 function maskCpf(v)   { return v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2') }
@@ -41,14 +41,15 @@ function Sec({ title, children }) {
 }
 
 // ─── Formulário ──────────────────────────────────────────────────────────────
-function Form({ initial, onSalvar, onCancelar }) {
+function Form({ initial, onSalvar, onCancelar, cargos = [], usuarios = [] }) {
   const [form, setForm] = useState(initial ? {
     ...initial,
     dataNascimento: initial.dataNascimento ? String(initial.dataNascimento).slice(0,10) : '',
     dataAdmissao:   initial.dataAdmissao   ? String(initial.dataAdmissao).slice(0,10)   : '',
     salario: initial.salario ?? '',
     percentualComissao: initial.percentualComissao ?? '',
-    assinaReceituario: initial.assinaReceituario ?? false
+    cargoId: initial.cargoId ?? '',
+    usuarioId: initial.usuarioId ?? ''
   } : { ...VAZIO })
   const [saving, setSaving] = useState(false)
 
@@ -160,20 +161,34 @@ function Form({ initial, onSalvar, onCancelar }) {
       </Sec>
 
       <Sec title="Dados Profissionais">
-        {campo('Cargo', 'cargo')}
-        {campo('CRMV (Conselho Regional de Medicina Veterinária)', 'crmv')}
-        <div className="col-span-2 flex items-center gap-3 mt-1">
-          <button
-            type="button"
-            onClick={() => setForm(f => ({ ...f, assinaReceituario: !f.assinaReceituario }))}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${form.assinaReceituario ? 'bg-emerald-600' : 'bg-slate-200'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.assinaReceituario ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-          <div>
-            <span className="text-sm font-medium text-slate-700">Assina receituário</span>
-            <p className="text-xs text-slate-400">Aparece na lista de veterinários no receituário</p>
-          </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Cargo *</label>
+          <select
+            value={form.cargoId}
+            onChange={e => set('cargoId', e.target.value)}
+            className="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">— Selecione o cargo —</option>
+            {cargos.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.nome}{c.podeReceituario ? ' ✓ Receituário' : ''}
+              </option>
+            ))}
+          </select>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Usuário do sistema</label>
+          <select
+            value={form.usuarioId}
+            onChange={e => set('usuarioId', e.target.value)}
+            className="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">— Sem vínculo de login —</option>
+            {usuarios.map(u => (
+              <option key={u.id} value={u.id}>{u.nome} ({u.email})</option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-400 mt-1">Vincula o funcionário a um login do sistema</p>
+        </div>
+        {campo('CRMV (Conselho Regional de Medicina Veterinária)', 'crmv')}
         {campo('Registro no MAPA', 'registroMapa')}
         {campo('Data de Admissão', 'dataAdmissao', 'date')}
         {campo('Salário (R$)', 'salario', 'number')}
@@ -223,6 +238,8 @@ export default function Funcionarios() {
       <Form
         initial={editando?.id ? editando : null}
         onSalvar={() => { setEditando(null); carregar() }}
+        cargos={cargos}
+        usuarios={usuarios}
         onCancelar={() => setEditando(null)}
       />
     )

@@ -41,6 +41,11 @@ public class Funcionario
     [Column("percentual_comissao")] public decimal PercentualComissao { get; set; }
 
     [Column("assina_receituario")] public bool AssinaReceituario { get; set; } = false;
+    [Column("cargo_id")]           public Guid? CargoId { get; set; }
+    [Column("usuario_id")]         public Guid? UsuarioId { get; set; }
+
+    public Cargo? CargoObj { get; set; }
+    public User? Usuario { get; set; }
 
     // trabalhando | ferias | demitido
     [Column("status")] public string Status { get; set; } = "trabalhando";
@@ -692,6 +697,20 @@ public class ConciliacaoDiaria
     [Column("criado_em")]          public DateTime CriadoEm { get; set; }
 
     public ContaBancaria? ContaBancaria { get; set; }
+}
+
+
+// ===================== CARGOS =====================
+
+[Table("cargos")]
+public class Cargo
+{
+    [Column("id")]                public Guid Id { get; set; }
+    [Column("tenant_id")]         public Guid TenantId { get; set; }
+    [Column("nome")]              public string Nome { get; set; } = "";
+    [Column("pode_receituario")]  public bool PodeReceituario { get; set; } = false;
+    [Column("ativo")]             public bool Ativo { get; set; } = true;
+    [Column("criado_em")]         public DateTime CriadoEm { get; set; }
 }
 
 // ===================== M4 COMPRAS =====================

@@ -45,6 +45,9 @@ public class AppDbContext : DbContext
     public DbSet<RecebimentoMercadoria> RecebimentosMercadoria => Set<RecebimentoMercadoria>();
     public DbSet<RecebimentoItem> RecebimentoItens => Set<RecebimentoItem>();
 
+    // Cargos
+    public DbSet<Cargo> Cargos => Set<Cargo>();
+
     // Movimentacao Bancaria
     public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
     public DbSet<MovimentacaoBancaria> MovimentacoesBancarias => Set<MovimentacaoBancaria>();
@@ -104,6 +107,19 @@ public class AppDbContext : DbContext
         mb.Entity<ParametrosSistema>()
             .HasIndex(p => p.TenantId)
             .IsUnique();
+
+        // Cargos
+        mb.Entity<Funcionario>()
+            .HasOne(f => f.CargoObj)
+            .WithMany()
+            .HasForeignKey(f => f.CargoId)
+            .IsRequired(false);
+
+        mb.Entity<Funcionario>()
+            .HasOne(f => f.Usuario)
+            .WithMany()
+            .HasForeignKey(f => f.UsuarioId)
+            .IsRequired(false);
 
         // Bancário
         mb.Entity<ContaBancaria>()

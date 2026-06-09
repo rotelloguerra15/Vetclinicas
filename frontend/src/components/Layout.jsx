@@ -31,6 +31,7 @@ const menu = [
 
   { group: 'RH' },
   { to: '/rh/funcionarios', label: 'Funcionarios' },
+  { to: '/rh/cargos',        label: 'Cargos' },
   { to: '/rh/fechamento',   label: 'Fechamento' },
   { to: '/rh/relatorios',   label: 'Relatorios RH' },
 
