@@ -787,3 +787,5 @@ public class MetaFaturamento
     [Column("criado_em")]     public DateTime CriadoEm { get; set; }
     [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
 }
+
+// rebuild
