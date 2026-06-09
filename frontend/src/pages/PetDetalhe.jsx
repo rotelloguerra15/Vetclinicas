@@ -399,55 +399,18 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
     setIaCarregando(true)
     setIaResposta('')
     try {
-      const resp = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/ia/diagnostico`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            sintomas: iaSintomas,
-            petNome: petNome,
-            especie: null,
-            raca: null,
-            idade: null,
-            pesoKg: null
-          })
-        }
-      )
-      const reader = resp.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6)
-          if (data === '[DONE]') break
-          try {
-            const parsed = JSON.parse(data)
-            // Backend envia string serializada: "texto aqui"
-            // Mas pode vir como objeto com campo text ou erro
-            let text = ''
-            if (typeof parsed === 'string') {
-              text = parsed
-            } else if (parsed?.text) {
-              text = parsed.text
-            } else if (parsed?.erro) {
-              text = `Erro: ${parsed.erro}`
-            }
-            if (text) setIaResposta(prev => prev + text)
-          } catch {}
-        }
-      }
-    } catch {
-      setIaResposta('Erro ao consultar a IA. Verifique a conexão.')
+      const r = await api.post('/ia/diagnostico', {
+        sintomas: iaSintomas,
+        petNome: petNome,
+        especie: null,
+        raca: null,
+        idade: null,
+        pesoKg: null
+      })
+      setIaResposta(r.data.texto || 'Sem resposta da IA.')
+    } catch (err) {
+      const msg = err.response?.data?.erro || err.response?.data?.detalhe || 'Erro ao consultar a IA.'
+      setIaResposta(`Erro: ${msg}`)
     } finally {
       setIaCarregando(false)
     }
@@ -626,7 +589,7 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
                     </div>
                     <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
                       {iaResposta}
-                      {iaCarregando && <span className="inline-block w-2 h-4 bg-violet-400 animate-pulse ml-0.5 align-text-bottom" />}
+
                     </div>
                     {!iaCarregando && iaResposta && (
                       <div className="pt-2 border-t flex gap-2">

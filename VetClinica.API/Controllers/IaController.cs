@@ -25,25 +25,18 @@ public class IaController : ControllerBase
         _http = http;
     }
 
-    // ── GET /api/ia/status ────────────────────────────────────────────────────
-    // Retorna se a IA está ativa para o tenant (sem expor a chave)
-
     [HttpGet("status")]
     public async Task<IActionResult> Status()
     {
         var p = await _db.ParametrosSistema
             .FirstOrDefaultAsync(x => x.TenantId == _t.TenantId);
-
         return Ok(new {
             ativo = p != null && p.IaAtivo && !string.IsNullOrWhiteSpace(p.AnthropicApiKey)
         });
     }
 
-    // ── POST /api/ia/diagnostico ──────────────────────────────────────────────
-    // Recebe sintomas + dados do pet, chama Claude, retorna streaming SSE
-
     public record DiagnosticoRequest(
-        string Sintomas,        // texto livre do veterinário / transcrição do microfone
+        string Sintomas,
         string? PetNome,
         string? Especie,
         string? Raca,
@@ -52,47 +45,40 @@ public class IaController : ControllerBase
     );
 
     [HttpPost("diagnostico")]
-    public async Task DiagnosticoStreaming(DiagnosticoRequest req, CancellationToken ct)
+    public async Task<IActionResult> Diagnostico(DiagnosticoRequest req)
     {
-        // Busca chave do tenant
         var p = await _db.ParametrosSistema
-            .FirstOrDefaultAsync(x => x.TenantId == _t.TenantId, ct);
+            .FirstOrDefaultAsync(x => x.TenantId == _t.TenantId);
 
         if (p == null || !p.IaAtivo || string.IsNullOrWhiteSpace(p.AnthropicApiKey))
-        {
-            Response.StatusCode = 403;
-            await Response.WriteAsync("IA nao configurada para este tenant.", ct);
-            return;
-        }
+            return StatusCode(403, new { erro = "IA nao configurada para este tenant." });
 
-        // Monta contexto do paciente
         var paciente = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(req.PetNome))   paciente.Append($"Nome: {req.PetNome}. ");
-        if (!string.IsNullOrWhiteSpace(req.Especie))   paciente.Append($"Espécie: {req.Especie}. ");
-        if (!string.IsNullOrWhiteSpace(req.Raca))      paciente.Append($"Raça: {req.Raca}. ");
-        if (!string.IsNullOrWhiteSpace(req.Idade))     paciente.Append($"Idade: {req.Idade}. ");
-        if (req.PesoKg.HasValue)                       paciente.Append($"Peso: {req.PesoKg} kg. ");
+        if (!string.IsNullOrWhiteSpace(req.PetNome)) paciente.Append($"Nome: {req.PetNome}. ");
+        if (!string.IsNullOrWhiteSpace(req.Especie))  paciente.Append($"Especie: {req.Especie}. ");
+        if (!string.IsNullOrWhiteSpace(req.Raca))     paciente.Append($"Raca: {req.Raca}. ");
+        if (!string.IsNullOrWhiteSpace(req.Idade))    paciente.Append($"Idade: {req.Idade}. ");
+        if (req.PesoKg.HasValue)                      paciente.Append($"Peso: {req.PesoKg} kg. ");
 
         var userMessage = paciente.Length > 0
-            ? $"Paciente: {paciente}\n\nRelato clínico: {req.Sintomas}"
+            ? $"Paciente: {paciente}\n\nRelato clinico: {req.Sintomas}"
             : req.Sintomas;
 
-        const string systemPrompt =
-            "Você é um assistente clínico veterinário especializado em diagnóstico. " +
-            "Receberá a descrição de um paciente animal com seus sintomas e histórico. " +
-            "Responda sempre em português brasileiro, de forma estruturada com:\n" +
-            "**1. Diagnósticos diferenciais** (do mais ao menos provável)\n" +
-            "**2. Exames recomendados**\n" +
-            "**3. Conduta inicial sugerida**\n\n" +
-            "Seja objetivo e técnico — o destinatário é um médico veterinário. " +
-            "Não substitua a avaliação clínica presencial. Máximo 300 palavras.";
+        var systemPrompt =
+            "Voce e um assistente clinico veterinario especializado em diagnostico. " +
+            "Recebera a descricao de um paciente animal com seus sintomas e historico. " +
+            "Responda sempre em portugues brasileiro, de forma estruturada com:\n" +
+            "1. Diagnosticos diferenciais (do mais ao menos provavel)\n" +
+            "2. Exames recomendados\n" +
+            "3. Conduta inicial sugerida\n\n" +
+            "Seja objetivo e tecnico. O destinatario e um medico veterinario. " +
+            "Nao substitua a avaliacao clinica presencial. Maximo 300 palavras.";
 
-        // Monta payload para API Anthropic com streaming
         var payload = new
         {
             model      = "claude-sonnet-4-20250514",
             max_tokens = 1024,
-            stream     = true,
+            stream     = false,
             system     = systemPrompt,
             messages   = new[] { new { role = "user", content = userMessage } }
         };
@@ -102,78 +88,37 @@ public class IaController : ControllerBase
         var client = _http.CreateClient();
         client.DefaultRequestHeaders.Add("x-api-key", p.AnthropicApiKey);
         client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
-
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages")
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json")
-        };
-
-        // Configura response como SSE
-        Response.Headers["Content-Type"]  = "text/event-stream";
-        Response.Headers["Cache-Control"] = "no-cache";
-        Response.Headers["X-Accel-Buffering"] = "no";
+        client.Timeout = TimeSpan.FromSeconds(60);
 
         try
         {
-            using var httpResp = await client.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead, ct);
+            var httpResp = await client.PostAsync(
+                "https://api.anthropic.com/v1/messages",
+                new StringContent(json, Encoding.UTF8, "application/json")
+            );
+
+            var body = await httpResp.Content.ReadAsStringAsync();
 
             if (!httpResp.IsSuccessStatusCode)
-            {
-                var erro = await httpResp.Content.ReadAsStringAsync(ct);
-                await Response.WriteAsync($"data: {{\"erro\": \"Erro na API Anthropic: {httpResp.StatusCode}\"}}\n\n", ct);
-                return;
-            }
+                return StatusCode(502, new { erro = $"Erro Anthropic: {httpResp.StatusCode}", detalhe = body });
 
-            await using var stream = await httpResp.Content.ReadAsStreamAsync(ct);
-            using var reader = new System.IO.StreamReader(stream);
+            using var doc = JsonDocument.Parse(body);
+            var texto = doc.RootElement
+                .GetProperty("content")[0]
+                .GetProperty("text")
+                .GetString();
 
-            while (!reader.EndOfStream && !ct.IsCancellationRequested)
-            {
-                var line = await reader.ReadLineAsync(ct);
-                if (line == null) break;
-                if (!line.StartsWith("data: ")) continue;
-
-                var data = line["data: ".Length..];
-                if (data == "[DONE]") break;
-
-                try
-                {
-                    using var doc = JsonDocument.Parse(data);
-                    var type = doc.RootElement.GetProperty("type").GetString();
-
-                    if (type == "content_block_delta")
-                    {
-                        // Anthropic streaming: delta.type = "text_delta", delta.text = "..."
-                        var deltaEl = doc.RootElement.GetProperty("delta");
-                        var deltaType = deltaEl.TryGetProperty("type", out var dt) ? dt.GetString() : null;
-
-                        if (deltaType == "text_delta")
-                        {
-                            var delta = deltaEl.TryGetProperty("text", out var txt) ? txt.GetString() : null;
-                            if (!string.IsNullOrEmpty(delta))
-                            {
-                                var escaped = JsonSerializer.Serialize(delta);
-                                await Response.WriteAsync($"data: {escaped}\n\n", ct);
-                                await Response.Body.FlushAsync(ct);
-                            }
-                        }
-                    }
-                }
-                catch { /* ignora linhas malformadas */ }
-            }
-
-            await Response.WriteAsync("data: [DONE]\n\n", ct);
-            await Response.Body.FlushAsync(ct);
+            return Ok(new { texto });
         }
-        catch (OperationCanceledException)
+        catch (TaskCanceledException)
         {
-            // cliente desconectou — normal
+            return StatusCode(504, new { erro = "Timeout. Tente novamente." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { erro = ex.Message });
         }
     }
-
-    // ── PUT /api/ia/configurar ────────────────────────────────────────────────
-    // Salva chave API + toggle ativo
 
     public record IaConfigRequest(string? AnthropicApiKey, bool IaAtivo);
 
@@ -184,9 +129,8 @@ public class IaController : ControllerBase
             .FirstOrDefaultAsync(x => x.TenantId == _t.TenantId);
 
         if (p == null)
-            return NotFound(new { erro = "Parâmetros não encontrados. Acesse Configurações primeiro." });
+            return NotFound(new { erro = "Parametros nao encontrados. Acesse Configuracoes primeiro." });
 
-        // Só atualiza a chave se vier preenchida (não sobrescreve com vazio)
         if (!string.IsNullOrWhiteSpace(dto.AnthropicApiKey))
             p.AnthropicApiKey = dto.AnthropicApiKey.Trim();
 
@@ -194,11 +138,8 @@ public class IaController : ControllerBase
         p.AtualizadoEm = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return Ok(new { mensagem = "Configuração de IA salva.", ativo = p.IaAtivo });
+        return Ok(new { mensagem = "Configuracao de IA salva.", ativo = p.IaAtivo });
     }
-
-    // ── DELETE /api/ia/chave ──────────────────────────────────────────────────
-    // Remove a chave (segurança)
 
     [HttpDelete("chave")]
     public async Task<IActionResult> RemoverChave()
