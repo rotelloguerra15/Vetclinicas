@@ -223,6 +223,7 @@ public class ReceituarioController : ControllerBase
         }
 
         var nomeArq = $"receituario_{pet.Nome.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.pdf";
+        Response.Headers.Append("Access-Control-Allow-Origin", "*");
         Response.Headers.Append("X-WhatsApp-Enviado", whatsappEnviado.ToString().ToLower());
         return File(pdfBytes, "application/pdf", nomeArq);
     }
@@ -338,6 +339,7 @@ public class ReceituarioController : ControllerBase
         }
 
         var nomeArq = $"receituario_{pet.Nome.Replace(" ", "_")}_{item.Data:yyyyMMdd}.pdf";
+        Response.Headers.Append("Access-Control-Allow-Origin", "*");
         Response.Headers.Append("X-WhatsApp-Enviado", whatsappEnviado.ToString().ToLower());
         return File(pdfBytes, "application/pdf", nomeArq);
     }
