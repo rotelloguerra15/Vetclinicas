@@ -66,11 +66,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // ---------- CORS ----------
+var frontendUrl = builder.Configuration["App:FrontendUrl"]
+    ?? Environment.GetEnvironmentVariable("App__FrontendUrl")
+    ?? "http://localhost:5173";
+
+// Suporta múltiplas origens separadas por vírgula
+var origens = frontendUrl.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(opt =>
     opt.AddPolicy("front", p => p
-        .WithOrigins(builder.Configuration["App:FrontendUrl"] ?? "http://localhost:5173")
+        .WithOrigins(origens)
         .AllowAnyHeader()
-        .AllowAnyMethod()));
+        .AllowAnyMethod()
+        .WithExposedHeaders("X-WhatsApp-Enviado", "Content-Disposition")));
 
 // ---------- Controllers + Swagger ----------
 builder.Services.AddControllers()
@@ -119,5 +127,3 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", ts = DateTime.UtcNow }));
 
 app.Run();
- 
- 
