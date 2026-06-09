@@ -55,8 +55,9 @@ public class ProdutosController : ControllerBase
             CriadoEm = DateTime.UtcNow
         };
         _db.Produtos.Add(p);
+        await _db.SaveChangesAsync(); // salva produto primeiro para garantir FK
 
-        // movimentação inicial de entrada (se houver estoque)
+        // movimentacao inicial de entrada (se houver estoque)
         if (dto.EstoqueAtual > 0)
         {
             _db.MovimentacoesEstoque.Add(new MovimentacaoEstoque
@@ -66,8 +67,8 @@ public class ProdutosController : ControllerBase
                 CustoUnitario = dto.PrecoCusto, Motivo = "Cadastro inicial",
                 UserId = _t.UserId, Data = DateTime.UtcNow
             });
+            await _db.SaveChangesAsync();
         }
-        await _db.SaveChangesAsync();
         return Ok(new { p.Id });
     }
 
