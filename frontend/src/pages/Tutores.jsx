@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
 
 const VAZIO = {
@@ -10,7 +11,9 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
 export default function Tutores() {
+  const navigate = useNavigate()
   const [tutores, setTutores] = useState([])
+  const [novoTutorId, setNovoTutorId] = useState(null)
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState(VAZIO)
   const [editandoId, setEditandoId] = useState(null)
@@ -58,10 +61,17 @@ export default function Tutores() {
       aniversarioDia: form.aniversarioDia ? +form.aniversarioDia : null,
       aniversarioMes: form.aniversarioMes ? +form.aniversarioMes : null
     }
-    if (editandoId) await api.put(`/tutores/${editandoId}`, payload)
-    else await api.post('/tutores', payload)
-    cancelar()
-    carregar()
+    if (editandoId) {
+      await api.put(`/tutores/${editandoId}`, payload)
+      cancelar()
+      carregar()
+    } else {
+      const r = await api.post('/tutores', payload)
+      cancelar()
+      carregar()
+      // Abre modal para cadastrar pet vinculado ao tutor recém-criado
+      setNovoTutorId(r.data.id)
+    }
   }
 
   const f = (field) => ({
@@ -148,6 +158,14 @@ export default function Tutores() {
             </tr>
           </thead>
           <tbody>
+      {/* Após cadastrar tutor — pergunta se quer cadastrar pet */}
+      {novoTutorId && (
+        <ModalCadastrarPet
+          tutorId={novoTutorId}
+          onClose={() => { setNovoTutorId(null); carregar() }}
+        />
+      )}
+
             {tutores.map((t) => (
               <tr key={t.id} className="border-t hover:bg-slate-50">
                 <td className="p-3 font-medium">{t.nome}</td>
@@ -168,6 +186,47 @@ export default function Tutores() {
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+function ModalCadastrarPet({ tutorId, onClose }) {
+  const [tutorNome, setTutorNome] = useState('')
+  const [irParaPets, setIrParaPets] = useState(false)
+
+  useEffect(() => {
+    api.get(`/tutores/${tutorId}`).then(r => setTutorNome(r.data.nome)).catch(() => {})
+    // Fecha automaticamente após 8s se não interagir
+    const t = setTimeout(() => onClose(), 8000)
+    return () => clearTimeout(t)
+  }, [tutorId, onClose])
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm text-center">
+        <div className="text-5xl mb-3">🎉</div>
+        <h3 className="font-bold text-lg text-slate-800 mb-1">Tutor cadastrado!</h3>
+        <p className="text-sm text-slate-500 mb-5">
+          <strong>{tutorNome}</strong> foi cadastrado com sucesso.<br/>
+          Deseja cadastrar um pet para este tutor agora?
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 border border-slate-200 text-slate-600 py-2.5 rounded-xl text-sm hover:bg-slate-50">
+            Agora não
+          </button>
+          <button
+            onClick={() => {
+              onClose()
+              // Navega para Pets com tutor pré-selecionado via query param
+              window.location.href = `/pets?tutorId=${tutorId}`
+            }}
+            className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700">
+            🐾 Cadastrar pet
+          </button>
+        </div>
+        <p className="text-xs text-slate-300 mt-3">Fechando automaticamente em alguns segundos...</p>
       </div>
     </div>
   )

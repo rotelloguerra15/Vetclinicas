@@ -393,48 +393,68 @@ export default function Agenda() {
 }
 
 function ModalAgendar({ dataInicial, horaInicial, onClose, onSaved }) {
-  const [pets, setPets]   = useState([])
-  const [f, setF]         = useState({
-    petId: '', tipo: 'consulta', servicoId: '',
-    data: dataInicial || hoje(),
-    hora: horaInicial || '09:00',
-    duracaoMin: 60, obs: ''
-  })
+  const [pets, setPets]         = useState([])
   const [servicos, setServicos] = useState([])
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving]     = useState(false)
   const [buscaPet, setBuscaPet] = useState('')
+  const [f, setF] = useState({
+    petId: '',
+    servicosSelecionados: [],  // [{id, nome, icone, duracaoMin, precoBase}]
+    data:  dataInicial || hoje(),
+    hora:  horaInicial || '09:00',
+    obs:   ''
+  })
 
   useEffect(() => {
-    api.get('/pets', { params: { pageSize: 200 } })
-      .then(r => setPets(r.data.items)).catch(() => {})
-    api.get('/servicos').then(r => setServicos(r.data)).catch(() => {})
+    api.get('/pets', { params: { pageSize: 200 } }).then(r => setPets(r.data.items)).catch(() => {})
+    api.get('/servicos').then(r => setServicos(r.data.filter(s => s.ativo))).catch(() => {})
   }, [])
 
-  function escolherServico(svcId) {
-    const svc = servicos.find(s => s.id === svcId)
-    setF(f => ({
-      ...f,
-      servicoId: svcId,
-      tipo: svcId ? (svc?.categoria || 'consulta') : f.tipo,
-      duracaoMin: svcId && svc?.duracaoMin ? svc.duracaoMin : f.duracaoMin
-    }))
-  }
-
   const petsFiltrados = pets.filter(p =>
-    !buscaPet || p.nome.toLowerCase().includes(buscaPet.toLowerCase()) ||
+    !buscaPet ||
+    p.nome.toLowerCase().includes(buscaPet.toLowerCase()) ||
     p.tutorNome?.toLowerCase().includes(buscaPet.toLowerCase())
   )
+
+  // Duração total somada
+  const duracaoTotal = f.servicosSelecionados.reduce((s, sv) => s + (sv.duracaoMin || 60), 0)
+  function fmtDuracao(min) {
+    if (!min) return '—'
+    if (min < 60) return `${min}min`
+    const h = Math.floor(min / 60)
+    const m = min % 60
+    return m ? `${h}h ${m}min` : `${h}h`
+  }
+
+  function toggleServico(svc) {
+    const existe = f.servicosSelecionados.find(s => s.id === svc.id)
+    if (existe) {
+      setF(f => ({ ...f, servicosSelecionados: f.servicosSelecionados.filter(s => s.id !== svc.id) }))
+    } else {
+      setF(f => ({ ...f, servicosSelecionados: [...f.servicosSelecionados, svc] }))
+    }
+  }
 
   async function salvar(e) {
     e.preventDefault()
     if (!f.petId) return alert('Selecione o pet.')
+    if (f.servicosSelecionados.length === 0) return alert('Selecione ao menos um serviço.')
     setSaving(true)
     try {
-      const dataHora = new Date(`${f.data}T${f.hora}:00`).toISOString()
+      // Primeiro serviço como tipo/servicoId principal, demais vinculados depois
+      const principal = f.servicosSelecionados[0]
+      const dataHora  = new Date(`${f.data}T${f.hora}:00`).toISOString()
       await api.post('/agendamentos', {
-        petId: f.petId, tipo: f.tipo, dataHora,
-        duracaoMin: +f.duracaoMin, obs: f.obs || null,
-        servicoId: f.servicoId || null
+        petId:      f.petId,
+        tipo:       principal.categoria || 'consulta',
+        servicoId:  principal.id,
+        dataHora,
+        duracaoMin: duracaoTotal || 60,
+        obs:        f.obs || null,
+        // Serviços extras como obs se houver mais de um
+        ...(f.servicosSelecionados.length > 1 && {
+          obs: [f.obs, `Serviços: ${f.servicosSelecionados.map(s => s.nome).join(', ')}`].filter(Boolean).join(' | ')
+        })
       })
       onSaved()
     } catch (err) {
@@ -444,16 +464,22 @@ function ModalAgendar({ dataInicial, horaInicial, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
+      <div className="bg-white rounded-2xl shadow-2xl w-full flex flex-col" style={{ maxWidth: 560, maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
           <h3 className="font-bold text-lg">📅 Novo agendamento</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
         </div>
-        <form onSubmit={salvar} className="space-y-3">
+
+        {/* Body scrollável */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+          {/* Pet */}
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Buscar pet</label>
-            <input className="border rounded-xl px-3 py-2 w-full text-sm mb-1"
-              placeholder="Nome do pet ou tutor..."
+            <label className="text-xs font-semibold text-slate-500 block mb-1.5">Pet *</label>
+            <input className="border rounded-xl px-3 py-2 w-full text-sm mb-1.5"
+              placeholder="🔍 Buscar por nome do pet ou tutor..."
               value={buscaPet} onChange={e => setBuscaPet(e.target.value)} />
             <select className="border rounded-xl px-3 py-2.5 w-full text-sm" required
               value={f.petId} onChange={e => setF({...f, petId: e.target.value})}>
@@ -463,51 +489,90 @@ function ModalAgendar({ dataInicial, horaInicial, onClose, onSaved }) {
               ))}
             </select>
           </div>
+
+          {/* Serviços — grid visual */}
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Serviço *</label>
-            <select className="border rounded-xl px-3 py-2.5 w-full text-sm" required
-              value={f.servicoId} onChange={e => escolherServico(e.target.value)}>
-              <option value="">Selecione o serviço *</option>
-              {servicos.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.icone || '🐾'} {s.nome}{s.duracaoMin ? ` (${s.duracaoMin}min)` : ''}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-500">Serviços *</label>
+              {f.servicosSelecionados.length > 0 && (
+                <span className="text-xs text-slate-400">
+                  {f.servicosSelecionados.length} selecionado{f.servicosSelecionados.length > 1 ? 's' : ''}
+                  {duracaoTotal > 0 && ` · ⏱ ${fmtDuracao(duracaoTotal)} total`}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {servicos.map(s => {
+                const selecionado = f.servicosSelecionados.find(sv => sv.id === s.id)
+                return (
+                  <button key={s.id} type="button" onClick={() => toggleServico(s)}
+                    className={`relative p-3 rounded-xl border-2 text-left transition ${
+                      selecionado
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
+                    }`}>
+                    {selecionado && (
+                      <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs">✓</span>
+                    )}
+                    <div className="text-2xl mb-1.5">{s.icone || '🐾'}</div>
+                    <div className={`text-xs font-semibold leading-tight ${selecionado ? 'text-emerald-800' : 'text-slate-700'}`}>
+                      {s.nome}
+                    </div>
+                    {s.duracaoMin && (
+                      <div className="text-xs text-slate-400 mt-0.5">⏱ {fmtDuracao(s.duracaoMin)}</div>
+                    )}
+                  </button>
+                )
+              })}
+              {servicos.length === 0 && (
+                <div className="col-span-3 text-center text-xs text-slate-400 py-4">
+                  Nenhum serviço cadastrado. Acesse Serviços para criar.
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Duração total — só leitura */}
+          {duracaoTotal > 0 && (
+            <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center justify-between border border-slate-100">
+              <span className="text-sm text-slate-600 font-medium">⏱ Duração total estimada</span>
+              <span className="text-sm font-bold text-slate-800">{fmtDuracao(duracaoTotal)}</span>
+            </div>
+          )}
+
+          {/* Data e hora */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Data</label>
+              <label className="text-xs font-semibold text-slate-500 block mb-1.5">Data</label>
               <input type="date" className="border rounded-xl px-3 py-2.5 w-full text-sm" required
                 value={f.data} onChange={e => setF({...f, data: e.target.value})} />
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Hora</label>
+              <label className="text-xs font-semibold text-slate-500 block mb-1.5">Hora</label>
               <select className="border rounded-xl px-3 py-2.5 w-full text-sm"
                 value={f.hora} onChange={e => setF({...f, hora: e.target.value})}>
                 {HORARIOS.map(h => <option key={h} value={h}>{h}</option>)}
               </select>
             </div>
           </div>
+
+          {/* Obs */}
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Duração</label>
-            <select className="border rounded-xl px-3 py-2.5 w-full text-sm"
-              value={f.duracaoMin} onChange={e => setF({...f, duracaoMin: +e.target.value})}>
-              {[15,30,45,60,90,120].map(d => (
-                <option key={d} value={d}>{d} minutos</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-slate-500 block mb-1">Observação</label>
+            <label className="text-xs font-semibold text-slate-500 block mb-1.5">Observação</label>
             <input className="border rounded-xl px-3 py-2.5 w-full text-sm" placeholder="Opcional"
               value={f.obs} onChange={e => setF({...f, obs: e.target.value})} />
           </div>
-          <button disabled={saving}
-            className="w-full bg-emerald-600 text-white py-3 rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-emerald-700 mt-1">
-            {saving ? '⏳ Agendando...' : '✓ Confirmar agendamento'}
+
+        </div>
+
+        {/* Footer fixo */}
+        <div className="px-6 py-4 border-t flex-shrink-0 bg-slate-50 rounded-b-2xl">
+          <button onClick={salvar} disabled={saving || !f.petId || f.servicosSelecionados.length === 0}
+            className="w-full bg-emerald-600 text-white py-3 rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-emerald-700 transition">
+            {saving ? '⏳ Agendando...' : `✓ Confirmar agendamento${f.servicosSelecionados.length > 1 ? ` (${f.servicosSelecionados.length} serviços)` : ''}`}
           </button>
-        </form>
+        </div>
+
       </div>
     </div>
   )

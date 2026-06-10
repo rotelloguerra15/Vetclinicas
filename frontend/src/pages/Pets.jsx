@@ -6,7 +6,8 @@ const ESPECIES = { cao: '🐕 Cão', gato: '🐈 Gato', ave: '🦜 Ave', roedor:
 
 const FORM_VAZIO = {
   tutorId: '', nome: '', especie: 'cao', raca: '', sexo: 'indefinido',
-  dataNascimento: '', pesoKg: '', castrado: '',
+  dataNascimento: '', idadeAnos: '', idadeMeses: '', modoIdade: 'data', // modoIdade: 'data' | 'estimada'
+  pesoKg: '', castrado: '', pelagem: '',
   temMicrochip: false, microchipNum: '',
   temPlanoSaude: false, planoSaudeNome: '', planoSaudeCarteira: ''
 }
@@ -19,6 +20,8 @@ export default function Pets() {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editandoId, setEditandoId] = useState(null)
   const [form, setForm] = useState(FORM_VAZIO)
+  const [mostrarOutroPet, setMostrarOutroPet] = useState(false)
+  const [tutorIdParam, setTutorIdParam] = useState(null)
 
   function carregar() {
     api.get('/pets', { params: { busca } }).then((r) => setPets(r.data.items)).catch(() => {})
@@ -29,9 +32,19 @@ export default function Pets() {
     api.get('/tutores', { params: { pageSize: 100 } }).then((r) => setTutores(r.data.items)).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tid = params.get('tutorId')
+    if (tid) {
+      setTutorIdParam(tid)
+      setForm({ ...FORM_VAZIO, tutorId: tid })
+      setMostrarForm(true)
+    }
+  }, [])
+
   function novoForm() {
     setEditandoId(null)
-    setForm(FORM_VAZIO)
+    setForm({ ...FORM_VAZIO, tutorId: tutorIdParam || '' })
     setMostrarForm(true)
   }
 
@@ -48,6 +61,8 @@ export default function Pets() {
         dataNascimento: data.dataNascimento || '',
         pesoKg: data.pesoKg ?? '',
         castrado: data.castrado === true ? 'true' : data.castrado === false ? 'false' : '',
+        pelagem: data.pelagem || '',
+        modoIdade: 'data', idadeAnos: '', idadeMeses: '',
         temMicrochip: data.temMicrochip || false,
         microchipNum: data.microchipNum || '',
         temPlanoSaude: data.temPlanoSaude || false,
@@ -67,19 +82,38 @@ export default function Pets() {
 
   async function salvar(e) {
     e.preventDefault()
+
+    // Calcula data de nascimento estimada a partir de anos/meses
+    let dataNasc = form.dataNascimento || null
+    if (form.modoIdade === 'estimada' && (form.idadeAnos || form.idadeMeses)) {
+      const hoje = new Date()
+      const anos  = parseInt(form.idadeAnos  || 0)
+      const meses = parseInt(form.idadeMeses || 0)
+      hoje.setFullYear(hoje.getFullYear() - anos)
+      hoje.setMonth(hoje.getMonth() - meses)
+      dataNasc = hoje.toISOString().split('T')[0]
+    }
+
     const payload = {
       ...form,
       pesoKg: form.pesoKg ? parseFloat(form.pesoKg) : null,
       castrado: form.castrado === 'true' ? true : form.castrado === 'false' ? false : null,
-      dataNascimento: form.dataNascimento || null,
+      dataNascimento: dataNasc,
+      pelagem: form.pelagem || null,
       microchipNum: form.temMicrochip ? form.microchipNum : null,
       planoSaudeNome: form.temPlanoSaude ? form.planoSaudeNome : null,
       planoSaudeCarteira: form.temPlanoSaude ? form.planoSaudeCarteira : null
     }
-    if (editandoId) await api.put(`/pets/${editandoId}`, payload)
-    else await api.post('/pets', payload)
-    cancelar()
-    carregar()
+    if (editandoId) {
+      await api.put(`/pets/${editandoId}`, payload)
+      cancelar()
+      carregar()
+    } else {
+      await api.post('/pets', payload)
+      // Pergunta se quer cadastrar outro pet
+      setMostrarOutroPet(true)
+      carregar()
+    }
   }
 
   const f = (field) => ({
@@ -118,16 +152,57 @@ export default function Pets() {
               <option value="macho">Macho</option>
               <option value="femea">Fêmea</option>
             </select>
-            <div>
-              <label className="text-xs text-slate-500 block mb-1">Data de nascimento</label>
-              <input className="border rounded-lg px-3 py-2 w-full" type="date" {...f('dataNascimento')} />
+            {/* Data de nascimento OU idade estimada */}
+            <div className="col-span-2 space-y-2">
+              <label className="text-xs text-slate-500 block">Nascimento / Idade</label>
+              <div className="flex gap-2">
+                {['data','estimada','desconhecida'].map(m => (
+                  <button key={m} type="button"
+                    onClick={() => setForm({...form, modoIdade: m})}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${form.modoIdade === m ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                    {m === 'data' ? '📅 Data exata' : m === 'estimada' ? '🔢 Idade estimada' : '❓ Não sei'}
+                  </button>
+                ))}
+              </div>
+              {form.modoIdade === 'data' && (
+                <input className="border rounded-lg px-3 py-2 w-full text-sm" type="date" {...f('dataNascimento')} />
+              )}
+              {form.modoIdade === 'estimada' && (
+                <div className="flex gap-2 items-center">
+                  <input className="border rounded-lg px-3 py-2 w-24 text-sm" type="number" min="0" max="30"
+                    placeholder="Anos" value={form.idadeAnos}
+                    onChange={e => setForm({...form, idadeAnos: e.target.value})} />
+                  <span className="text-sm text-slate-500">anos</span>
+                  <input className="border rounded-lg px-3 py-2 w-24 text-sm" type="number" min="0" max="11"
+                    placeholder="Meses" value={form.idadeMeses}
+                    onChange={e => setForm({...form, idadeMeses: e.target.value})} />
+                  <span className="text-sm text-slate-500">meses</span>
+                  {(form.idadeAnos || form.idadeMeses) && (
+                    <span className="text-xs text-emerald-600 font-medium">
+                      ≈ {(() => {
+                        const hoje = new Date()
+                        const anos = parseInt(form.idadeAnos || 0)
+                        const meses = parseInt(form.idadeMeses || 0)
+                        hoje.setFullYear(hoje.getFullYear() - anos)
+                        hoje.setMonth(hoje.getMonth() - meses)
+                        return hoje.toLocaleDateString('pt-BR')
+                      })()}
+                    </span>
+                  )}
+                </div>
+              )}
+              {form.modoIdade === 'desconhecida' && (
+                <p className="text-xs text-slate-400 italic">Data de nascimento não será registrada</p>
+              )}
             </div>
             <input className="border rounded-lg px-3 py-2" placeholder="Peso (kg)" type="number" step="0.1" {...f('pesoKg')} />
             <select className="border rounded-lg px-3 py-2" {...f('castrado')}>
               <option value="">Castrado?</option>
               <option value="true">Sim</option>
               <option value="false">Não</option>
+              <option value="">Não sei</option>
             </select>
+            <input className="border rounded-lg px-3 py-2 col-span-2" placeholder="Pelagem (ex: curta, longa, crespa, bicolor...)" {...f('pelagem')} />
           </div>
 
           {/* Microchip */}
@@ -162,10 +237,40 @@ export default function Pets() {
             )}
           </div>
 
-          <button className="bg-emerald-600 text-white py-2 rounded-lg w-full font-medium">
-            {editandoId ? 'Salvar alterações' : 'Cadastrar pet'}
-          </button>
+          <div className="flex gap-2">
+            <button className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-semibold hover:bg-emerald-700">
+              {editandoId ? 'Salvar alterações' : 'Cadastrar pet'}
+            </button>
+            {!editandoId && (
+              <button type="button" onClick={async (e) => {
+                const btn = e.currentTarget
+                btn.form.requestSubmit()
+              }}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-semibold hover:bg-blue-700 text-sm">
+                Cadastrar e adicionar outro
+              </button>
+            )}
+          </div>
         </form>
+      )}
+
+      {mostrarOutroPet && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between mb-4">
+          <div>
+            <p className="font-semibold text-emerald-800 text-sm">🐾 Pet cadastrado com sucesso!</p>
+            <p className="text-xs text-emerald-600 mt-0.5">Deseja cadastrar outro pet?</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => { setMostrarOutroPet(false); novoForm() }}
+              className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">
+              + Outro pet
+            </button>
+            <button onClick={() => setMostrarOutroPet(false)}
+              className="border border-emerald-300 text-emerald-700 px-4 py-2 rounded-lg text-sm hover:bg-emerald-100">
+              Não, obrigado
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="flex gap-2 mb-4">
