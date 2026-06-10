@@ -196,10 +196,9 @@ export default function Tutores() {
           </tbody>
         </table>
       </div>
-    </div>
 
-    {/* Painel lateral de pets do tutor */}
-    {tutorPets && (
+      {/* Painel lateral de pets do tutor */}
+      {tutorPets && (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setTutorPets(null)}>
         <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
@@ -240,5 +239,6 @@ export default function Tutores() {
         </div>
       </div>
     )}
+    </div>
   )
 }
