@@ -33,6 +33,7 @@ import Parametros from './pages/Parametros'
 import Bot from './pages/Parametros/Bot'
 import Vias from './pages/Cadastros/Vias'
 import Pelagens from './pages/Cadastros/Pelagens'
+import Validar from './pages/Validar'
 import Cargos from './pages/RH/Cargos'
 import GestaoVista from './pages/GestaoVista'
 import Categorias from './pages/Categorias'
@@ -80,6 +81,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="parametros" element={<Parametros />} />
           <Route path="parametros/bot" element={<Bot />} />
         </Route>
+        <Route path="/validar/:codigo" element={<Validar />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

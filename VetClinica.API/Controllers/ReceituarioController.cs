@@ -147,6 +147,8 @@ public class ReceituarioController : ControllerBase
             TutorCpf        = pet.Tutor?.CpfCnpj,
             TutorEndereco   = tutorEndereco,
             Data            = DateTime.Now,
+            CodigoValidacao = codigoValidacao,
+            UrlValidacao    = urlValidacao,
             TipoReceita     = req.TipoReceita ?? "Receita Veterinaria",
             ViaUso          = req.ViaUso,
             TipoFarmacia    = req.TipoFarmacia,
@@ -187,6 +189,11 @@ public class ReceituarioController : ControllerBase
             (req.Observacoes != null ? $"\n\nObs: {req.Observacoes}" : "") +
             vetInfo;
 
+        // ── Código de validação único ────────────────────────────────────
+        var codigoValidacao = $"REC-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
+        var frontendUrl     = Environment.GetEnvironmentVariable("App__FrontendUrl") ?? "https://vetclinicas.vercel.app";
+        var urlValidacao    = $"{frontendUrl}/validar/{codigoValidacao}";
+
         var prontuarioItem = new ProntuarioItem
         {
             Id          = Guid.NewGuid(),
@@ -194,7 +201,7 @@ public class ReceituarioController : ControllerBase
             UserId      = _t.UserId,
             Data        = DateTime.UtcNow,
             Tipo        = "receita",
-            Titulo      = string.IsNullOrEmpty(req.Motivo) ? "Receituario" : $"Receituario - {req.Motivo}",
+            Titulo      = $"[{codigoValidacao}] {(string.IsNullOrEmpty(req.Motivo) ? "Receituario" : $"Receituario - {req.Motivo}")}",
             Motivo      = req.Motivo,
             Descricao   = descricao,
             Receituario = string.Join("\n", linhasReceita),

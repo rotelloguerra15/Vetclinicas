@@ -1,6 +1,9 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using QRCoder;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace VetClinica.API.Services;
 
@@ -32,6 +35,11 @@ public class ReceituarioData
     public string  TutorNome        { get; set; } = "";
     public string? TutorCpf         { get; set; }
     public string? TutorEndereco    { get; set; }
+
+    // Validação
+    public string? CodigoValidacao  { get; set; }  // ex: REC-2026-00123
+    public string? UrlValidacao     { get; set; }  // ex: https://vetclinica.com.br/validar/REC-2026-00123
+    public string? HashDocumento    { get; set; }  // SHA-256 do conteúdo
 
     // Receita
     public DateTime Data            { get; set; }
@@ -75,6 +83,21 @@ public class ReceituarioPdfService
             return await _http.GetByteArrayAsync(logoUrl);
         }
         catch { return null; }
+    }
+
+    private static byte[] GerarQrCode(string url)
+    {
+        using var qrGenerator = new QRCodeGenerator();
+        using var qrData      = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
+        using var qrCode      = new PngByteQRCode(qrData);
+        return qrCode.GetGraphic(5);
+    }
+
+    public static string GerarHash(ReceituarioData d)
+    {
+        var conteudo = $"{d.CodigoValidacao}|{d.PetNome}|{d.TutorNome}|{d.Data:yyyyMMddHHmmss}|{string.Join(",", d.Medicamentos.Select(m => m.Nome))}";
+        var bytes = Encoding.UTF8.GetBytes(conteudo);
+        return Convert.ToHexString(SHA256.HashData(bytes))[..16]; // primeiros 16 chars
     }
 
     public byte[] Gerar(ReceituarioData d)
@@ -273,7 +296,7 @@ public class ReceituarioPdfService
                 });
 
                 // ════════════════════════════════════════════════════════════
-                // RODAPÉ — data + assinatura | comprador | fornecedor
+                // RODAPÉ — assinatura | comprador | fornecedor | validação
                 // ════════════════════════════════════════════════════════════
                 page.Footer().Column(footer =>
                 {
@@ -314,6 +337,52 @@ public class ReceituarioPdfService
                             c.Item().PaddingTop(2).Text("Assinatura do Farmacêutico").FontSize(8).FontColor("#94a3b8");
                         });
                     });
+
+                    // ── Faixa de validação eletrônica ──────────────────────
+                    if (!string.IsNullOrEmpty(d.CodigoValidacao) && !string.IsNullOrEmpty(d.UrlValidacao))
+                    {
+                        var qrBytes = GerarQrCode(d.UrlValidacao);
+
+                        footer.Item().PaddingTop(8)
+                            .Border(0.5f).BorderColor("#e2e8f0")
+                            .Background("#f8fafc")
+                            .Padding(6)
+                            .Row(row =>
+                            {
+                                // QR Code
+                                row.ConstantItem(52).Image(qrBytes);
+
+                                row.ConstantItem(8);
+
+                                // Textos de validação
+                                row.RelativeItem().Column(c =>
+                                {
+                                    c.Item().Text("DOCUMENTO ELETRÔNICO VERIFICÁVEL")
+                                        .Bold().FontSize(7).FontColor("#1e293b");
+                                    c.Item().PaddingTop(2).Text(t =>
+                                    {
+                                        t.Span("Código: ").Bold().FontSize(7).FontColor("#475569");
+                                        t.Span(d.CodigoValidacao).FontSize(7).FontColor("#0f172a");
+                                    });
+                                    if (!string.IsNullOrEmpty(d.HashDocumento))
+                                    {
+                                        c.Item().PaddingTop(1).Text(t =>
+                                        {
+                                            t.Span("Hash: ").Bold().FontSize(6).FontColor("#94a3b8");
+                                            t.Span(d.HashDocumento).FontSize(6).FontColor("#94a3b8");
+                                        });
+                                    }
+                                    c.Item().PaddingTop(2).Text(t =>
+                                    {
+                                        t.Span("Valide em: ").Bold().FontSize(7).FontColor("#475569");
+                                        t.Span(d.UrlValidacao).FontSize(7).FontColor("#2563eb");
+                                    });
+                                    c.Item().PaddingTop(2).Text(
+                                        "Aponte a câmera do celular para o QR Code ou acesse o link acima para verificar a autenticidade.")
+                                        .FontSize(6).FontColor("#94a3b8").Italic();
+                                });
+                            });
+                    }
                 });
             });
         }).GeneratePdf();
