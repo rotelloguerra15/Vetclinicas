@@ -13,7 +13,7 @@ const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG
 export default function Tutores() {
   const navigate = useNavigate()
   const [tutores, setTutores] = useState([])
-  const [novoTutorId, setNovoTutorId] = useState(null)
+  const [tutorPets, setTutorPets] = useState(null) // {tutor, pets}
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState(VAZIO)
   const [editandoId, setEditandoId] = useState(null)
@@ -69,9 +69,21 @@ export default function Tutores() {
       const r = await api.post('/tutores', payload)
       cancelar()
       carregar()
-      // Abre modal para cadastrar pet vinculado ao tutor recém-criado
-      setNovoTutorId(r.data.id)
+      // Abre painel de pets do tutor recém-criado
+      setTimeout(async () => {
+        try {
+          const pets = await api.get(`/tutores/${r.data.id}/pets`)
+          setTutorPets({ tutor: { id: r.data.id, nome: payload.nome }, pets: pets.data })
+        } catch { setTutorPets({ tutor: { id: r.data.id, nome: payload.nome }, pets: [] }) }
+      }, 300)
     }
+  }
+
+  async function verPetsTutor(tutor) {
+    try {
+      const r = await api.get(`/tutores/${tutor.id}/pets`)
+      setTutorPets({ tutor, pets: r.data })
+    } catch { setTutorPets({ tutor, pets: [] }) }
   }
 
   const f = (field) => ({
@@ -158,14 +170,6 @@ export default function Tutores() {
             </tr>
           </thead>
           <tbody>
-      {/* Após cadastrar tutor — pergunta se quer cadastrar pet */}
-      {novoTutorId && (
-        <ModalCadastrarPet
-          tutorId={novoTutorId}
-          onClose={() => { setNovoTutorId(null); carregar() }}
-        />
-      )}
-
             {tutores.map((t) => (
               <tr key={t.id} className="border-t hover:bg-slate-50">
                 <td className="p-3 font-medium">{t.nome}</td>
@@ -173,7 +177,12 @@ export default function Tutores() {
                 <td className="p-3 text-slate-500 text-xs">
                   {[t.cidade, t.bairro].filter(Boolean).join(' — ') || t.endereco || '—'}
                 </td>
-                <td className="p-3">{t.qtdPets}</td>
+                <td className="p-3">
+                  <button onClick={() => verPetsTutor(t)}
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-lg font-medium">
+                    🐾 {t.qtdPets} pet{t.qtdPets !== 1 ? 's' : ''}
+                  </button>
+                </td>
                 <td className="p-3 text-right">
                   <button onClick={() => editarTutor(t.id)} className="text-xs text-blue-600 hover:underline">
                     Editar
@@ -188,46 +197,48 @@ export default function Tutores() {
         </table>
       </div>
     </div>
-  )
-}
 
-function ModalCadastrarPet({ tutorId, onClose }) {
-  const [tutorNome, setTutorNome] = useState('')
-  const [irParaPets, setIrParaPets] = useState(false)
+    {/* Painel lateral de pets do tutor */}
+    {tutorPets && (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setTutorPets(null)}>
+        <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-lg">🐾 Pets de {tutorPets.tutor.nome}</h3>
+            <button onClick={() => setTutorPets(null)} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
+          </div>
 
-  useEffect(() => {
-    api.get(`/tutores/${tutorId}`).then(r => setTutorNome(r.data.nome)).catch(() => {})
-    // Fecha automaticamente após 8s se não interagir
-    const t = setTimeout(() => onClose(), 8000)
-    return () => clearTimeout(t)
-  }, [tutorId, onClose])
+          {tutorPets.pets.length === 0 ? (
+            <div className="text-center py-6">
+              <div className="text-4xl mb-2">🐾</div>
+              <p className="text-slate-500 text-sm">Nenhum pet cadastrado ainda.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 mb-4">
+              {tutorPets.pets.map(p => (
+                <div key={p.id}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer"
+                  onClick={() => { navigate(`/pets/${p.id}`); setTutorPets(null) }}>
+                  <div className="text-2xl">{{'cao':'🐕','gato':'🐈','ave':'🦜','roedor':'🐹','reptil':'🦎'}[p.especie] || '🐾'}</div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-sm text-slate-800">{p.nome}</div>
+                    <div className="text-xs text-slate-400">{p.raca || 'SRD'} · {p.especie}</div>
+                  </div>
+                  <span className="text-xs text-blue-600">Ver →</span>
+                </div>
+              ))}
+            </div>
+          )}
 
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm text-center">
-        <div className="text-5xl mb-3">🎉</div>
-        <h3 className="font-bold text-lg text-slate-800 mb-1">Tutor cadastrado!</h3>
-        <p className="text-sm text-slate-500 mb-5">
-          <strong>{tutorNome}</strong> foi cadastrado com sucesso.<br/>
-          Deseja cadastrar um pet para este tutor agora?
-        </p>
-        <div className="flex gap-3">
-          <button onClick={onClose}
-            className="flex-1 border border-slate-200 text-slate-600 py-2.5 rounded-xl text-sm hover:bg-slate-50">
-            Agora não
-          </button>
           <button
             onClick={() => {
-              onClose()
-              // Navega para Pets com tutor pré-selecionado via query param
-              window.location.href = `/pets?tutorId=${tutorId}`
+              setTutorPets(null)
+              navigate(`/pets?tutorId=${tutorPets.tutor.id}`)
             }}
-            className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700">
-            🐾 Cadastrar pet
+            className="w-full bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700">
+            + Cadastrar novo pet para {tutorPets.tutor.nome}
           </button>
         </div>
-        <p className="text-xs text-slate-300 mt-3">Fechando automaticamente em alguns segundos...</p>
       </div>
-    </div>
+    )}
   )
 }

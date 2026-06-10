@@ -41,7 +41,8 @@ const menu = [
 
   { group: 'Cadastros' },
   { to: '/usuarios',         label: 'Usuarios' },
-  { to: '/cadastros/vias',   label: 'Vias de Administracao' },
+  { to: '/cadastros/vias',     label: 'Vias de Administracao' },
+  { to: '/cadastros/pelagens', label: 'Pelagens' },
 
   { group: 'Relatorios' },
   { to: '/relatorios',   label: 'Relatorios' },

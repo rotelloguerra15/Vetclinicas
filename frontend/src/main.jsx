@@ -32,6 +32,7 @@ import RelatoriosRH from './pages/RH/RelatoriosRH'
 import Parametros from './pages/Parametros'
 import Bot from './pages/Parametros/Bot'
 import Vias from './pages/Cadastros/Vias'
+import Pelagens from './pages/Cadastros/Pelagens'
 import Cargos from './pages/RH/Cargos'
 import GestaoVista from './pages/GestaoVista'
 import Categorias from './pages/Categorias'
@@ -74,6 +75,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="rh/fechamento" element={<Fechamento />} />
           <Route path="rh/relatorios" element={<RelatoriosRH />} />
           <Route path="cadastros/vias" element={<Vias />} />
+          <Route path="cadastros/pelagens" element={<Pelagens />} />
           <Route path="financeiro/categorias" element={<Categorias />} />
           <Route path="parametros" element={<Parametros />} />
           <Route path="parametros/bot" element={<Bot />} />

@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
 
     // Cadastros auxiliares
     public DbSet<ViaAdministracao> ViasAdministracao => Set<ViaAdministracao>();
+    public DbSet<Pelagem> Pelagens => Set<Pelagem>();
 
     // M4 Compras
     public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();

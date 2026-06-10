@@ -560,6 +560,16 @@ public class ContaParcela
     [Column("valor_pago")]      public decimal? ValorPago { get; set; }
 }
 
+[Table("pelagens")]
+public class Pelagem
+{
+    [Column("id")]        public Guid Id { get; set; }
+    [Column("tenant_id")] public Guid TenantId { get; set; }
+    [Column("nome")]      public string Nome { get; set; } = "";
+    [Column("ativo")]     public bool Ativo { get; set; } = true;
+    [Column("criado_em")] public DateTime CriadoEm { get; set; }
+}
+
 [Table("vias_administracao")]
 public class ViaAdministracao
 {
