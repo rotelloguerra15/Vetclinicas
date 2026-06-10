@@ -36,6 +36,8 @@ function injectCSS() {
 .gv-panel{width:100%;height:100%;display:grid;grid-template-columns:1fr 1fr 1fr clamp(200px,22vw,300px);gap:clamp(8px,1.2vw,14px);padding:clamp(8px,1.2vh,14px) clamp(10px,1.5vw,20px);}
 .gv-col{display:flex;flex-direction:column;gap:clamp(6px,0.8vh,10px);overflow:hidden;}
 .gv-col-header{display:flex;align-items:center;gap:8px;padding:clamp(6px,0.8vh,10px) clamp(10px,1.2vw,14px);border-radius:12px;font-weight:800;font-size:clamp(9px,0.85vw,13px);letter-spacing:1px;text-transform:uppercase;}
+.gv-col-header.agendado{background:rgba(99,179,237,.1);border:1px solid rgba(99,179,237,.25);color:#63b3ed;}
+.aguardando .gv-col-count{background:rgba(251,191,36,.25);color:#fbbf24;}
 .gv-col-header.aguardando{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:#fbbf24;}
 .gv-col-header.em-andamento{background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:#38bdf8;}
 .gv-col-header.pronto{background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#4ade80;}
@@ -47,6 +49,9 @@ function injectCSS() {
 .gv-card{background:#112240;border-radius:12px;padding:clamp(8px,1vh,12px) clamp(10px,1.2vw,14px);border:1px solid rgba(99,179,237,0.13);position:relative;overflow:hidden;animation:gv-card-in .45s ease both;}
 @keyframes gv-card-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 .gv-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px 0 0 2px;}
+.gv-card.agendado::before{background:#63b3ed;}
+.gv-card.agendado{border-color:rgba(99,179,237,.22);}
+.gv-card.agendado .gv-avatar{opacity:0.85;}
 .gv-card.aguardando::before{background:#fbbf24;}
 .gv-card.em-andamento::before{background:#38bdf8;}
 .gv-card.pronto::before{background:#4ade80;}
@@ -307,6 +312,50 @@ export default function GestaoVista() {
     )
   }
 
+  // ─── Render card de agendamento ──────────────────────────────
+  function renderCardAgendamento(ag) {
+    const agora = new Date()
+    const dt = new Date(ag.dataHora)
+    const diff = Math.round((dt - agora) / 60000)
+    const statusLabel = {
+      pendente:       '⏳ Pendente',
+      confirmado:     '✓ Confirmado',
+      em_atendimento: '⚡ Em atendimento',
+      concluido:      '✅ Concluído',
+      cancelado:      '✗ Cancelado',
+      faltou:         '✗ Faltou',
+    }
+    const tipoEmoji = {
+      consulta:'🩺', banho:'🛁', tosa:'✂️', banho_tosa:'🛁✂️',
+      vacina:'💉', retorno:'🔄', cirurgia:'⚕️', exame:'🔬'
+    }
+    return (
+      <div key={ag.id} className={`gv-card agendado`} style={{ opacity: ag.status === 'concluido' ? 0.5 : 1 }}>
+        <div className="gv-card-top">
+          <div className="gv-avatar">{tipoEmoji[ag.tipo] || '📋'}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="gv-pet-name">{ag.petNome}</div>
+            <div className="gv-pet-sub" style={{ color: '#63b3ed' }}>{ag.tipo?.replace('_',' ')}</div>
+          </div>
+        </div>
+        <div className="gv-card-footer">
+          <div className="gv-time-info">🕐 {formatHora(ag.dataHora)}</div>
+          <div className="gv-badge" style={{
+            background: ag.status === 'em_atendimento' ? 'rgba(167,139,250,.2)' :
+                        ag.status === 'confirmado'     ? 'rgba(99,179,237,.2)'  :
+                        ag.status === 'concluido'      ? 'rgba(74,222,128,.2)'  : 'rgba(251,191,36,.15)',
+            color: ag.status === 'em_atendimento' ? '#a78bfa' :
+                   ag.status === 'confirmado'     ? '#63b3ed' :
+                   ag.status === 'concluido'      ? '#4ade80' : '#fbbf24',
+            fontSize: 'clamp(8px,0.7vw,10px)', padding: '2px 8px', borderRadius: 20
+          }}>
+            {statusLabel[ag.status] || ag.status}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // ─── Render painel ────────────────────────────────────────────
   function renderPainel() {
     const ordens = dados?.ordens || []
@@ -343,6 +392,17 @@ export default function GestaoVista() {
               {prontos.length === 0
                 ? <div className="gv-empty"><div className="gv-empty-icon">🐾</div><div className="gv-empty-text">Nenhum pronto ainda</div></div>
                 : prontos.map(renderCard)}
+            </div>
+          </div>
+          <div className="gv-col" style={{ minWidth: 0, maxWidth: 'clamp(160px, 16vw, 220px)' }}>
+            <div className="gv-col-header agendado">📅 Agendados<div className="gv-col-count">{agendamentos.filter(a => a.status !== 'cancelado').length}</div></div>
+            <div className="gv-cards">
+              {agendamentos.filter(a => a.status !== 'cancelado').length === 0
+                ? <div className="gv-empty"><div className="gv-empty-icon">📅</div><div className="gv-empty-text">Sem agendamentos</div></div>
+                : agendamentos
+                    .filter(a => a.status !== 'cancelado')
+                    .sort((a,b) => new Date(a.dataHora) - new Date(b.dataHora))
+                    .map(renderCardAgendamento)}
             </div>
           </div>
           <div className="gv-side">

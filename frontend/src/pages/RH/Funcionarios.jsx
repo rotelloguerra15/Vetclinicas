@@ -162,11 +162,9 @@ function Form({ initial, onSalvar, onCancelar, cargos = [], usuarios = [] }) {
 
       <Sec title="Dados Profissionais">
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Cargo *</label>
-          <select
-            value={form.cargoId}
-            onChange={e => set('cargoId', e.target.value)}
-            className="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <label className="block text-xs font-medium text-slate-500 mb-1">Cargo</label>
+          <select value={form.cargoId} onChange={e => set('cargoId', e.target.value)}
+            className="w-full border rounded-lg px-3 py-1.5 text-sm">
             <option value="">— Selecione o cargo —</option>
             {cargos.map(c => (
               <option key={c.id} value={c.id}>
@@ -177,16 +175,14 @@ function Form({ initial, onSalvar, onCancelar, cargos = [], usuarios = [] }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-1">Usuário do sistema</label>
-          <select
-            value={form.usuarioId}
-            onChange={e => set('usuarioId', e.target.value)}
-            className="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">— Sem vínculo de login —</option>
+          <select value={form.usuarioId} onChange={e => set('usuarioId', e.target.value)}
+            className="w-full border rounded-lg px-3 py-1.5 text-sm">
+            <option value="">— Sem vínculo —</option>
             {usuarios.map(u => (
               <option key={u.id} value={u.id}>{u.nome} ({u.email})</option>
             ))}
           </select>
-          <p className="text-xs text-slate-400 mt-1">Vincula o funcionário a um login do sistema</p>
+          <p className="text-xs text-slate-400 mt-1">Vincula ao login do sistema</p>
         </div>
         {campo('CRMV (Conselho Regional de Medicina Veterinária)', 'crmv')}
         {campo('Registro no MAPA', 'registroMapa')}
@@ -224,12 +220,23 @@ export default function Funcionarios() {
   const [filtro, setFiltro]     = useState('todos')
   const [editando, setEditando] = useState(null)
   const [loading, setLoading]   = useState(true)
+  const [cargos, setCargos]     = useState([])
+  const [usuarios, setUsuarios] = useState([])
 
   useEffect(() => { carregar() }, [])
 
   async function carregar() {
     setLoading(true)
-    try { const { data } = await api.get('/rh/funcionarios'); setLista(data) }
+    try {
+      const [r1, r2, r3] = await Promise.all([
+        api.get('/rh/funcionarios'),
+        api.get('/cargos'),
+        api.get('/usuarios')
+      ])
+      setLista(r1.data)
+      setCargos(r2.data)
+      setUsuarios(r3.data)
+    }
     finally { setLoading(false) }
   }
 

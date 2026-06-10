@@ -187,7 +187,7 @@ public class ReceituarioController : ControllerBase
             (req.Observacoes != null ? $"\n\nObs: {req.Observacoes}" : "") +
             vetInfo;
 
-        _db.ProntuarioItens.Add(new ProntuarioItem
+        var prontuarioItem = new ProntuarioItem
         {
             Id          = Guid.NewGuid(),
             PetId       = pet.Id,
@@ -199,7 +199,33 @@ public class ReceituarioController : ControllerBase
             Descricao   = descricao,
             Receituario = string.Join("\n", linhasReceita),
             CriadoEm   = DateTime.UtcNow
-        });
+        };
+        _db.ProntuarioItens.Add(prontuarioItem);
+
+        // ── Encerrar OS em andamento vinculada ao pet ─────────────────────
+        // Busca a OS mais recente em_andamento para este pet
+        var osAberta = await _db.OrdensServico
+            .Where(o => o.TenantId == _t.TenantId
+                     && o.PetId == pet.Id
+                     && o.Status == "em_andamento")
+            .OrderByDescending(o => o.CriadoEm)
+            .FirstOrDefaultAsync();
+
+        if (osAberta != null)
+        {
+            osAberta.Status  = "entregue";
+            osAberta.Fim     = DateTime.UtcNow;
+            osAberta.EntregueEm = DateTime.UtcNow;
+
+            // Encerra o agendamento vinculado, se houver
+            if (osAberta.AgendamentoId.HasValue)
+            {
+                var ag = await _db.Agendamentos
+                    .FirstOrDefaultAsync(a => a.Id == osAberta.AgendamentoId.Value);
+                if (ag != null) ag.Status = "concluido";
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         bool whatsappEnviado = false;

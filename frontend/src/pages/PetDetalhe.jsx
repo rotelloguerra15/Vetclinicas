@@ -59,7 +59,15 @@ export default function PetDetalhe() {
         enviarWhatsApp
       }, { responseType: 'blob' })
       const blob = new Blob([resp.data], { type: 'application/pdf' })
-      window.open(URL.createObjectURL(blob), '_blank')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
       if (enviarWhatsApp) {
         const ok = resp.headers['x-whatsapp-enviado'] === 'true'
         alert(ok ? '✅ WhatsApp enviado!' : '⚠️ PDF gerado, mas WhatsApp falhou. Verifique a configuração.')
@@ -478,7 +486,14 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
       // Abre o PDF para impressão / download
       const blob = new Blob([resp.data], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
 
       const whatsappEnviado = resp.headers['x-whatsapp-enviado'] === 'true'
       setResultado({ whatsapp: whatsappEnviado })

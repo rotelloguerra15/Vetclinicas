@@ -85,4 +85,64 @@ public class AgendamentosController : ControllerBase
         await _db.SaveChangesAsync();
         return NoContent();
     }
+
+    // POST /api/agendamentos/{id}/iniciar-atendimento
+    // Cria OS vinculada ao agendamento, muda status para em_atendimento
+    // Retorna petId para o frontend navegar direto para PetDetalhe
+    [HttpPost("{id}/iniciar-atendimento")]
+    public async Task<IActionResult> IniciarAtendimento(Guid id)
+    {
+        var ag = await _db.Agendamentos
+            .Include(a => a.Pet)
+            .FirstOrDefaultAsync(a => a.Id == id && a.TenantId == _t.TenantId);
+
+        if (ag == null) return NotFound();
+        if (ag.Status == "cancelado")
+            return BadRequest(new { erro = "Agendamento cancelado não pode ser iniciado." });
+
+        // Verifica se já tem OS aberta para este agendamento
+        var osExistente = await _db.OrdensServico
+            .FirstOrDefaultAsync(o => o.AgendamentoId == id
+                                   && o.TenantId == _t.TenantId
+                                   && o.Status != "cancelada");
+
+        Guid osId;
+        if (osExistente != null)
+        {
+            osId = osExistente.Id;
+        }
+        else
+        {
+            // Busca funcionário vinculado ao usuário logado
+            var funcionario = await _db.Funcionarios
+                .FirstOrDefaultAsync(f => f.TenantId == _t.TenantId
+                                       && f.UsuarioId == _t.UserId
+                                       && f.Status == "trabalhando");
+
+            var novaOs = new VetClinica.API.Models.OrdemServico
+            {
+                Id            = Guid.NewGuid(),
+                TenantId      = _t.TenantId,
+                AgendamentoId = id,
+                PetId         = ag.PetId,
+                UserId        = _t.UserId,
+                FuncionarioId = funcionario?.Id,
+                Status        = "em_andamento",
+                Inicio        = DateTime.UtcNow,
+                CriadoEm      = DateTime.UtcNow
+            };
+            _db.OrdensServico.Add(novaOs);
+            osId = novaOs.Id;
+        }
+
+        // Atualiza status do agendamento
+        ag.Status = "em_atendimento";
+        await _db.SaveChangesAsync();
+
+        return Ok(new {
+            osId,
+            petId   = ag.PetId,
+            petNome = ag.Pet?.Nome
+        });
+    }
 }
