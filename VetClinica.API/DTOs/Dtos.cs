@@ -38,8 +38,8 @@ public record PetCreate(Guid TutorId, string Nome, string Especie, string? Raca,
     bool TemPlanoSaude, string? PlanoSaudeNome, string? PlanoSaudeCarteira);
 
 // ---------- Serviço ----------
-public record ServicoDto(Guid Id, string Nome, string? Categoria, decimal PrecoBase, int? DuracaoMin, bool Ativo);
-public record ServicoCreate(string Nome, string? Categoria, string? Descricao, decimal PrecoBase, int? DuracaoMin);
+public record ServicoDto(Guid Id, string Nome, string? Categoria, decimal PrecoBase, int? DuracaoMin, bool Ativo, string? Icone = null);
+public record ServicoCreate(string Nome, string? Categoria, string? Descricao, decimal PrecoBase, int? DuracaoMin, string? Icone = null);
 
 // ---------- Agendamento ----------
 public record AgendamentoDto(Guid Id, Guid PetId, string PetNome, string Tipo,

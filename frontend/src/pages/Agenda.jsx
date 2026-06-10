@@ -208,9 +208,9 @@ export default function Agenda() {
                       <div className="text-sm font-bold text-slate-700">{hora}</div>
                     </div>
 
-                    {/* Emoji tipo */}
-                    <div className="text-2xl w-8 text-center flex-shrink-0">
-                      {TIPO_EMOJI[ag.tipo] || '📋'}
+                    {/* Ícone do serviço */}
+                    <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-2xl flex-shrink-0">
+                      {ag.icone || TIPO_EMOJI[ag.tipo] || '🐾'}
                     </div>
 
                     {/* Info */}
@@ -338,7 +338,7 @@ export default function Agenda() {
                         <div className="w-14 text-center flex-shrink-0">
                           <div className="text-sm font-bold text-slate-700">{fmtHora(ag.dataHora)}</div>
                         </div>
-                        <div className="text-xl w-8 text-center flex-shrink-0">{TIPO_EMOJI[ag.tipo] || '📋'}</div>
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl flex-shrink-0">{ag.icone || TIPO_EMOJI[ag.tipo] || '🐾'}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-slate-800">{ag.petNome}</span>
@@ -470,7 +470,7 @@ function ModalAgendar({ dataInicial, horaInicial, onClose, onSaved }) {
               <option value="">Selecione o serviço *</option>
               {servicos.map(s => (
                 <option key={s.id} value={s.id}>
-                  {s.nome}{s.categoria ? ` — ${s.categoria}` : ''}{s.duracaoMin ? ` (${s.duracaoMin}min)` : ''}
+                  {s.icone || '🐾'} {s.nome}{s.duracaoMin ? ` (${s.duracaoMin}min)` : ''}
                 </option>
               ))}
             </select>

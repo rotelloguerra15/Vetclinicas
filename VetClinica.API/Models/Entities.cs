@@ -215,14 +215,15 @@ public class Pet
 [Table("servicos")]
 public class Servico
 {
-    [Column("id")] public Guid Id { get; set; }
-    [Column("tenant_id")] public Guid TenantId { get; set; }
-    [Column("nome")] public string Nome { get; set; } = "";
-    [Column("categoria")] public string? Categoria { get; set; }
-    [Column("descricao")] public string? Descricao { get; set; }
-    [Column("preco_base")] public decimal PrecoBase { get; set; }
+    [Column("id")]          public Guid Id { get; set; }
+    [Column("tenant_id")]   public Guid TenantId { get; set; }
+    [Column("nome")]        public string Nome { get; set; } = "";
+    [Column("categoria")]   public string? Categoria { get; set; }
+    [Column("descricao")]   public string? Descricao { get; set; }
+    [Column("preco_base")]  public decimal PrecoBase { get; set; }
     [Column("duracao_min")] public int? DuracaoMin { get; set; }
-    [Column("ativo")] public bool Ativo { get; set; } = true;
+    [Column("icone")]       public string? Icone { get; set; } = "🐾";
+    [Column("ativo")]       public bool Ativo { get; set; } = true;
 }
 
 [Table("agendamentos")]

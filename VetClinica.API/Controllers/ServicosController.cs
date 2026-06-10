@@ -24,7 +24,7 @@ public class ServicosController : ControllerBase
         if (!string.IsNullOrWhiteSpace(categoria))
             q = q.Where(s => s.Categoria == categoria);
         var items = await q.OrderBy(s => s.Nome)
-            .Select(s => new ServicoDto(s.Id, s.Nome, s.Categoria, s.PrecoBase, s.DuracaoMin, s.Ativo))
+            .Select(s => new ServicoDto(s.Id, s.Nome, s.Categoria, s.PrecoBase, s.DuracaoMin, s.Ativo, s.Icone ?? "🐾"))
             .ToListAsync();
         return Ok(items);
     }
@@ -34,9 +34,14 @@ public class ServicosController : ControllerBase
     {
         var s = new Servico
         {
-            Id = Guid.NewGuid(), TenantId = _t.TenantId, Nome = dto.Nome,
-            Categoria = dto.Categoria, Descricao = dto.Descricao,
-            PrecoBase = dto.PrecoBase, DuracaoMin = dto.DuracaoMin
+            Id        = Guid.NewGuid(),
+            TenantId  = _t.TenantId,
+            Nome      = dto.Nome,
+            Categoria = dto.Categoria,
+            Descricao = dto.Descricao,
+            PrecoBase = dto.PrecoBase,
+            DuracaoMin = dto.DuracaoMin,
+            Icone     = dto.Icone ?? "🐾"
         };
         _db.Servicos.Add(s);
         await _db.SaveChangesAsync();
@@ -48,8 +53,12 @@ public class ServicosController : ControllerBase
     {
         var s = await _db.Servicos.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == _t.TenantId);
         if (s == null) return NotFound();
-        s.Nome = dto.Nome; s.Categoria = dto.Categoria; s.Descricao = dto.Descricao;
-        s.PrecoBase = dto.PrecoBase; s.DuracaoMin = dto.DuracaoMin;
+        s.Nome      = dto.Nome;
+        s.Categoria = dto.Categoria;
+        s.Descricao = dto.Descricao;
+        s.PrecoBase = dto.PrecoBase;
+        s.DuracaoMin = dto.DuracaoMin;
+        s.Icone     = dto.Icone ?? s.Icone ?? "🐾";
         await _db.SaveChangesAsync();
         return NoContent();
     }
