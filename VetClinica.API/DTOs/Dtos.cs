@@ -45,7 +45,7 @@ public record ServicoCreate(string Nome, string? Categoria, string? Descricao, d
 public record AgendamentoDto(Guid Id, Guid PetId, string PetNome, string Tipo,
     DateTime DataHora, int DuracaoMin, string Status, string Origem, string? Obs);
 public record AgendamentoCreate(Guid PetId, Guid? UserId, string Tipo, DateTime DataHora,
-    int DuracaoMin, string? Obs);
+    int DuracaoMin, string? Obs, Guid? ServicoId = null);
 public record SlotLivre(DateTime Inicio, DateTime Fim);
 
 // ---------- Ordem de Serviço ----------

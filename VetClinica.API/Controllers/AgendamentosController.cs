@@ -26,11 +26,25 @@ public class AgendamentosController : ControllerBase
         var inicio = de ?? DateTime.Today;
         var fim = ate ?? inicio.AddDays(7);
 
-        var ags = await _db.Agendamentos.Include(a => a.Pet)
+        var ags = await _db.Agendamentos
+            .Include(a => a.Pet)
+            .Include(a => a.Servico)
             .Where(a => a.TenantId == _t.TenantId && a.DataHora >= inicio && a.DataHora < fim)
             .OrderBy(a => a.DataHora)
-            .Select(a => new AgendamentoDto(a.Id, a.PetId, a.Pet!.Nome, a.Tipo,
-                a.DataHora, a.DuracaoMin, a.Status, a.Origem, a.Obs))
+            .Select(a => new {
+                a.Id,
+                PetId       = a.PetId,
+                PetNome     = a.Pet!.Nome,
+                a.Tipo,
+                a.ServicoId,
+                ServicoNome = a.Servico != null ? a.Servico.Nome : null,
+                ServicoDuracao = a.Servico != null ? a.Servico.DuracaoMin : (int?)null,
+                a.DataHora,
+                a.DuracaoMin,
+                a.Status,
+                a.Origem,
+                a.Obs
+            })
             .ToListAsync();
         return Ok(ags);
     }
@@ -54,9 +68,10 @@ public class AgendamentosController : ControllerBase
             Tipo = dto.Tipo,
             DataHora = dto.DataHora,
             DuracaoMin = dto.DuracaoMin,
-            Status = "confirmado",     // criado internamente já nasce confirmado
+            Status = "confirmado",
             Origem = "interno",
             Obs = dto.Obs,
+            ServicoId = dto.ServicoId,
             CriadoEm = DateTime.UtcNow
         };
         _db.Agendamentos.Add(ag);
@@ -94,6 +109,7 @@ public class AgendamentosController : ControllerBase
     {
         var ag = await _db.Agendamentos
             .Include(a => a.Pet)
+            .Include(a => a.Servico)
             .FirstOrDefaultAsync(a => a.Id == id && a.TenantId == _t.TenantId);
 
         if (ag == null) return NotFound();
@@ -119,6 +135,9 @@ public class AgendamentosController : ControllerBase
                                        && f.UsuarioId == _t.UserId
                                        && f.Status == "trabalhando");
 
+            // Calcula valor total com o serviço do agendamento (se houver)
+            decimal valorTotal = ag.Servico?.PrecoBase ?? 0;
+
             var novaOs = new VetClinica.API.Models.OrdemServico
             {
                 Id            = Guid.NewGuid(),
@@ -128,10 +147,25 @@ public class AgendamentosController : ControllerBase
                 UserId        = _t.UserId,
                 FuncionarioId = funcionario?.Id,
                 Status        = "em_andamento",
+                ValorTotal    = valorTotal,
                 Inicio        = DateTime.UtcNow,
                 CriadoEm      = DateTime.UtcNow
             };
             _db.OrdensServico.Add(novaOs);
+
+            // Vincula o serviço do agendamento à OS
+            if (ag.ServicoId.HasValue && ag.Servico != null)
+            {
+                _db.OsServicos.Add(new VetClinica.API.Models.OsServico
+                {
+                    Id           = Guid.NewGuid(),
+                    OsId         = novaOs.Id,
+                    ServicoId    = ag.ServicoId.Value,
+                    PrecoCobrado = ag.Servico.PrecoBase,
+                    Obs          = null
+                });
+            }
+
             osId = novaOs.Id;
         }
 
@@ -141,8 +175,9 @@ public class AgendamentosController : ControllerBase
 
         return Ok(new {
             osId,
-            petId   = ag.PetId,
-            petNome = ag.Pet?.Nome
+            petId       = ag.PetId,
+            petNome     = ag.Pet?.Nome,
+            servicoNome = ag.Servico?.Nome
         });
     }
 }

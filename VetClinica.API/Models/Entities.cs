@@ -237,12 +237,14 @@ public class Agendamento
     [Column("duracao_min")] public int DuracaoMin { get; set; } = 60;
     [Column("status")] public string Status { get; set; } = "pendente";
     [Column("origem")] public string Origem { get; set; } = "interno";
-    [Column("obs")] public string? Obs { get; set; }
-    [Column("confirmado_em")] public DateTime? ConfirmadoEm { get; set; }
+    [Column("obs")]            public string? Obs { get; set; }
+    [Column("servico_id")]     public Guid? ServicoId { get; set; }
+    [Column("confirmado_em")]  public DateTime? ConfirmadoEm { get; set; }
     [Column("confirmado_por")] public Guid? ConfirmadoPor { get; set; }
-    [Column("criado_em")] public DateTime CriadoEm { get; set; }
+    [Column("criado_em")]      public DateTime CriadoEm { get; set; }
 
     public Pet? Pet { get; set; }
+    public Servico? Servico { get; set; }
 }
 
 [Table("ordens_servico")]
