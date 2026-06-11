@@ -39,6 +39,7 @@ import Contabil from './pages/Contabil'
 import Cargos from './pages/RH/Cargos'
 import GestaoVista from './pages/GestaoVista'
 import Categorias from './pages/Categorias'
+import PlanosSaude from './pages/PlanosSaude'
 
 function Protected({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/login" />
@@ -84,6 +85,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="financeiro/categorias" element={<Categorias />} />
           <Route path="parametros" element={<Parametros />} />
           <Route path="parametros/bot" element={<Bot />} />
+          <Route path="planos-saude" element={<PlanosSaude />} />
         </Route>
         <Route path="/validar/:codigo" element={<Validar />} />
       </Routes>

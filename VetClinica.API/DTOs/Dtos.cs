@@ -309,3 +309,19 @@ public record CustoMensalItem(
     string Mes,
     decimal CustoTotal
 );
+
+// ---------- M5: Planos de Saúde ----------
+public record PlanoSaudeDto(Guid Id, string Nome, string? Operadora, decimal DescontoPercent, string? Obs, bool Ativo);
+public record PlanoSaudeCreate(string Nome, string? Operadora, decimal DescontoPercent, string? Obs);
+
+public record VincularPlanoRequest(Guid PlanoId, string? NumCarteirinha, DateOnly? Validade, decimal? DescontoPercent);
+
+public record PetPlanoDto(
+    Guid Id, Guid PetId, Guid PlanoId, string PlanoNome, string? Operadora,
+    string? NumCarteirinha, DateOnly? Validade, decimal DescontoEfetivo, bool Ativo);
+
+public record TutorPlanoDto(
+    Guid Id, Guid TutorId, Guid PlanoId, string PlanoNome, string? Operadora,
+    string? NumCarteirinha, DateOnly? Validade, decimal DescontoEfetivo, bool Ativo);
+
+public record DescontoPlanoResponse(Guid? PlanoId, string? PlanoNome, decimal Desconto, DateOnly? Validade);

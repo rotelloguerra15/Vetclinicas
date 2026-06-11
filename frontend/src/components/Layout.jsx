@@ -16,6 +16,7 @@ const menu = [
   { to: '/atendimentos', label: 'Atendimentos' },
   { to: '/pets',         label: 'Pets' },
   { to: '/tutores',      label: 'Tutores' },
+  { to: '/planos-saude', label: 'Planos de Saude' },
 
   { group: 'Vendas' },
   { to: '/pdv',          label: 'PDV / Caixa',              highlight: true },

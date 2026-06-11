@@ -70,6 +70,11 @@ public class AppDbContext : DbContext
     public DbSet<FechamentoMensal> FechamentosMensais => Set<FechamentoMensal>();
     public DbSet<ParametrosSistema> ParametrosSistema => Set<ParametrosSistema>();
 
+    // M5 Planos de Saude
+    public DbSet<PlanoSaude> PlanosSaude => Set<PlanoSaude>();
+    public DbSet<PetPlano> PetPlanos => Set<PetPlano>();
+    public DbSet<TutorPlano> TutorPlanos => Set<TutorPlano>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         mb.Entity<Tutor>().HasMany(t => t.Pets).WithOne(p => p.Tutor).HasForeignKey(p => p.TutorId);
@@ -148,6 +153,27 @@ public class AppDbContext : DbContext
             .HasMany(f => f.Documentos)
             .WithOne()
             .HasForeignKey(d => d.FechamentoId);
+
+        // M5 Planos de Saude
+        mb.Entity<PlanoSaude>()
+            .HasMany(p => p.PetPlanos)
+            .WithOne(pp => pp.Plano)
+            .HasForeignKey(pp => pp.PlanoId);
+
+        mb.Entity<PlanoSaude>()
+            .HasMany(p => p.TutorPlanos)
+            .WithOne(tp => tp.Plano)
+            .HasForeignKey(tp => tp.PlanoId);
+
+        mb.Entity<PetPlano>()
+            .HasOne(pp => pp.Pet)
+            .WithMany()
+            .HasForeignKey(pp => pp.PetId);
+
+        mb.Entity<TutorPlano>()
+            .HasOne(tp => tp.Tutor)
+            .WithMany()
+            .HasForeignKey(tp => tp.TutorId);
 
         base.OnModelCreating(mb);
     }

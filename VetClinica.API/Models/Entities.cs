@@ -921,3 +921,58 @@ public class MetaFaturamento
     [Column("criado_em")]     public DateTime CriadoEm { get; set; }
     [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
 }
+
+// ── M5: Planos de Saúde ──────────────────────────────────────────────────────
+
+[Table("planos_saude")]
+public class PlanoSaude
+{
+    [Column("id")]               public Guid Id { get; set; }
+    [Column("tenant_id")]        public Guid TenantId { get; set; }
+    [Column("nome")]             public string Nome { get; set; } = "";
+    [Column("operadora")]        public string? Operadora { get; set; }
+    [Column("desconto_percent")] public decimal DescontoPercent { get; set; } = 0;
+    [Column("ativo")]            public bool Ativo { get; set; } = true;
+    [Column("obs")]              public string? Obs { get; set; }
+    [Column("criado_em")]        public DateTime CriadoEm { get; set; }
+    [Column("atualizado_em")]    public DateTime AtualizadoEm { get; set; }
+
+    public List<PetPlano> PetPlanos { get; set; } = new();
+    public List<TutorPlano> TutorPlanos { get; set; } = new();
+}
+
+[Table("pet_planos")]
+public class PetPlano
+{
+    [Column("id")]               public Guid Id { get; set; }
+    [Column("tenant_id")]        public Guid TenantId { get; set; }
+    [Column("pet_id")]           public Guid PetId { get; set; }
+    [Column("plano_id")]         public Guid PlanoId { get; set; }
+    [Column("num_carteirinha")]  public string? NumCarteirinha { get; set; }
+    [Column("validade")]         public DateOnly? Validade { get; set; }
+    [Column("desconto_percent")] public decimal? DescontoPercent { get; set; }
+    [Column("ativo")]            public bool Ativo { get; set; } = true;
+    [Column("criado_em")]        public DateTime CriadoEm { get; set; }
+    [Column("atualizado_em")]    public DateTime AtualizadoEm { get; set; }
+
+    public Pet? Pet { get; set; }
+    public PlanoSaude? Plano { get; set; }
+}
+
+[Table("tutor_planos")]
+public class TutorPlano
+{
+    [Column("id")]               public Guid Id { get; set; }
+    [Column("tenant_id")]        public Guid TenantId { get; set; }
+    [Column("tutor_id")]         public Guid TutorId { get; set; }
+    [Column("plano_id")]         public Guid PlanoId { get; set; }
+    [Column("num_carteirinha")]  public string? NumCarteirinha { get; set; }
+    [Column("validade")]         public DateOnly? Validade { get; set; }
+    [Column("desconto_percent")] public decimal? DescontoPercent { get; set; }
+    [Column("ativo")]            public bool Ativo { get; set; } = true;
+    [Column("criado_em")]        public DateTime CriadoEm { get; set; }
+    [Column("atualizado_em")]    public DateTime AtualizadoEm { get; set; }
+
+    public Tutor? Tutor { get; set; }
+    public PlanoSaude? Plano { get; set; }
+}
