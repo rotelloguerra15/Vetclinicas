@@ -165,27 +165,85 @@ public class CaixaController : ControllerBase
         cx.FechadoEm = DateTime.UtcNow;
         cx.Obs = dto.Obs;
 
-        // Pendência #1: fechamento alimenta o Financeiro
-        // Cria lançamento de fechamento de caixa no financeiro
-        var totalDia = entradasDinheiro + servicosDinheiro;
-        if (totalDia > 0)
+        // ── Pendência #1: fechamento alimenta o Financeiro ───────────────
+        // Agrupa vendas + serviços por forma de pagamento e cria uma Conta por forma
+        var vendasPorForma = await _db.Vendas
+            .Where(v => v.TenantId == _t.TenantId && v.Status == "finalizada"
+                     && v.CriadoEm >= inicioUtc && v.CriadoEm < fimUtc
+                     && v.FormaPagamento != null)
+            .GroupBy(v => v.FormaPagamento!)
+            .Select(g => new { Forma = g.Key, Total = g.Sum(v => v.ValorTotal) })
+            .ToListAsync();
+
+        // Busca conta bancária padrão do tenant (se houver)
+        var contaBancariaDefault = await _db.ContasBancarias
+            .Where(c => c.TenantId == _t.TenantId && c.Ativo)
+            .OrderBy(c => c.CriadoEm)
+            .FirstOrDefaultAsync();
+
+        foreach (var grupo in vendasPorForma.Where(g => g.Total > 0))
+        {
+            var conta = new Conta
+            {
+                Id              = Guid.NewGuid(),
+                TenantId        = _t.TenantId,
+                Tipo            = "receita",
+                Descricao       = $"Fechamento de caixa — {hoje:dd/MM/yyyy} ({grupo.Forma})",
+                Valor           = grupo.Total,
+                DataCompetencia = hoje,
+                DataVencimento  = hoje,
+                FormaPagamento  = grupo.Forma,
+                Status          = "recebida",
+                ValorPago       = grupo.Total,
+                DataBaixa       = hoje,
+                ContaBancaria   = contaBancariaDefault?.Nome,
+                CriadoPor       = _t.UserId,
+                CriadoEm        = DateTime.UtcNow,
+                AtualizadoEm    = DateTime.UtcNow
+            };
+            _db.Contas.Add(conta);
+            await _db.SaveChangesAsync(); // salva para ter ID
+
+            // Cria MovimentacaoBancaria se tiver conta bancária configurada
+            if (contaBancariaDefault != null)
+            {
+                _db.MovimentacoesBancarias.Add(new MovimentacaoBancaria
+                {
+                    Id               = Guid.NewGuid(),
+                    TenantId         = _t.TenantId,
+                    ContaBancariaId  = contaBancariaDefault.Id,
+                    Tipo             = "entrada",
+                    Valor            = grupo.Total,
+                    Descricao        = $"Caixa {hoje:dd/MM/yyyy} — {grupo.Forma}",
+                    DataMovimentacao = hoje,
+                    ContaId          = conta.Id,
+                    Origem           = "caixa",
+                    Conciliado       = false,
+                    CriadoPor        = _t.UserId,
+                    CriadoEm        = DateTime.UtcNow
+                });
+            }
+        }
+
+        // Retiradas viram despesas no financeiro
+        foreach (var retirada in cx.Movimentacoes.Where(m => m.Tipo == "retirada" && m.Valor > 0))
         {
             _db.Contas.Add(new Conta
             {
-                Id = Guid.NewGuid(),
-                TenantId = _t.TenantId,
-                Tipo = "receita",
-                Descricao = $"Fechamento de caixa — {hoje:dd/MM/yyyy}",
-                Valor = cx.TotalVendas + cx.TotalServicos,
+                Id              = Guid.NewGuid(),
+                TenantId        = _t.TenantId,
+                Tipo            = "despesa",
+                Descricao       = $"Retirada de caixa — {retirada.Descricao ?? hoje.ToString("dd/MM/yyyy")}",
+                Valor           = retirada.Valor,
                 DataCompetencia = hoje,
-                DataVencimento = hoje,
-                FormaPagamento = "Dinheiro",
-                Status = "recebida",
-                ValorPago = cx.TotalVendas + cx.TotalServicos,
-                DataBaixa = hoje,
-                CriadoPor = _t.UserId,
-                CriadoEm = DateTime.UtcNow,
-                AtualizadoEm = DateTime.UtcNow
+                DataVencimento  = hoje,
+                FormaPagamento  = "Dinheiro",
+                Status          = "paga",
+                ValorPago       = retirada.Valor,
+                DataBaixa       = hoje,
+                CriadoPor       = _t.UserId,
+                CriadoEm        = DateTime.UtcNow,
+                AtualizadoEm    = DateTime.UtcNow
             });
         }
 
