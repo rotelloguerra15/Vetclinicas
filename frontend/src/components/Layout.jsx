@@ -4,8 +4,13 @@ import Logo from './Logo'
 import api from '../api/client'
 
 const menu = [
+  { group: 'Dashboards' },
+  { to: '/',              label: 'Clinica',      end: true },
+  { to: '/relatorios',    label: 'Financeiro BI' },
+  { to: '/rh/relatorios', label: 'RH' },
+
   { group: 'Clinica' },
-  { to: '/',             label: 'Dashboard',                end: true },
+
   { to: '/agenda',       label: 'Agenda' },
   { to: '/atendimentos', label: 'Atendimentos' },
   { to: '/pets',         label: 'Pets' },
@@ -33,7 +38,7 @@ const menu = [
   { to: '/rh/funcionarios', label: 'Funcionarios' },
   { to: '/rh/cargos',        label: 'Cargos' },
   { to: '/rh/fechamento',   label: 'Fechamento' },
-  { to: '/rh/relatorios',   label: 'Relatorios RH' },
+
 
   { group: 'Marketing' },
   { to: '/promocoes',    label: 'Promocoes' },
@@ -44,8 +49,7 @@ const menu = [
   { to: '/cadastros/vias',     label: 'Vias de Administracao' },
   { to: '/cadastros/pelagens', label: 'Pelagens' },
 
-  { group: 'Relatorios' },
-  { to: '/relatorios',   label: 'Relatorios' },
+
 
   { group: 'Configuracoes' },
   { to: '/parametros',      label: 'Parametros' },
