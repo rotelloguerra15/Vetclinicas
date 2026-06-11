@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Org.BouncyCastle.Pkcs;
 using VetClinica.API.Data;
 using VetClinica.API.Middleware;
 using VetClinica.API.Services.Certificado;
@@ -58,44 +57,31 @@ public class CertificadoController : ControllerBase
             pfxBytes = ms.ToArray();
         }
 
-        // Valida o .pfx antes de salvar (API BouncyCastle 2.x)
-        Pkcs12Store store;
-        try
-        {
-            var builder = new Pkcs12StoreBuilder();
-            store = builder.Build();
-            store.Load(new MemoryStream(pfxBytes), senha.ToCharArray());
-        }
-        catch
-        {
-            return BadRequest(new { erro = "Arquivo .pfx invalido ou senha incorreta." });
-        }
-
-        // Extrai info do certificado
+        // Valida o .pfx usando X509Certificate2 nativo do .NET 8
         string? titular = null, cpf = null;
         DateOnly? validade = null;
-
-        foreach (string alias in store.Aliases)
+        try
         {
-            if (!store.IsCertificateEntry(alias) && !store.IsKeyEntry(alias)) continue;
-            var cert = store.GetCertificate(alias)?.Certificate;
-            if (cert == null) continue;
+            using var x509 = new System.Security.Cryptography.X509Certificates.X509Certificate2(
+                pfxBytes, senha,
+                System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.EphemeralKeySet);
 
-            // Subject: CN=BARBARA FONSECA TATSCH:025083592XX, ...
-            var subject = cert.SubjectDN.ToString();
+            // Subject: CN=BARBARA FONSECA TATSCH:025083592XX, OU=...
+            var subject = x509.Subject;
             var cnMatch = System.Text.RegularExpressions.Regex.Match(subject, @"CN=([^,]+)");
             if (cnMatch.Success)
             {
-                var cn = cnMatch.Groups[1].Value;
-                // Remove CPF do final (formato: NOME SOBRENOME:12345678900)
+                var cn = cnMatch.Groups[1].Value.Trim();
                 var parts = cn.Split(':');
                 titular = parts[0].Trim();
                 if (parts.Length > 1) cpf = parts[1].Trim();
             }
 
-            var notAfter = cert.NotAfter;
-            validade = DateOnly.FromDateTime(notAfter);
-            break;
+            validade = DateOnly.FromDateTime(x509.NotAfter);
+        }
+        catch
+        {
+            return BadRequest(new { erro = "Arquivo .pfx invalido ou senha incorreta." });
         }
 
         // Verifica validade
