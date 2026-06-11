@@ -1,15 +1,11 @@
 using Org.BouncyCastle.Pkcs;
-using Org.BouncyCastle.X509;
 using Org.BouncyCastle.Crypto;
 using iText.Kernel.Pdf;
 using iText.Signatures;
+using iText.Commons.Bouncycastle.Cert;
 
 namespace VetClinica.API.Services.Certificado;
 
-/// <summary>
-/// Camada 1: Assinatura digital com certificado A1 (.pfx)
-/// Usa iText7 com wrapper manual do BouncyCastle para compatibilidade máxima
-/// </summary>
 public class PfxCertificadoService : ICertificadoService
 {
     private readonly byte[]? _pfxBytes;
@@ -37,7 +33,6 @@ public class PfxCertificadoService : ICertificadoService
 
     private byte[] AssinarPdf(byte[] pdfBytes, string motivo, string localidade)
     {
-        // Carrega .pfx usando BouncyCastle 2.x
         var storeBuilder = new Pkcs12StoreBuilder();
         var store = storeBuilder.Build();
         store.Load(new MemoryStream(_pfxBytes!), _senha!.ToCharArray());
@@ -53,9 +48,11 @@ public class PfxCertificadoService : ICertificadoService
                            .Select(c => c.Certificate)
                            .ToArray();
 
-        // Usa IExternalSignature com wrapper BouncyCastle puro
-        IExternalSignature pks = new BouncyCastleKeySignature(bcKey);
-        var chain = bcChain.Cast<iText.Commons.Bouncycastle.Cert.IX509Certificate>().ToArray();
+        // Converte chain para IX509Certificate via wrapper iText
+        var chain = bcChain
+            .Select(c => iText.Bouncycastle.X509.BouncyCastleX509CertificateFactory
+                .GetInstance().CreateX509Certificate(c.GetEncoded()))
+            .ToArray();
 
         using var input  = new MemoryStream(pdfBytes);
         using var output = new MemoryStream();
@@ -66,23 +63,26 @@ public class PfxCertificadoService : ICertificadoService
         signer.SetReason(motivo);
         signer.SetLocation(localidade);
 
+        IExternalSignature pks = new BcExternalSignature(bcKey);
         signer.SignDetached(pks, chain, null, null, null, 0, PdfSigner.CryptoStandard.CMS);
 
         return output.ToArray();
     }
 }
 
-/// <summary>
-/// Wrapper que implementa IExternalSignature usando chave BouncyCastle
-/// </summary>
-internal class BouncyCastleKeySignature : IExternalSignature
+internal class BcExternalSignature : IExternalSignature
 {
     private readonly AsymmetricKeyParameter _key;
+    public BcExternalSignature(AsymmetricKeyParameter key) => _key = key;
 
-    public BouncyCastleKeySignature(AsymmetricKeyParameter key) => _key = key;
+    public string GetDigestAlgorithmName()     => "SHA-256";
+    public string GetEncryptionAlgorithm()     => "RSA";
+    public string GetHashAlgorithm()           => "SHA-256";
+    public string GetSignatureAlgorithmName()  => "SHA256withRSA";
 
-    public string GetEncryptionAlgorithm() => "RSA";
-    public string GetHashAlgorithm() => "SHA-256";
+    public Org.BouncyCastle.Asn1.DerObjectIdentifier? GetSignatureMechanismParameters() => null;
+
+    public IExternalSignature WithSignMechanism(string oid) => this;
 
     public byte[] Sign(byte[] message)
     {
@@ -91,6 +91,4 @@ internal class BouncyCastleKeySignature : IExternalSignature
         signer.BlockUpdate(message, 0, message.Length);
         return signer.GenerateSignature();
     }
-
-    public IExternalSignature WithSignMechanism(string signatureMechanismOid) => this;
 }
