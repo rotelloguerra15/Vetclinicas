@@ -8,7 +8,9 @@ const FORM_VAZIO = {
   tutorId: '', nome: '', especie: 'cao', raca: '', sexo: 'indefinido',
   dataNascimento: '', pesoKg: '', castrado: '', pelagem: '',
   temMicrochip: false, microchipNum: '',
-  temPlanoSaude: false, planoSaudeNome: '', planoSaudeCarteira: ''
+  temPlanoSaude: false,
+  // M5: campos do vínculo
+  planoId: '', numCarteirinha: '', validade: '', descontoPercent: ''
 }
 
 export default function Pets() {
@@ -16,6 +18,7 @@ export default function Pets() {
   const [pets, setPets] = useState([])
   const [tutores, setTutores] = useState([])
   const [pelagens, setPelagens] = useState([])
+  const [planos, setPlanos] = useState([])         // M5
   const [busca, setBusca] = useState('')
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editandoId, setEditandoId] = useState(null)
@@ -29,6 +32,7 @@ export default function Pets() {
     carregar()
     api.get('/tutores', { params: { pageSize: 100 } }).then((r) => setTutores(r.data.items)).catch(() => {})
     api.get('/cadastros/pelagens').then(r => setPelagens(r.data)).catch(() => {})
+    api.get('/planos-saude').then(r => setPlanos(r.data)).catch(() => {})   // M5
   }, [])
 
   // Pré-seleciona tutor se vier por URL (?tutorId=...)
@@ -51,6 +55,14 @@ export default function Pets() {
     e.stopPropagation()
     try {
       const { data } = await api.get(`/pets/${id}`)
+
+      // M5: busca vínculo ativo de plano do pet
+      let planoAtivo = null
+      try {
+        const rp = await api.get(`/planos-saude/pet/${id}`)
+        planoAtivo = rp.data.find(v => v.ativo) || null
+      } catch { /* sem plano */ }
+
       setForm({
         tutorId: data.tutorId || '',
         nome: data.nome || '',
@@ -63,9 +75,11 @@ export default function Pets() {
         pelagem: data.pelagem || '',
         temMicrochip: data.temMicrochip || false,
         microchipNum: data.microchipNum || '',
-        temPlanoSaude: data.temPlanoSaude || false,
-        planoSaudeNome: data.planoSaudeNome || '',
-        planoSaudeCarteira: data.planoSaudeCarteira || ''
+        temPlanoSaude: !!planoAtivo,
+        planoId: planoAtivo?.planoId || '',
+        numCarteirinha: planoAtivo?.numCarteirinha || '',
+        validade: planoAtivo?.validade || '',
+        descontoPercent: planoAtivo?.descontoEfetivo != null ? String(planoAtivo.descontoEfetivo) : ''
       })
       setEditandoId(id)
       setMostrarForm(true)
@@ -81,17 +95,44 @@ export default function Pets() {
   async function salvar(e) {
     e.preventDefault()
     const payload = {
-      ...form,
+      tutorId: form.tutorId,
+      nome: form.nome,
+      especie: form.especie,
+      raca: form.raca || null,
+      sexo: form.sexo,
+      dataNascimento: form.dataNascimento || null,
       pesoKg: form.pesoKg ? parseFloat(form.pesoKg) : null,
       castrado: form.castrado === 'true' ? true : form.castrado === 'false' ? false : null,
       pelagem: form.pelagem || null,
-      dataNascimento: form.dataNascimento || null,
+      obs: null,
+      temMicrochip: form.temMicrochip,
       microchipNum: form.temMicrochip ? form.microchipNum : null,
-      planoSaudeNome: form.temPlanoSaude ? form.planoSaudeNome : null,
-      planoSaudeCarteira: form.temPlanoSaude ? form.planoSaudeCarteira : null
+      // legado — mantém compatibilidade com PetsController existente
+      temPlanoSaude: form.temPlanoSaude,
+      planoSaudeNome: form.temPlanoSaude && form.planoId
+        ? (planos.find(p => p.id === form.planoId)?.nome || null)
+        : null,
+      planoSaudeCarteira: form.temPlanoSaude ? form.numCarteirinha || null : null
     }
-    if (editandoId) await api.put(`/pets/${editandoId}`, payload)
-    else await api.post('/pets', payload)
+
+    let petId = editandoId
+    if (editandoId) {
+      await api.put(`/pets/${editandoId}`, payload)
+    } else {
+      const r = await api.post('/pets', payload)
+      petId = r.data.id
+    }
+
+    // M5: vincula plano se selecionado
+    if (form.temPlanoSaude && form.planoId && petId) {
+      await api.post(`/planos-saude/pet/${petId}/vincular`, {
+        planoId: form.planoId,
+        numCarteirinha: form.numCarteirinha || null,
+        validade: form.validade || null,
+        descontoPercent: form.descontoPercent !== '' ? parseFloat(form.descontoPercent) : null
+      })
+    }
+
     cancelar()
     carregar()
   }
@@ -100,6 +141,9 @@ export default function Pets() {
     value: form[field],
     onChange: (e) => setForm({ ...form, [field]: e.target.value })
   })
+
+  // Plano selecionado no dropdown (para mostrar desconto padrão)
+  const planoSelecionado = planos.find(p => p.id === form.planoId)
 
   return (
     <div>
@@ -162,20 +206,57 @@ export default function Pets() {
             )}
           </div>
 
-          {/* Plano de saúde */}
+          {/* Plano de Saúde — M5 */}
           <p className="font-semibold text-slate-700 border-b pb-1 pt-2">🏥 Plano de Saúde</p>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.temPlanoSaude}
-                onChange={(e) => setForm({ ...form, temPlanoSaude: e.target.checked })} />
+                onChange={(e) => setForm({ ...form, temPlanoSaude: e.target.checked, planoId: '', numCarteirinha: '', validade: '', descontoPercent: '' })} />
               <span className="text-sm">Possui plano de saúde</span>
             </label>
+
             {form.temPlanoSaude && (
               <div className="grid grid-cols-2 gap-3">
-                <input className="border rounded-lg px-3 py-2" placeholder="Nome do plano"
-                  value={form.planoSaudeNome} onChange={(e) => setForm({ ...form, planoSaudeNome: e.target.value })} />
+                {/* Select de planos cadastrados no M5 */}
+                <div className="col-span-2">
+                  <select className="border rounded-lg px-3 py-2 w-full" value={form.planoId}
+                    onChange={(e) => setForm({ ...form, planoId: e.target.value, descontoPercent: '' })}>
+                    <option value="">Selecione o plano...</option>
+                    {planos.length === 0
+                      ? <option disabled>Nenhum plano cadastrado — acesse Planos de Saude</option>
+                      : planos.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.nome}{p.operadora ? ` — ${p.operadora}` : ''}
+                        </option>
+                      ))
+                    }
+                  </select>
+                </div>
+
+                {/* Desconto padrão do plano (informativo) */}
+                {planoSelecionado && planoSelecionado.descontoPercent > 0 && (
+                  <div className="col-span-2 bg-emerald-50 rounded-lg px-3 py-2 text-sm text-emerald-700">
+                    Desconto padrão do plano: <strong>{planoSelecionado.descontoPercent}%</strong>
+                    {form.descontoPercent === '' && ' (será aplicado automaticamente)'}
+                  </div>
+                )}
+
                 <input className="border rounded-lg px-3 py-2" placeholder="Número da carteirinha"
-                  value={form.planoSaudeCarteira} onChange={(e) => setForm({ ...form, planoSaudeCarteira: e.target.value })} />
+                  value={form.numCarteirinha} onChange={(e) => setForm({ ...form, numCarteirinha: e.target.value })} />
+
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">Validade do plano</label>
+                  <input type="date" className="border rounded-lg px-3 py-2 w-full"
+                    value={form.validade} onChange={(e) => setForm({ ...form, validade: e.target.value })} />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-xs text-slate-500 block mb-1">Desconto específico (%) — deixe em branco para usar o do plano</label>
+                  <input type="number" min="0" max="100" step="0.5"
+                    className="border rounded-lg px-3 py-2 w-full"
+                    placeholder="Ex: 15"
+                    value={form.descontoPercent} onChange={(e) => setForm({ ...form, descontoPercent: e.target.value })} />
+                </div>
               </div>
             )}
           </div>
