@@ -36,6 +36,7 @@ public class AppDbContext : DbContext
     // Cadastros auxiliares
     public DbSet<ViaAdministracao> ViasAdministracao => Set<ViaAdministracao>();
     public DbSet<Pelagem> Pelagens => Set<Pelagem>();
+    public DbSet<Raca> Racas => Set<Raca>();
 
     // M4 Compras
     public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
@@ -83,6 +84,7 @@ public class AppDbContext : DbContext
             .HasOne(m => m.Caixa)
             .WithMany(c => c.Movimentacoes)
             .HasForeignKey(m => m.CaixaId);
+
         // Compras
         mb.Entity<PedidoCompra>()
             .HasMany(p => p.Itens)

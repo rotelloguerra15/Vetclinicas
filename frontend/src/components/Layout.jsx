@@ -5,22 +5,20 @@ import api from '../api/client'
 
 const menu = [
   { group: 'Dashboards' },
-  { to: '/',              label: 'Clinica',      end: true },
-  { to: '/relatorios',    label: 'Financeiro BI' },
+  { to: '/',                   label: 'Clinica',      end: true },
+  { to: '/relatorios',         label: 'Financeiro BI' },
   { to: '/rh/relatorios',      label: 'RH' },
   { to: '/dashboard/vendas',   label: 'Vendas' },
 
   { group: 'Clinica' },
-
   { to: '/agenda',       label: 'Agenda' },
   { to: '/atendimentos', label: 'Atendimentos' },
   { to: '/pets',         label: 'Pets' },
   { to: '/tutores',      label: 'Tutores' },
-  { to: '/planos-saude', label: 'Planos de Saude' },
 
   { group: 'Vendas' },
-  { to: '/pdv',          label: 'PDV / Caixa',              highlight: true },
-  { to: '/servicos',     label: 'Servicos' },
+  { to: '/pdv',      label: 'PDV / Caixa', highlight: true },
+  { to: '/servicos', label: 'Servicos' },
 
   { group: 'Estoque' },
   { to: '/estoque',      label: 'Controle de Estoque' },
@@ -32,33 +30,32 @@ const menu = [
   { to: '/fornecedores',      label: 'Fornecedores' },
 
   { group: 'Financeiro' },
-  { to: '/financeiro',   label: 'Contas' },
-  { to: '/bancario',                label: 'Movim. Bancaria' },
-  { to: '/financeiro/categorias',   label: 'Categorias' },
+  { to: '/financeiro',                label: 'Contas' },
+  { to: '/bancario',                  label: 'Movim. Bancaria' },
+  { to: '/financeiro/categorias',     label: 'Categorias' },
 
   { group: 'RH' },
   { to: '/rh/funcionarios', label: 'Funcionarios' },
-  { to: '/rh/cargos',        label: 'Cargos' },
+  { to: '/rh/cargos',       label: 'Cargos' },
   { to: '/rh/fechamento',   label: 'Fechamento' },
 
-
   { group: 'Marketing' },
-  { to: '/promocoes',    label: 'Promocoes' },
-  { to: '/mensagens',    label: 'Mensagens' },
+  { to: '/promocoes', label: 'Promocoes' },
+  { to: '/mensagens', label: 'Mensagens' },
 
   { group: 'Cadastros' },
-  { to: '/usuarios',         label: 'Usuarios' },
-  { to: '/cadastros/vias',     label: 'Vias de Administracao' },
-  { to: '/cadastros/pelagens', label: 'Pelagens' },
-
-
+  { to: '/usuarios',              label: 'Usuarios' },
+  { to: '/cadastros/racas',       label: 'Racas' },
+  { to: '/cadastros/pelagens',    label: 'Pelagens' },
+  { to: '/cadastros/vias',        label: 'Vias de Administracao' },
+  { to: '/planos-saude',          label: 'Planos de Saude' },
 
   { group: 'Contabil' },
   { to: '/contabil', label: 'Fechamento Contabil' },
 
   { group: 'Configuracoes' },
-  { to: '/parametros',      label: 'Parametros' },
-  { to: '/parametros/bot',  label: 'Bot WhatsApp' },
+  { to: '/parametros',     label: 'Parametros' },
+  { to: '/parametros/bot', label: 'Bot WhatsApp' },
 
   { group: 'Gestao a Vista' },
   { to: '/gestao-vista', label: 'Gestao a Vista', tv: true },
@@ -73,7 +70,7 @@ function NavContent({ onClose }) {
     onClose?.()
   }
 
-  const nome     = localStorage.getItem('nome')
+  const nome = localStorage.getItem('nome')
   const [branding, setBranding] = useState({ nome: '', tagline: '' })
 
   useEffect(() => {
@@ -160,10 +157,8 @@ export default function Layout() {
   const [menuAberto, setMenuAberto] = useState(false)
   const location = useLocation()
 
-  // Fecha menu ao navegar
   useEffect(() => { setMenuAberto(false) }, [location.pathname])
 
-  // Bloqueia scroll do body quando menu aberto no mobile
   useEffect(() => {
     if (menuAberto) document.body.style.overflow = 'hidden'
     else document.body.style.overflow = ''
@@ -173,7 +168,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex bg-slate-50">
 
-      {/* Sidebar desktop — sempre visivel em lg+ */}
+      {/* Sidebar desktop */}
       <aside className="hidden lg:flex w-60 flex-shrink-0 bg-slate-900 text-slate-100 flex-col h-screen sticky top-0 overflow-hidden">
         <NavContent />
       </aside>
@@ -181,9 +176,7 @@ export default function Layout() {
       {/* Overlay mobile */}
       {menuAberto && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          {/* Fundo escuro */}
           <div className="absolute inset-0 bg-black/50" onClick={() => setMenuAberto(false)} />
-          {/* Drawer */}
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 text-slate-100 flex flex-col z-50 shadow-2xl">
             <NavContent onClose={() => setMenuAberto(false)} />
           </aside>
@@ -193,7 +186,7 @@ export default function Layout() {
       {/* Conteudo principal */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Topbar mobile/tablet */}
+        {/* Topbar mobile */}
         <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">
           <button onClick={() => setMenuAberto(true)}
             className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition">

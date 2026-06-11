@@ -976,3 +976,16 @@ public class TutorPlano
     public Tutor? Tutor { get; set; }
     public PlanoSaude? Plano { get; set; }
 }
+
+// ── Raças ────────────────────────────────────────────────────────────────────
+
+[Table("racas")]
+public class Raca
+{
+    [Column("id")]        public Guid Id { get; set; }
+    [Column("tenant_id")] public Guid TenantId { get; set; }
+    [Column("nome")]      public string Nome { get; set; } = "";
+    [Column("especie")]   public string Especie { get; set; } = "cao";
+    [Column("ativo")]     public bool Ativo { get; set; } = true;
+    [Column("criado_em")] public DateTime CriadoEm { get; set; }
+}
