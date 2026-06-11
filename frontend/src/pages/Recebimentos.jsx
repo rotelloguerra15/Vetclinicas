@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import api from '../api/client'
 
 const STATUS_COR = {
@@ -200,12 +200,15 @@ function ModalConferencia({ recebimento, onClose, onFinalizado }) {
           </tbody>
         </table>
 
+        {/* Seção de Anexos */}
+        <SecaoAnexos recebimentoId={recebimento.id} status={recebimento.status} />
+
         {recebimento.status === 'finalizado' ? (
-          <div className="text-center py-2">
+          <div className="text-center py-2 mt-4">
             <span className="text-emerald-600 font-medium text-sm">Recebimento ja finalizado</span>
           </div>
         ) : (
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-end mt-4">
             <button onClick={onClose} className="border px-4 py-2 rounded-lg text-sm">Fechar</button>
             <button onClick={conferir} disabled={salvando}
               className="border border-blue-300 text-blue-600 px-4 py-2 rounded-lg text-sm disabled:opacity-40">
@@ -217,6 +220,152 @@ function ModalConferencia({ recebimento, onClose, onFinalizado }) {
             </button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function SecaoAnexos({ recebimentoId, status }) {
+  const [anexos, setAnexos]       = useState([])
+  const [dragOver, setDragOver]   = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [descricao, setDescricao] = useState('')
+  const inputRef = useRef(null)
+
+  function carregar() {
+    api.get(`/recebimentos/${recebimentoId}/anexos`)
+      .then(r => setAnexos(r.data)).catch(() => {})
+  }
+  useEffect(() => { if (recebimentoId) carregar() }, [recebimentoId])
+
+  function fmtTamanho(bytes) {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024*1024) return `${(bytes/1024).toFixed(1)} KB`
+    return `${(bytes/1024/1024).toFixed(1)} MB`
+  }
+
+  function iconeArquivo(tipo) {
+    if (tipo.includes('pdf')) return '📄'
+    if (tipo.includes('image')) return '🖼️'
+    if (tipo.includes('xml')) return '📋'
+    return '📎'
+  }
+
+  async function processarArquivo(file) {
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Arquivo muito grande. Maximo 5MB.')
+      return
+    }
+    setUploading(true)
+    try {
+      const base64 = await new Promise((res, rej) => {
+        const reader = new FileReader()
+        reader.onload = e => res(e.target.result.split(',')[1])
+        reader.onerror = rej
+        reader.readAsDataURL(file)
+      })
+      await api.post(`/recebimentos/${recebimentoId}/anexos`, {
+        nome:        file.name,
+        tipoArquivo: file.type || 'application/octet-stream',
+        dadosBase64: base64,
+        descricao:   descricao || null
+      })
+      setDescricao('')
+      carregar()
+    } catch (err) {
+      alert(err.response?.data?.erro || 'Erro ao enviar arquivo.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function remover(id, nome) {
+    if (!confirm(`Remover "${nome}"?`)) return
+    await api.delete(`/recebimentos/anexos/${id}`).catch(() => {})
+    carregar()
+  }
+
+  function download(id, nome) {
+    api.get(`/recebimentos/anexos/${id}/download`, { responseType: 'blob' })
+      .then(r => {
+        const url = URL.createObjectURL(r.data)
+        const a   = document.createElement('a')
+        a.href = url; a.download = nome
+        document.body.appendChild(a); a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }).catch(() => alert('Erro ao baixar arquivo.'))
+  }
+
+  return (
+    <div className="border-t pt-4 mt-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-sm font-semibold text-slate-700">📎 Notas Fiscais e Documentos</span>
+        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+          {anexos.length} arquivo{anexos.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Lista de anexos */}
+      {anexos.length > 0 && (
+        <div className="space-y-2 mb-3">
+          {anexos.map(a => (
+            <div key={a.id} className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+              <span className="text-2xl">{iconeArquivo(a.tipoArquivo)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-800 truncate">{a.nome}</p>
+                <p className="text-xs text-slate-400">
+                  {a.descricao && <span className="text-blue-600 mr-2">{a.descricao}</span>}
+                  {fmtTamanho(a.tamanhoBytes)} · {new Date(a.criadoEm).toLocaleDateString('pt-BR')}
+                </p>
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <button onClick={() => download(a.id, a.nome)}
+                  className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
+                  ⬇ Baixar
+                </button>
+                <button onClick={() => remover(a.id, a.nome)}
+                  className="text-xs bg-red-50 text-red-400 px-2.5 py-1.5 rounded-lg hover:bg-red-100">
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Upload */}
+      <div className="space-y-2">
+        <input
+          className="border rounded-lg px-3 py-1.5 w-full text-sm"
+          placeholder="Descricao do arquivo (ex: NF-e 12345, Boleto...)"
+          value={descricao}
+          onChange={e => setDescricao(e.target.value)}
+        />
+        <div
+          className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition ${dragOver ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}
+          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => {
+            e.preventDefault(); setDragOver(false)
+            const f = e.dataTransfer.files[0]
+            if (f) processarArquivo(f)
+          }}
+          onClick={() => inputRef.current?.click()}>
+          <input ref={inputRef} type="file" className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.xml"
+            onChange={e => { const f = e.target.files?.[0]; if (f) processarArquivo(f); e.target.value = '' }} />
+          {uploading ? (
+            <p className="text-sm text-blue-600 animate-pulse">⏳ Enviando arquivo...</p>
+          ) : (
+            <>
+              <p className="text-sm text-slate-500">
+                {dragOver ? '📂 Solte aqui!' : '📎 Clique ou arraste PDF, JPG, PNG, XML'}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">Maximo 5MB por arquivo</p>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

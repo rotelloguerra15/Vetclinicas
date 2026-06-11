@@ -591,6 +591,23 @@ public class ViaAdministracao
     [Column("criado_em")] public DateTime CriadoEm { get; set; }
 }
 
+// ===================== RECEBIMENTO ANEXOS =====================
+
+[Table("recebimento_anexos")]
+public class RecebimentoAnexo
+{
+    [Column("id")]                public Guid Id { get; set; }
+    [Column("tenant_id")]         public Guid TenantId { get; set; }
+    [Column("recebimento_id")]    public Guid RecebimentoId { get; set; }
+    [Column("nome")]              public string Nome { get; set; } = "";
+    [Column("tipo_arquivo")]      public string TipoArquivo { get; set; } = "";
+    [Column("tamanho_bytes")]     public int TamanhoBytes { get; set; }
+    [Column("dados_base64")]      public string DadosBase64 { get; set; } = "";
+    [Column("descricao")]         public string? Descricao { get; set; }
+    [Column("criado_por")]        public Guid? CriadoPor { get; set; }
+    [Column("criado_em")]         public DateTime CriadoEm { get; set; }
+}
+
 // ===================== BOT WHATSAPP =====================
 
 [Table("bot_config")]

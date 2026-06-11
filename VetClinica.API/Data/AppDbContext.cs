@@ -45,6 +45,7 @@ public class AppDbContext : DbContext
     public DbSet<MetaFaturamento> MetasFaturamento => Set<MetaFaturamento>();
     public DbSet<RecebimentoMercadoria> RecebimentosMercadoria => Set<RecebimentoMercadoria>();
     public DbSet<RecebimentoItem> RecebimentoItens => Set<RecebimentoItem>();
+    public DbSet<RecebimentoAnexo> RecebimentoAnexos => Set<RecebimentoAnexo>();
 
     // Cargos
     public DbSet<Cargo> Cargos => Set<Cargo>();
