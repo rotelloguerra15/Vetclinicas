@@ -125,6 +125,11 @@ public class ReceituarioController : ControllerBase
 
         var sexoDisplay = pet.Sexo switch { "macho" => "Macho", "femea" => "Femea", _ => null };
 
+        // ── Código de validação único ─────────────────────────────────────
+        var codigoValidacao = $"REC-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
+        var frontendUrl     = Environment.GetEnvironmentVariable("App__FrontendUrl") ?? "https://vetclinicas.vercel.app";
+        var urlValidacao    = $"{frontendUrl}/validar/{codigoValidacao}";
+
         var data = new ReceituarioData
         {
             ClinicaNome     = tenant.Nome,
@@ -188,11 +193,6 @@ public class ReceituarioController : ControllerBase
             string.Join("\n", linhasReceita) +
             (req.Observacoes != null ? $"\n\nObs: {req.Observacoes}" : "") +
             vetInfo;
-
-        // ── Código de validação único ────────────────────────────────────
-        var codigoValidacao = $"REC-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
-        var frontendUrl     = Environment.GetEnvironmentVariable("App__FrontendUrl") ?? "https://vetclinicas.vercel.app";
-        var urlValidacao    = $"{frontendUrl}/validar/{codigoValidacao}";
 
         var prontuarioItem = new ProntuarioItem
         {
