@@ -58,18 +58,21 @@ psql $DB -f "C:\Projetos\vetclinica\database\ARQUIVO.sql"
 6. **Tabela financeira:** chama `contas` (não `lancamentos` — legado do schema antigo)
 7. **Venda:** tem `TutorId` direto (não `PetId`)
 8. **PedidoItem FK:** configurar `HasForeignKey` no `OnModelCreating`
-9. **DbSets corretos:** `OrdensServico`, `Vendas`, `Tutores`, `Pets`, `Contas`, `PedidosCompra`, `MetasFaturamento`, etc.
+9. **DbSets corretos:** `OrdensServico`, `Vendas`, `Tutores`, `Pets`, `Contas`, `PedidosCompra`, `MetasFaturamento`, `Pelagens`, `Cargos`, `ConciliacoesDiarias`
 10. **Arquivos:** sempre entregar com nome final correto (sem `_cur`, `_fix`, `_v2` etc.)
 11. **Railway cache:** quando `COPY VetClinica.API/` aparece como `cached`, forçar com `Add-Content` em qualquer arquivo + commit
 12. **using:** sempre incluir `using VetClinica.API.Models;` em controllers que usam entities
+13. **PowerShell:** NÃO usar `&&` — separar comandos em linhas individuais
+14. **SQL com emojis:** NÃO colocar emojis em arquivos .sql — encoding WIN1252 quebra no psql Windows
+15. **iText7 assinatura:** NÃO tentar integrar iText7+BouncyCastle para assinatura PDF sem testar localmente primeiro — causa erros de compilação em cascata
 
 ---
 
-## Migrations Aplicadas (27 total)
+## Migrations Aplicadas (35 total)
 | # | Arquivo | Descrição |
-|---|---------|-----------|
-| 01 | 01-schema.sql | Schema base (tabela `lancamentos` — legado) |
-| 02 | 02-estoque-mensagens.sql | Estoque, mensagens, vendas, triggers |
+|---|---------|-----------||
+| 01 | 01-schema.sql | Schema base |
+| 02 | 02-estoque-mensagens.sql | Estoque, mensagens, vendas |
 | 03 | 03-aniversario-tutor.sql | Campos aniversário tutor |
 | 04 | 04-branding-fonseca.sql | Branding inicial |
 | 05 | 05-plataforma-saas.sql | Plataforma SaaS multi-tenant |
@@ -95,87 +98,102 @@ psql $DB -f "C:\Projetos\vetclinica\database\ARQUIVO.sql"
 | 25 | 025_seed_mensagens.sql | Templates padrão mensagens automáticas |
 | 26 | 026_contas_financeiro.sql | Tabela `contas` (financeiro a pagar/receber) |
 | 27 | 027_metas_faturamento.sql | Tabela `metas_faturamento` |
+| 28 | 028_conciliacao_bancaria.sql | Tabela `conciliacoes_diarias` + campo `origem` em movimentacoes_bancarias |
+| 29 | 029_ia_diagnostico.sql | Campos `anthropic_api_key` e `ia_ativo` em parametros_sistema |
+| 30 | 030_assina_receituario.sql | Campo `assina_receituario` em funcionarios |
+| 31 | 031_cargos_funcionario_usuario.sql | Tabela `cargos` + `cargo_id` e `usuario_id` em funcionarios |
+| 32 | 032_agendamento_servico.sql | Campo `servico_id` em agendamentos |
+| 33 | 033_servico_icone.sql | Campo `icone` em servicos |
+| 34 | 034_pelagens.sql | Tabela `pelagens` (cadastro de pelagens de pets) |
+| 35 | 035_certificado_digital.sql | Campos certificado digital A1 em parametros_sistema |
 
 ---
 
-## Módulos Implementados ✅
+## Módulos Implementados
 
 ### Clínica
 - Auth, multi-tenant, JWT
-- Tutores (endereço desmembrado, código, aniversário), Pets (microchip, plano saúde, idade, código)
+- Tutores (endereço desmembrado, código, aniversário, painel de pets vinculados)
+- Pets (microchip, plano saúde, idade estimada, código, pelagem via cadastro)
 - Prontuário, Vacinas
-- Agenda + Self-service (link WhatsApp + bot chatbot via webhook Z-API)
-- OS Kanban, Atendimentos
-- Receituário PDF (QuestPDF — logo, 3 colunas, tipo, via, farmácia) + WhatsApp + reimpressão
+- **Agenda** — grade de horários do dia, iniciar atendimento, botão por status, vago/ocupado
+- OS Kanban, Atendimentos (fluxo: Agenda → iniciar → PetDetalhe → receituário → encerra OS → PDV)
+- **Receituário PDF** — QR Code de validação + código único `REC-2026-XXXXXXXX` no rodapé
+- **Validação eletrônica** — `/validar/:codigo` página pública sem login
 
 ### Vendas
-- PDV/Caixa (retirada, depósito, fechamento)
-- Serviços, Estoque (código, sugestão de compra)
+- PDV/Caixa (retirada, depósito, fechamento → gera contas por forma de pagamento + MovimentacaoBancaria)
+- Serviços (com ícone emoji, categorias, picker visual)
+- Estoque (código, sugestão de compra)
 
 ### Compras (M4)
-- Fornecedores (com código de controle)
-- Condições de pagamento cadastráveis (parcelas + intervalo)
-- Pedidos de compra → ao confirmar gera títulos a pagar no financeiro automaticamente
-- Recebimento de Mercadoria: conferência física → alimenta estoque
+- Fornecedores, Condições de pagamento, Pedidos de compra, Recebimento de Mercadoria
 
 ### Financeiro (M2)
-- Tabela `contas` (a pagar/receber, baixa, estorno) — migration 026
-- Movimentação bancária (contas bancárias, entradas, saídas, conciliação)
+- Contas a pagar/receber (baixa gera MovimentacaoBancaria automática)
+- Movimentação bancária + Conciliação Diária (fechamento por conta/data)
+- Categorias financeiras (cadastro separado)
 - Histórico por cliente
 
 ### RH (M3)
-- Funcionários (CRMV, Registro MAPA, código)
+- **Cargos** — cadastro com toggle `pode_receituario`
+- **Funcionários** — vínculo com usuário do sistema (`usuario_id`), cargo (`cargo_id`)
 - Comissões, fechamento mensal, relatórios
 
+### IA Diagnóstico
+- Assistente no receituário (bloco roxo 🤖)
+- Campo de texto + microfone (Web Speech API)
+- Chama Claude API (chave por tenant em Parâmetros)
+- Retorna diagnósticos diferenciais, exames, conduta
+- Botão "Usar como Diagnóstico" preenche o campo automaticamente
+
+### Certificado Digital
+- Upload de `.pfx` A1 em Parâmetros → Assinatura Digital
+- Criptografia AES-256 da chave + senha no banco
+- Interface plugável `ICertificadoService` para futura integração A3 nuvem
+- **STATUS:** assinatura visual PDF pendente (backlog — validar com certificado real da Dra. Barbara)
+
 ### Marketing
-- Mensagens automáticas WhatsApp (7 gatilhos com templates pré-cadastrados via migration 025)
-- Promoções/Campanhas
+- Mensagens automáticas WhatsApp, Promoções/Campanhas
 
 ### Cadastros
-- Usuários, Vias de administração, Condições de pagamento, Fornecedores
+- Usuários, Vias de administração, Pelagens, Cargos, Condições de pagamento
 
-### Configurações
-- Parâmetros: logo upload, branding, toggles comissão OS/PDV
-- Bot WhatsApp: config + mensagens editáveis + log
+### Configurações/Parâmetros
+- Logo, branding, comissões, bot WhatsApp
+- IA (chave Anthropic por tenant)
+- Certificado Digital A1
 
-### Dashboard BI
-- Seletor mês/ano com auto-refresh a cada 5 min
-- KPIs: vendas, meta, agendamentos, resultado
-- Gráfico Metas x Realizado (ComposedChart — barras + linha %)
-- Gráfico pizza: agendamentos por status
-- Próximos agendamentos do dia
-- Aniversariantes do dia (pets e tutores) com cards animados
-- Alertas: contas vencidas, estoque em falta, agendamentos pendentes
+### Dashboard BI / Relatórios
+- KPIs, gráficos Recharts (evolução 12 meses, pizza por categoria, barras por dia)
+- **4 abas:** Visão Geral, Rankings (top serviços/produtos), Custos por categoria, Metas
+- Metas editáveis inline por mês, gauge radial, gráfico anual meta vs realizado
 
-### Layout Responsivo
-- Desktop: sidebar fixa
-- Mobile/Tablet: topbar + drawer com menu hamburguer
-- Fecha automaticamente ao navegar
-
-### Gestão à Vista (TV Recepção)
-- Implementado (GestaoVista.jsx + GestaoVistaController.cs)
-- STATUS: com ERRO nos loops das notícias/animação — pendente validação
+### Gestão à Vista (TV)
+- Colunas: Agendados | Aguardando | Em Atendimento | Pronto | Stats
+- Bug loops notícias/animação — **CORRIGIDO** (useRef para cache evita loop infinito)
 
 ---
 
-## BACKLOG — O que falta
+## BACKLOG
 
-### Bugs Conhecidos
-- [ ] **Movimentação bancária não atualizada na baixa** — ao dar baixa em contas a pagar/receber, o saldo da conta bancária não é atualizado automaticamente. Investigar `FinanceiroController` método de baixa — deve criar `MovimentacaoBancaria` ao dar baixa.
-- [ ] **Gestão à Vista** — erro nos loops das notícias/animação. Precisa validar e corrigir.
+### Bugs Pendentes
+- [ ] **Validar assinatura digital** — aguarda Dra. Barbara testar com `.pfx` real
+- [ ] **Gestão à Vista** — validar correção dos loops em produção
 
 ### Funcionalidades Pendentes
 - [ ] M5 — Planos de saúde (cadastro e vínculo com pet)
-- [ ] M7 — Metas de faturamento: tela de gestão de metas por mês (já tem tabela e endpoint)
-- [ ] M7 — Dashboard gerencial com custo vs receita completo
-- [ ] Reconectar webhook Vercel ao GitHub (atualmente deploy é manual via CLI)
+- [ ] M7 — Tela de gestão de metas por mês (backend pronto, falta frontend)
+- [ ] Webhook Vercel → GitHub (deploy ainda é manual)
+- [ ] **Assinatura PDF visual** — iText7 + BouncyCastle (testar localmente antes de commitar)
+- [ ] **Tempo de produtividade** — homem-hora por atendimento (dados já coletados: OS.Inicio/Fim)
 
-### Backlog Técnico / SaaS
-- [ ] Assinatura digital no receituário (gov.br/ITI ou hash + QR code)
-- [ ] Migrar bot WhatsApp para Meta Cloud API (substituir Z-API em produção)
-- [ ] Storage de imagens (Cloudflare R2 ou Supabase) — logo e fotos de pets
-- [ ] Integração Asaas (PIX/boleto) + suspensão automática por inadimplência
+### Backlog Técnico
+- [ ] WhatsApp Meta Cloud API (substituir Z-API)
+- [ ] Storage de imagens (Cloudflare R2 ou Supabase)
+- [ ] Integração Asaas (PIX/boleto) + suspensão automática
 - [ ] Self-service cadastro de tenant (teste grátis 7 dias)
+- [ ] Certificado A3 nuvem (Safeweb Cloud API) — interface já plugável
 
 ---
 
@@ -183,24 +201,38 @@ psql $DB -f "C:\Projetos\vetclinica\database\ARQUIVO.sql"
 ```
 C:\Projetos\vetclinica\
   VetClinica.API\
-    Controllers\   (32 controllers)
+    Controllers\   (40+ controllers)
     Models\        Entities.cs — todas as entities
     DTOs\          Dtos.cs — todos os DTOs/records
     Data\          AppDbContext.cs — DbSets e OnModelCreating
-    Services\      ReceituarioPdfService.cs, BotWhatsAppService.cs, etc.
-    Middleware\    TenantMiddleware.cs — injeta TenantContext
+    Services\
+      ReceituarioPdfService.cs
+      BotWhatsAppService.cs
+      Certificado\
+        ICertificadoService.cs
+        PfxCertificadoService.cs
+        NullCertificadoService.cs
+        CertificadoCryptoHelper.cs
   frontend\
     src\
-      pages\       (31 páginas)
+      pages\       (40+ páginas)
       components\  Layout.jsx, Logo.jsx
       api\         client.js — axios com JWT
-  database\        (27 migrations .sql)
+  database\        (35 migrations .sql)
   projeto.md       este arquivo
 ```
 
-## Páginas Existentes
-AdminLogin, AdminPanel, Agenda, AgendarPublico, Atendimentos, Bancario,
-Cadastros/Vias, Compras, CondicoesPagamento, Dashboard, Estoque, Fechamento,
-Financeiro, Fornecedores, GestaoVista, Login, Mensagens, PDV, Parametros,
-Parametros/Bot, PetDetalhe, Pets, Promocoes, RH/Fechamento, RH/Funcionarios,
-RH/RelatoriosRH, Recebimentos, Relatorios, Servicos, Tutores, Usuarios
+## Novos Controllers (adicionados nesta sessão)
+- `IaController.cs` — `/api/ia/status`, `/api/ia/diagnostico`, `/api/ia/configurar`
+- `ValidacaoController.cs` — `/api/validar/{codigo}` (público, sem auth)
+- `CertificadoController.cs` — `/api/certificado/status`, `/upload-a1`, `/ativar`
+- `CargosController.cs` — `/api/cargos` CRUD
+- `PelagensController.cs` — `/api/cadastros/pelagens` CRUD
+- `RelatoriosController.cs` — endpoints de BI (top-servicos, custos-categoria, evolucao, metas)
+
+## Novas Páginas Frontend (adicionadas nesta sessão)
+- `Validar.jsx` — página pública `/validar/:codigo`
+- `Categorias.jsx` — cadastro de categorias financeiras
+- `Cargos.jsx` — cadastro de cargos com toggle pode_receituario
+- `Pelagens.jsx` — cadastro de pelagens
+- `Relatorios.jsx` — BI completo com 4 abas e pet art SVG
