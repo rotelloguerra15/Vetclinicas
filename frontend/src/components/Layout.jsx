@@ -7,7 +7,8 @@ const menu = [
   { group: 'Dashboards' },
   { to: '/',              label: 'Clinica',      end: true },
   { to: '/relatorios',    label: 'Financeiro BI' },
-  { to: '/rh/relatorios', label: 'RH' },
+  { to: '/rh/relatorios',      label: 'RH' },
+  { to: '/dashboard/vendas',   label: 'Vendas' },
 
   { group: 'Clinica' },
 
