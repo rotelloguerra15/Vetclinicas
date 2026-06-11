@@ -322,6 +322,25 @@ public class ReceituarioController : ControllerBase
             }
         }
 
+        // Extrai código de validação do Titulo (ex: "[REC-2026-XXXXXXXX] Receituario...")
+        // Se não tiver, gera um novo e atualiza o Titulo
+        string reimprimirCodigo;
+        var tituloAtual = item.Titulo ?? "";
+        var match = System.Text.RegularExpressions.Regex.Match(tituloAtual, @"\[([A-Z0-9\-]+)\]");
+        if (match.Success)
+        {
+            reimprimirCodigo = match.Groups[1].Value;
+        }
+        else
+        {
+            reimprimirCodigo = $"REC-{DateTime.UtcNow:yyyy}-{item.Id.ToString()[..8].ToUpper()}";
+            item.Titulo = $"[{reimprimirCodigo}] {tituloAtual}".Trim();
+            await _db.SaveChangesAsync();
+        }
+
+        var frontendUrlR = Environment.GetEnvironmentVariable("App__FrontendUrl") ?? "https://vetclinicas.vercel.app";
+        var urlValidacaoR = $"{frontendUrlR}/validar/{reimprimirCodigo}";
+
         var dataReceit = new ReceituarioData
         {
             ClinicaNome     = tenant.Nome,
@@ -346,7 +365,9 @@ public class ReceituarioController : ControllerBase
             Data            = item.Data.ToLocalTime(),
             TipoReceita     = "Receita Veterinaria",
             Motivo          = item.Motivo,
-            Medicamentos    = medicamentos
+            Medicamentos    = medicamentos,
+            CodigoValidacao = reimprimirCodigo,
+            UrlValidacao    = urlValidacaoR
         };
 
         byte[] pdfBytes = _pdf.Gerar(dataReceit);
