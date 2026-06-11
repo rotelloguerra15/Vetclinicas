@@ -152,7 +152,7 @@ public class VendasController : ControllerBase
 
             _db.Contas.Add(conta);
 
-            // Se já recebida, gera lançamento contábil imediato
+            // Se já recebida, gera lançamento contábil + MovimentacaoBancaria
             if (pagamentoImediato)
             {
                 _db.Lancamentos.Add(new Lancamento
@@ -164,9 +164,36 @@ public class VendasController : ControllerBase
                     Data = DateOnly.FromDateTime(DateTime.Today),
                     Tipo = "receita",
                     Valor = venda.ValorTotal,
-                    Descricao = $"Baixa automática: {descricao}",
+                    Descricao = $"Baixa automatica: {descricao}",
                     CriadoEm = DateTime.UtcNow
                 });
+
+                // ── MovimentacaoBancaria: atualiza saldo da conta bancária ──
+                var contaBancaria = await _db.ContasBancarias
+                    .Where(c => c.TenantId == _t.TenantId && c.Ativo)
+                    .OrderBy(c => c.CriadoEm)
+                    .FirstOrDefaultAsync();
+
+                if (contaBancaria != null)
+                {
+                    await _db.SaveChangesAsync(); // salva a Conta primeiro para ter o Id
+                    _db.MovimentacoesBancarias.Add(new MovimentacaoBancaria
+                    {
+                        Id               = Guid.NewGuid(),
+                        TenantId         = _t.TenantId,
+                        ContaBancariaId  = contaBancaria.Id,
+                        Tipo             = "entrada",
+                        Valor            = venda.ValorTotal,
+                        Descricao        = descricao,
+                        DataMovimentacao = DateOnly.FromDateTime(DateTime.Today),
+                        CategoriaId      = categoriaId,
+                        ContaId          = conta.Id,
+                        Origem           = "caixa",
+                        Conciliado       = false,
+                        CriadoPor        = _t.UserId,
+                        CriadoEm        = DateTime.UtcNow
+                    });
+                }
             }
 
             await _db.SaveChangesAsync();
