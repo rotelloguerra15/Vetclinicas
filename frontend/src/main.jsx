@@ -35,6 +35,7 @@ import Vias from './pages/Cadastros/Vias'
 import Pelagens from './pages/Cadastros/Pelagens'
 import Validar from './pages/Validar'
 import DashboardVendas from './pages/DashboardVendas'
+import Contabil from './pages/Contabil'
 import Cargos from './pages/RH/Cargos'
 import GestaoVista from './pages/GestaoVista'
 import Categorias from './pages/Categorias'
@@ -67,6 +68,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="dashboard/vendas" element={<DashboardVendas />} />
+          <Route path="contabil" element={<Contabil />} />
           <Route path="financeiro" element={<Financeiro />} />
           <Route path="bancario" element={<Bancario />} />
           <Route path="fornecedores" element={<Fornecedores />} />

@@ -122,8 +122,54 @@ public class ParametrosSistema
     [Column("cert_ativo")]           public bool CertAtivo { get; set; } = false;
     [Column("cert_atualizado_em")]   public DateTime? CertAtualizadoEm { get; set; }
 
+    // SMTP
+    [Column("smtp_host")]           public string? SmtpHost { get; set; }
+    [Column("smtp_porta")]          public int SmtpPorta { get; set; } = 587;
+    [Column("smtp_usuario")]        public string? SmtpUsuario { get; set; }
+    [Column("smtp_senha_enc")]      public string? SmtpSenhaEnc { get; set; }
+    [Column("smtp_ssl")]            public bool SmtpSsl { get; set; } = true;
+    [Column("email_remetente")]     public string? EmailRemetente { get; set; }
+    [Column("email_contabil")]      public string? EmailContabil { get; set; }
+    [Column("contabil_nome")]       public string? ContabilNome { get; set; }
+
     [Column("criado_em")]            public DateTime CriadoEm { get; set; }
     [Column("atualizado_em")]        public DateTime AtualizadoEm { get; set; }
+}
+
+// ===================== MODULO CONTABIL =====================
+
+[Table("fechamentos_contabeis")]
+public class FechamentoContabil
+{
+    [Column("id")]              public Guid Id { get; set; }
+    [Column("tenant_id")]       public Guid TenantId { get; set; }
+    [Column("ano")]             public int Ano { get; set; }
+    [Column("mes")]             public int Mes { get; set; }
+    [Column("status")]          public string Status { get; set; } = "aberto";
+    [Column("enviado_em")]      public DateTime? EnviadoEm { get; set; }
+    [Column("enviado_por")]     public Guid? EnviadoPor { get; set; }
+    [Column("email_destino")]   public string? EmailDestino { get; set; }
+    [Column("obs")]             public string? Obs { get; set; }
+    [Column("criado_em")]       public DateTime CriadoEm { get; set; }
+
+    public List<FechamentoDocumento> Documentos { get; set; } = new();
+}
+
+[Table("fechamento_documentos")]
+public class FechamentoDocumento
+{
+    [Column("id")]              public Guid Id { get; set; }
+    [Column("tenant_id")]       public Guid TenantId { get; set; }
+    [Column("fechamento_id")]   public Guid FechamentoId { get; set; }
+    [Column("tipo")]            public string Tipo { get; set; } = "";
+    [Column("nome")]            public string Nome { get; set; } = "";
+    [Column("descricao")]       public string? Descricao { get; set; }
+    [Column("tipo_arquivo")]    public string TipoArquivo { get; set; } = "application/pdf";
+    [Column("tamanho_bytes")]   public int TamanhoBytes { get; set; }
+    [Column("dados_base64")]    public string DadosBase64 { get; set; } = "";
+    [Column("origem")]          public string Origem { get; set; } = "upload";
+    [Column("criado_por")]      public Guid? CriadoPor { get; set; }
+    [Column("criado_em")]       public DateTime CriadoEm { get; set; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

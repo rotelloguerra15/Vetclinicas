@@ -52,6 +52,9 @@ const menu = [
 
 
 
+  { group: 'Contabil' },
+  { to: '/contabil', label: 'Fechamento Contabil' },
+
   { group: 'Configuracoes' },
   { to: '/parametros',      label: 'Parametros' },
   { to: '/parametros/bot',  label: 'Bot WhatsApp' },

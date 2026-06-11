@@ -47,6 +47,10 @@ public class AppDbContext : DbContext
     public DbSet<RecebimentoItem> RecebimentoItens => Set<RecebimentoItem>();
     public DbSet<RecebimentoAnexo> RecebimentoAnexos => Set<RecebimentoAnexo>();
 
+    // Modulo Contabil
+    public DbSet<FechamentoContabil> FechamentosContabeis => Set<FechamentoContabil>();
+    public DbSet<FechamentoDocumento> FechamentoDocumentos => Set<FechamentoDocumento>();
+
     // Cargos
     public DbSet<Cargo> Cargos => Set<Cargo>();
 
@@ -138,6 +142,12 @@ public class AppDbContext : DbContext
         mb.Entity<ConciliacaoDiaria>()
             .HasIndex(c => new { c.TenantId, c.ContaBancariaId, c.DataConciliacao })
             .IsUnique();
+
+        // Modulo Contabil
+        mb.Entity<FechamentoContabil>()
+            .HasMany(f => f.Documentos)
+            .WithOne()
+            .HasForeignKey(d => d.FechamentoId);
 
         base.OnModelCreating(mb);
     }
