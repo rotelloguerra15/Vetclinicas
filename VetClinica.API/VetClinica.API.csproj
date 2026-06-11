@@ -24,4 +24,9 @@
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.3.1" />
   </ItemGroup>
 
+  <!-- Força o restore a não usar cache -->
+  <PropertyGroup>
+    <RestoreForce>true</RestoreForce>
+  </PropertyGroup>
+
 </Project>
