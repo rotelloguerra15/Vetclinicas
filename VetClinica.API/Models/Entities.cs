@@ -111,6 +111,17 @@ public class ParametrosSistema
     [Column("comissao_pdv_ativo")]   public bool ComissaoPdvAtivo { get; set; } = false;
     [Column("anthropic_api_key")]    public string? AnthropicApiKey { get; set; }
     [Column("ia_ativo")]             public bool IaAtivo { get; set; } = false;
+
+    // Certificado Digital
+    [Column("cert_pfx_encrypted")]   public string? CertPfxEncrypted { get; set; }
+    [Column("cert_senha_hash")]      public string? CertSenhaHash { get; set; }
+    [Column("cert_tipo")]            public string? CertTipo { get; set; }        // a1 | a3_nuvem
+    [Column("cert_titular")]         public string? CertTitular { get; set; }
+    [Column("cert_cpf")]             public string? CertCpf { get; set; }
+    [Column("cert_validade")]        public DateOnly? CertValidade { get; set; }
+    [Column("cert_ativo")]           public bool CertAtivo { get; set; } = false;
+    [Column("cert_atualizado_em")]   public DateTime? CertAtualizadoEm { get; set; }
+
     [Column("criado_em")]            public DateTime CriadoEm { get; set; }
     [Column("atualizado_em")]        public DateTime AtualizadoEm { get; set; }
 }

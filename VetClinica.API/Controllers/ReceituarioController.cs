@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VetClinica.API.Data;
 using VetClinica.API.Middleware;
+using VetClinica.API.Services.Certificado;
 using VetClinica.API.Models;
 using VetClinica.API.Services;
 
@@ -171,7 +172,24 @@ public class ReceituarioController : ControllerBase
             }).ToList()
         };
 
-        byte[] pdfBytes = _pdf.Gerar(data);
+        var pdfBytesRaw = _pdf.Gerar(data);
+
+        // ── Assinatura digital (se certificado configurado) ───────────────
+        var certService = await GetCertificadoService();
+        byte[] pdfBytes;
+        if (certService.EstaConfigurado)
+        {
+            var localidade = tenant.Cidade ?? tenant.Nome;
+            pdfBytes = await certService.AssinarPdfAsync(
+                pdfBytesRaw,
+                $"Receituario veterinario - {pet.Nome}",
+                localidade ?? "Brasil"
+            );
+        }
+        else
+        {
+            pdfBytes = pdfBytesRaw;
+        }
 
         var linhasReceita = req.Medicamentos.Select((m, i) =>
             $"{i + 1}. {m.Nome}" +
@@ -370,7 +388,23 @@ public class ReceituarioController : ControllerBase
             UrlValidacao    = urlValidacaoR
         };
 
-        byte[] pdfBytes = _pdf.Gerar(dataReceit);
+        var pdfBytesRaw2 = _pdf.Gerar(dataReceit);
+
+        // Assinatura digital no reimprimir
+        var certService2 = await GetCertificadoService();
+        byte[] pdfBytes;
+        if (certService2.EstaConfigurado)
+        {
+            pdfBytes = await certService2.AssinarPdfAsync(
+                pdfBytesRaw2,
+                $"Receituario veterinario - {pet.Nome}",
+                tenant?.Nome ?? "Brasil"
+            );
+        }
+        else
+        {
+            pdfBytes = pdfBytesRaw2;
+        }
 
         bool whatsappEnviado = false;
         if (req.EnviarWhatsApp && pet.Tutor?.Telefone != null && medicamentos.Any())

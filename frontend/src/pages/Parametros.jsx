@@ -12,12 +12,21 @@ export default function Parametros() {
 
   // IA
   const [iaStatus, setIaStatus]     = useState({ ativo: false })
+
+  // Certificado Digital
+  const [certStatus, setCertStatus]   = useState({ configurado: false })
+  const [certArquivo, setCertArquivo] = useState(null)
+  const [certSenha, setCertSenha]     = useState('')
+  const [certMostrarSenha, setCertMostrarSenha] = useState(false)
+  const [uploadandoCert, setUploadandoCert] = useState(false)
+  const certRef = useRef(null)
   const [iaChave, setIaChave]       = useState('')
   const [iaAtivo, setIaAtivo]       = useState(false)
   const [salvandoIa, setSalvandoIa] = useState(false)
   const [mostrarChave, setMostrarChave] = useState(false)
 
   function carregar() {
+    api.get('/certificado/status').then(r => setCertStatus(r.data)).catch(() => {})
     api.get('/ia/status').then(r => {
       setIaStatus(r.data)
       setIaAtivo(r.data.ativo)
@@ -102,6 +111,49 @@ export default function Parametros() {
       setMsg({ tipo: 'erro', texto: 'Erro ao salvar.' })
     } finally {
       setSalvandoComissao(false)
+    }
+  }
+
+  async function uploadCertificado() {
+    if (!certArquivo) return alert('Selecione o arquivo .pfx.')
+    if (!certSenha.trim()) return alert('Informe a senha do certificado.')
+    setUploadandoCert(true)
+    try {
+      const fd = new FormData()
+      fd.append('arquivo', certArquivo)
+      fd.append('senha', certSenha)
+      const r = await api.post('/certificado/upload-a1', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      setCertStatus({ configurado: true, tipo: 'a1', titular: r.data.titular, validade: r.data.validade, ativo: true })
+      setCertArquivo(null)
+      setCertSenha('')
+      setMsg({ tipo: 'ok', texto: `Certificado de ${r.data.titular} configurado com sucesso!` })
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: e.response?.data?.erro || 'Erro ao processar certificado.' })
+    } finally {
+      setUploadandoCert(false)
+    }
+  }
+
+  async function ativarCertificado(ativo) {
+    try {
+      await api.put('/certificado/ativar', { ativo })
+      setCertStatus(s => ({ ...s, ativo }))
+      setMsg({ tipo: 'ok', texto: ativo ? 'Assinatura digital ativada.' : 'Assinatura digital desativada.' })
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: e.response?.data?.erro || 'Erro.' })
+    }
+  }
+
+  async function removerCertificado() {
+    if (!confirm('Remover o certificado digital? A assinatura automática será desativada.')) return
+    try {
+      await api.delete('/certificado')
+      setCertStatus({ configurado: false })
+      setMsg({ tipo: 'ok', texto: 'Certificado removido.' })
+    } catch {
+      setMsg({ tipo: 'erro', texto: 'Erro ao remover.' })
     }
   }
 
@@ -246,6 +298,109 @@ export default function Parametros() {
           {salvando ? '⏳ Salvando...' : '💾 Salvar configurações'}
         </button>
       </form>
+
+      {/* ── Certificado Digital ───────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl shadow p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-700">🔏 Assinatura Digital</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Certificado A1 ICP-Brasil (Safeweb, Certisign, Serasa, Soluti...)
+            </p>
+          </div>
+          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${certStatus.ativo ? 'bg-emerald-100 text-emerald-700' : certStatus.configurado ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+            {certStatus.ativo ? '✓ Assinando' : certStatus.configurado ? '⏸ Pausado' : 'Não configurado'}
+          </span>
+        </div>
+
+        {certStatus.configurado ? (
+          <div className="space-y-3">
+            {/* Info do certificado */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">🔐</div>
+                <div className="flex-1">
+                  <p className="font-semibold text-emerald-800">{certStatus.titular || 'Certificado A1'}</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    Tipo: {certStatus.tipo?.toUpperCase()} · Validade: {certStatus.validade}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Toggle ativo */}
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <button type="button" onClick={() => ativarCertificado(!certStatus.ativo)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${certStatus.ativo ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${certStatus.ativo ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+              <div>
+                <p className="text-sm font-semibold text-slate-700">
+                  {certStatus.ativo ? 'Assinatura automática ativada' : 'Assinatura automática desativada'}
+                </p>
+                <p className="text-xs text-slate-400">Todos os receituários gerados serão assinados digitalmente</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => { setCertArquivo(null); certRef.current?.click() }}
+                className="border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm hover:bg-slate-50">
+                🔄 Substituir certificado
+              </button>
+              <button onClick={removerCertificado}
+                className="border border-red-200 text-red-500 px-4 py-2 rounded-lg text-sm hover:bg-red-50">
+                🗑️ Remover
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 space-y-1">
+              <p>📌 Compatível com qualquer certificado A1 ICP-Brasil (.pfx)</p>
+              <p>🔒 O arquivo é criptografado com AES-256 antes de ser armazenado</p>
+              <p>✍️ Todos os receituários gerados terão assinatura digital válida</p>
+            </div>
+
+            {/* Upload .pfx */}
+            <div>
+              <label className="text-xs text-slate-500 font-medium block mb-1">Arquivo do certificado (.pfx)</label>
+              <input ref={certRef} type="file" accept=".pfx,.p12" className="hidden"
+                onChange={e => setCertArquivo(e.target.files?.[0] || null)} />
+              <div className="flex gap-2">
+                <div className={`flex-1 border rounded-xl px-3 py-2.5 text-sm cursor-pointer flex items-center gap-2 ${certArquivo ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                  onClick={() => certRef.current?.click()}>
+                  <span>{certArquivo ? '📄 ' + certArquivo.name : '📂 Clique para selecionar o arquivo .pfx'}</span>
+                </div>
+                {certArquivo && (
+                  <button onClick={() => { setCertArquivo(null); if(certRef.current) certRef.current.value = '' }}
+                    className="border border-slate-200 px-3 py-2 rounded-xl text-slate-400 hover:bg-slate-50">✕</button>
+                )}
+              </div>
+            </div>
+
+            {/* Senha */}
+            <div>
+              <label className="text-xs text-slate-500 font-medium block mb-1">Senha do certificado</label>
+              <div className="flex gap-2">
+                <input type={certMostrarSenha ? 'text' : 'password'}
+                  className="border rounded-xl px-3 py-2.5 flex-1 text-sm"
+                  placeholder="Senha definida na emissão do certificado"
+                  value={certSenha} onChange={e => setCertSenha(e.target.value)} />
+                <button type="button" onClick={() => setCertMostrarSenha(v => !v)}
+                  className="border px-3 py-2 rounded-xl text-slate-500 hover:bg-slate-50 text-sm">
+                  {certMostrarSenha ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
+
+            <button onClick={uploadCertificado}
+              disabled={uploadandoCert || !certArquivo || !certSenha.trim()}
+              className="w-full bg-slate-900 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 hover:bg-slate-800">
+              {uploadandoCert ? '⏳ Verificando certificado...' : '🔏 Configurar certificado digital'}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* ── Assistente IA ──────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl shadow p-6 space-y-4">
