@@ -13,6 +13,13 @@ export default function Parametros() {
   // IA
   const [iaStatus, setIaStatus]     = useState({ ativo: false })
 
+  // SMTP / Contabilidade
+  const [smtp, setSmtp]               = useState({ smtpHost: '', smtpPorta: 587, smtpUsuario: '', smtpSsl: true, emailContabil: '', contabilNome: '' })
+  const [smtpSenha, setSmtpSenha]     = useState('')
+  const [mostrarSmtpSenha, setMostrarSmtpSenha] = useState(false)
+  const [salvandoSmtp, setSalvandoSmtp] = useState(false)
+  const [testando, setTestando]         = useState(false)
+
   // Certificado Digital
   const [certStatus, setCertStatus]   = useState({ configurado: false })
   const [certArquivo, setCertArquivo] = useState(null)
@@ -27,6 +34,7 @@ export default function Parametros() {
 
   function carregar() {
     api.get('/certificado/status').then(r => setCertStatus(r.data)).catch(() => {})
+    api.get('/contabil/config').then(r => setSmtp(r.data || {})).catch(() => {})
     api.get('/ia/status').then(r => {
       setIaStatus(r.data)
       setIaAtivo(r.data.ativo)
@@ -155,6 +163,29 @@ export default function Parametros() {
     } catch {
       setMsg({ tipo: 'erro', texto: 'Erro ao remover.' })
     }
+  }
+
+  async function salvarSmtp(e) {
+    e.preventDefault()
+    setSalvandoSmtp(true)
+    try {
+      await api.put('/contabil/config', { ...smtp, smtpSenha: smtpSenha || undefined })
+      setSmtpSenha('')
+      setMsg({ tipo: 'ok', texto: 'Configuração de email salva!' })
+      api.get('/contabil/config').then(r => setSmtp(r.data || {})).catch(() => {})
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: e.response?.data?.erro || 'Erro ao salvar.' })
+    } finally { setSalvandoSmtp(false) }
+  }
+
+  async function testarSmtp() {
+    setTestando(true)
+    try {
+      const r = await api.post('/contabil/config/testar')
+      setMsg({ tipo: 'ok', texto: r.data.mensagem })
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: e.response?.data?.erro || 'Falha no teste.' })
+    } finally { setTestando(false) }
   }
 
   async function salvarIa() {
@@ -400,6 +431,83 @@ export default function Parametros() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* ── Email / Contabilidade ──────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl shadow p-6 space-y-4">
+        <h3 className="font-semibold text-slate-700">📧 Email e Contabilidade (SMTP)</h3>
+        <form onSubmit={salvarSmtp} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="text-xs text-slate-500 block mb-1">Nome do escritório de contabilidade</label>
+              <input className="border rounded-xl px-3 py-2.5 w-full text-sm"
+                placeholder="Ex: Contabilidade Fulano & Associados"
+                value={smtp.contabilNome || ''}
+                onChange={e => setSmtp({...smtp, contabilNome: e.target.value})} />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs text-slate-500 block mb-1">Email da contabilidade (destino dos fechamentos)</label>
+              <input type="email" className="border rounded-xl px-3 py-2.5 w-full text-sm"
+                placeholder="contabilidade@escritorio.com.br"
+                value={smtp.emailContabil || ''}
+                onChange={e => setSmtp({...smtp, emailContabil: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Servidor SMTP</label>
+              <input className="border rounded-xl px-3 py-2.5 w-full text-sm"
+                placeholder="smtp.gmail.com"
+                value={smtp.smtpHost || ''}
+                onChange={e => setSmtp({...smtp, smtpHost: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Porta</label>
+              <input type="number" className="border rounded-xl px-3 py-2.5 w-full text-sm"
+                placeholder="587"
+                value={smtp.smtpPorta || 587}
+                onChange={e => setSmtp({...smtp, smtpPorta: +e.target.value})} />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs text-slate-500 block mb-1">Usuário / Email remetente</label>
+              <input type="email" className="border rounded-xl px-3 py-2.5 w-full text-sm"
+                placeholder="seuemail@gmail.com"
+                value={smtp.smtpUsuario || ''}
+                onChange={e => setSmtp({...smtp, smtpUsuario: e.target.value})} />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs text-slate-500 block mb-1">Senha / App Password</label>
+              <div className="flex gap-2">
+                <input type={mostrarSmtpSenha ? 'text' : 'password'} className="border rounded-xl px-3 py-2.5 flex-1 text-sm"
+                  placeholder={smtp.temSmtp ? '••••••• (mantida)' : 'Senha ou App Password'}
+                  value={smtpSenha} onChange={e => setSmtpSenha(e.target.value)} />
+                <button type="button" onClick={() => setMostrarSmtpSenha(v => !v)}
+                  className="border px-3 rounded-xl text-slate-500 hover:bg-slate-50">
+                  {mostrarSmtpSenha ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
+            <div className="col-span-2 flex items-center gap-3">
+              <button type="button" onClick={() => setSmtp({...smtp, smtpSsl: !smtp.smtpSsl})}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${smtp.smtpSsl ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${smtp.smtpSsl ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+              <span className="text-sm text-slate-600">Usar SSL/TLS</span>
+            </div>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 space-y-0.5">
+            <p>📌 <strong>Gmail:</strong> smtp.gmail.com · porta 587 · use App Password</p>
+            <p>📌 <strong>Outlook:</strong> smtp.office365.com · porta 587</p>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={salvandoSmtp}
+              className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 hover:bg-emerald-700">
+              {salvandoSmtp ? 'Salvando...' : 'Salvar configuração de email'}
+            </button>
+            <button type="button" onClick={testarSmtp} disabled={testando || !smtp.temSmtp}
+              className="border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-sm disabled:opacity-40 hover:bg-slate-50">
+              {testando ? '⏳' : '🧪 Testar'}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* ── Assistente IA ──────────────────────────────────────────────── */}
