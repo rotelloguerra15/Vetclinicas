@@ -48,6 +48,26 @@ public class ReceituarioController : ControllerBase
 
     // GET /api/receituario/veterinarios
     // Retorna quem pode assinar: cargo.pode_receituario = true OU assinaReceituario legacy
+    private async Task<ICertificadoService> GetCertificadoService()
+    {
+        var p = await _db.ParametrosSistema
+            .FirstOrDefaultAsync(x => x.TenantId == _t.TenantId);
+
+        if (p == null || !p.CertAtivo || string.IsNullOrEmpty(p.CertPfxEncrypted))
+            return new NullCertificadoService();
+
+        try
+        {
+            var pfxBytes = CertificadoCryptoHelper.Descriptografar(p.CertPfxEncrypted);
+            var senha    = CertificadoCryptoHelper.DescriptografarTexto(p.CertSenhaHash!);
+            return new PfxCertificadoService(pfxBytes, senha, p.CertTitular, null);
+        }
+        catch
+        {
+            return new NullCertificadoService();
+        }
+    }
+
     [HttpGet("veterinarios")]
     public async Task<IActionResult> ListarVeterinarios()
     {
@@ -179,7 +199,7 @@ public class ReceituarioController : ControllerBase
         byte[] pdfBytes;
         if (certService.EstaConfigurado)
         {
-            var localidade = tenant.Cidade ?? tenant.Nome;
+            var localidade = tenant.Nome ?? "Brasil";
             pdfBytes = await certService.AssinarPdfAsync(
                 pdfBytesRaw,
                 $"Receituario veterinario - {pet.Nome}",

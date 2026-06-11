@@ -58,11 +58,13 @@ public class CertificadoController : ControllerBase
             pfxBytes = ms.ToArray();
         }
 
-        // Valida o .pfx antes de salvar
+        // Valida o .pfx antes de salvar (API BouncyCastle 2.x)
         Pkcs12Store store;
         try
         {
-            store = new Pkcs12Store(new MemoryStream(pfxBytes), senha.ToCharArray());
+            var builder = new Pkcs12StoreBuilder();
+            store = builder.Build();
+            store.Load(new MemoryStream(pfxBytes), senha.ToCharArray());
         }
         catch
         {
