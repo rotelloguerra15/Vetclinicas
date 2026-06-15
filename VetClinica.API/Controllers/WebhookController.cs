@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -22,6 +23,7 @@ namespace VetClinica.API.Controllers;
 /// O tenantId é resolvido pelo número do destinatário (To) cruzando com bot_config.
 /// </summary>
 [ApiController]
+[AllowAnonymous]
 [Route("api/bot/webhook")]
 public class WebhookController : ControllerBase
 {
