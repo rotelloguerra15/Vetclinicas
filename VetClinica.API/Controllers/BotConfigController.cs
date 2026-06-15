@@ -7,6 +7,16 @@ using VetClinica.API.Models;
 
 namespace VetClinica.API.Controllers;
 
+// DTO fora da classe para evitar conflito de roteamento
+public record BotConfigSalvarDto(
+    bool Ativo,
+    string HoraInicio, string HoraFim, string DiasSemana,
+    int DiasAntecedenciaMin, int DiasAntecedenciaMax, int TimeoutConversaMin,
+    string MsgBoasVindas, string MsgQualPet, string MsgQualServico,
+    string MsgQualData, string MsgHorariosDisponiveis, string MsgConfirmacao,
+    string MsgSemHorarios, string MsgForaHorario, string MsgErro, string MsgCancelar,
+    string? MetaPhoneNumberId, string? MetaWabaId);
+
 [ApiController]
 [Authorize]
 [Route("api/bot-config")]
@@ -34,17 +44,8 @@ public class BotConfigController : ControllerBase
         });
     }
 
-    public record BotConfigDto(
-        bool Ativo,
-        string HoraInicio, string HoraFim, string DiasSemana,
-        int DiasAntecedenciaMin, int DiasAntecedenciaMax, int TimeoutConversaMin,
-        string MsgBoasVindas, string MsgQualPet, string MsgQualServico,
-        string MsgQualData, string MsgHorariosDisponiveis, string MsgConfirmacao,
-        string MsgSemHorarios, string MsgForaHorario, string MsgErro, string MsgCancelar,
-        string? MetaPhoneNumberId, string? MetaWabaId);
-
     [HttpPost("config/salvar")]
-    public async Task<IActionResult> SalvarConfig([FromBody] BotConfigDto dto)
+    public async Task<IActionResult> SalvarConfig([FromBody] BotConfigSalvarDto dto)
     {
         var cfg = await _db.BotConfigs.FirstOrDefaultAsync(b => b.TenantId == _t.TenantId);
         if (cfg == null) return NotFound();
@@ -71,7 +72,7 @@ public class BotConfigController : ControllerBase
         cfg.AtualizadoEm           = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return NoContent();
+        return Ok(new { sucesso = true });
     }
 
     [HttpGet("logs")]
