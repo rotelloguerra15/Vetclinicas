@@ -36,7 +36,6 @@ builder.Services.AddHttpClient<ReceituarioPdfService>();
 
 // Bot WhatsApp
 builder.Services.AddScoped<BotWhatsAppService>();
-builder.Services.AddScoped<CampanhaWhatsAppService>();
 
 // RH
 builder.Services.AddScoped<FuncionarioService>();
