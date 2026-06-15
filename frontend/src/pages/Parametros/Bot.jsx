@@ -75,7 +75,7 @@ export default function Bot() {
     e.preventDefault()
     setSalvando(true)
     try {
-      await api.put('/bot-config/config', cfg)
+      await api.post('/bot-config/config/salvar', cfg)
       msg('ok', 'Configuracoes salvas!')
     } catch { msg('erro', 'Erro ao salvar.') }
     finally { setSalvando(false) }

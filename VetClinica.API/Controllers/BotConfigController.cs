@@ -43,7 +43,7 @@ public class BotConfigController : ControllerBase
         string MsgSemHorarios, string MsgForaHorario, string MsgErro, string MsgCancelar,
         string? MetaPhoneNumberId, string? MetaWabaId);
 
-    [HttpPut("config")]
+    [HttpPost("config/salvar")]
     public async Task<IActionResult> SalvarConfig([FromBody] BotConfigDto dto)
     {
         var cfg = await _db.BotConfigs.FirstOrDefaultAsync(b => b.TenantId == _t.TenantId);
