@@ -15,10 +15,10 @@ public class BotWAService
     private readonly AppDbContext _db;
     private readonly AgendaService _agenda;
     private readonly WhatsAppService _wa;   // ← Meta Cloud API (era ZApiService)
-    private readonly ILogger<BotWhatsAppService> _log;
+    private readonly ILogger<BotWAService> _log;
 
     public BotWAService(AppDbContext db, AgendaService agenda,
-        WhatsAppService wa, ILogger<BotWhatsAppService> log)
+        WhatsAppService wa, ILogger<BotWAService> log)
     { _db = db; _agenda = agenda; _wa = wa; _log = log; }
 
     public async Task ProcessarMensagem(Guid tenantId, string telefone, string texto)
