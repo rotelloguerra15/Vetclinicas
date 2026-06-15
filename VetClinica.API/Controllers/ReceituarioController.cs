@@ -41,9 +41,9 @@ public class ReceituarioController : ControllerBase
     private readonly AppDbContext _db;
     private readonly TenantContext _t;
     private readonly ReceituarioPdfService _pdf;
-    private readonly ZApiService _zapi;
+    private readonly WhatsAppService _zapi;
 
-    public ReceituarioController(AppDbContext db, TenantContext t, ReceituarioPdfService pdf, ZApiService zapi)
+    public ReceituarioController(AppDbContext db, TenantContext t, ReceituarioPdfService pdf, WhatsAppService zapi)
     { _db = db; _t = t; _pdf = pdf; _zapi = zapi; }
 
     // GET /api/receituario/veterinarios
