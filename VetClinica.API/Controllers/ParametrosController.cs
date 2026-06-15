@@ -7,16 +7,6 @@ using VetClinica.API.Models;
 
 namespace VetClinica.API.Controllers;
 
-
-public record BotConfigSalvarDto(
-    bool Ativo,
-    string HoraInicio, string HoraFim, string DiasSemana,
-    int DiasAntecedenciaMin, int DiasAntecedenciaMax, int TimeoutConversaMin,
-    string MsgBoasVindas, string MsgQualPet, string MsgQualServico,
-    string MsgQualData, string MsgHorariosDisponiveis, string MsgConfirmacao,
-    string MsgSemHorarios, string MsgForaHorario, string MsgErro, string MsgCancelar,
-    string? MetaPhoneNumberId, string? MetaWabaId);
-
 [ApiController]
 [Authorize]
 [Route("api/parametros")]
@@ -34,25 +24,20 @@ public class ParametrosController : ControllerBase
 
         if (p == null)
         {
-            // Cria com defaults se nao existir
             p = new ParametrosSistema
             {
-                Id          = Guid.NewGuid(),
-                TenantId    = _t.TenantId,
+                Id           = Guid.NewGuid(),
+                TenantId     = _t.TenantId,
                 ComissaoOsAtivo  = true,
                 ComissaoPdvAtivo = false,
-                CriadoEm    = DateTime.UtcNow,
+                CriadoEm     = DateTime.UtcNow,
                 AtualizadoEm = DateTime.UtcNow
             };
             _db.ParametrosSistema.Add(p);
             await _db.SaveChangesAsync();
         }
 
-        return Ok(new {
-            p.Id,
-            p.ComissaoOsAtivo,
-            p.ComissaoPdvAtivo
-        });
+        return Ok(new { p.Id, p.ComissaoOsAtivo, p.ComissaoPdvAtivo });
     }
 
     public record ParametrosUpdate(bool ComissaoOsAtivo, bool ComissaoPdvAtivo);
@@ -82,7 +67,16 @@ public class ParametrosController : ControllerBase
         return NoContent();
     }
 
-    // ── Bot Config ───────────────────────────────────────────────────────────
+    // ── Bot Config ────────────────────────────────────────────────────────────
+
+    public record BotCfgDto(
+        bool Ativo,
+        string HoraInicio, string HoraFim, string DiasSemana,
+        int DiasAntecedenciaMin, int DiasAntecedenciaMax, int TimeoutConversaMin,
+        string MsgBoasVindas, string MsgQualPet, string MsgQualServico,
+        string MsgQualData, string MsgHorariosDisponiveis, string MsgConfirmacao,
+        string MsgSemHorarios, string MsgForaHorario, string MsgErro, string MsgCancelar,
+        string? MetaPhoneNumberId, string? MetaWabaId);
 
     [HttpGet("~/api/bot-config/config")]
     public async Task<IActionResult> GetBotConfig()
@@ -103,7 +97,7 @@ public class ParametrosController : ControllerBase
     }
 
     [HttpPost("~/api/bot-config/config/salvar")]
-    public async Task<IActionResult> SalvarBotConfig([FromBody] BotConfigSalvarDto dto)
+    public async Task<IActionResult> SalvarBotConfig([FromBody] BotCfgDto dto)
     {
         var cfg = await _db.BotConfigs.FirstOrDefaultAsync(b => b.TenantId == _t.TenantId);
         if (cfg == null) return NotFound();
@@ -167,4 +161,3 @@ public class ParametrosController : ControllerBase
         });
     }
 }
-
