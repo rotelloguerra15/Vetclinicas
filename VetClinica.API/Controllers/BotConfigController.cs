@@ -9,7 +9,7 @@ namespace VetClinica.API.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/bot")]
+[Route("api/bot-config")]
 public class BotConfigController : ControllerBase
 {
     private readonly AppDbContext _db;

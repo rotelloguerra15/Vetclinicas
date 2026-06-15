@@ -46,7 +46,7 @@ export default function Bot() {
   const [diasResumo, setDiasResumo]   = useState(7)
 
   useEffect(() => {
-    api.get('/bot/config').then(r => setCfg(r.data)).catch(() => {})
+    api.get('/bot-config/config').then(r => setCfg(r.data)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -54,13 +54,13 @@ export default function Bot() {
   }, [aba, logPage, filtroDirecao, diasResumo])
 
   function carregarLogs() {
-    api.get('/bot/logs', {
+    api.get('/bot-config/logs', {
       params: { telefone: filtroTel || undefined, direcao: filtroDirecao || undefined, page: logPage, pageSize: 50 }
     }).then(r => { setLogs(r.data.items); setLogTotal(r.data.total) }).catch(() => {})
   }
 
   function carregarResumo() {
-    api.get('/bot/logs/resumo', { params: { dias: diasResumo } })
+    api.get('/bot-config/logs/resumo', { params: { dias: diasResumo } })
       .then(r => setResumo(r.data)).catch(() => {})
   }
 
@@ -73,7 +73,7 @@ export default function Bot() {
     e.preventDefault()
     setSalvando(true)
     try {
-      await api.put('/bot/config', cfg)
+      await api.put('/bot-config/config', cfg)
       msg('ok', 'Configuracoes salvas!')
     } catch { msg('erro', 'Erro ao salvar.') }
     finally { setSalvando(false) }
@@ -94,7 +94,7 @@ export default function Bot() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold">Bot WhatsApp</h2>
         <span className={`text-xs px-3 py-1 rounded-full font-medium ${cfg.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-          {cfg.ativo ? '🟢 Bot ativo' : '⚪ Bot inativo'}
+          {cfg.ativo ? 'Bot ativo' : 'Bot inativo'}
         </span>
       </div>
 
@@ -107,10 +107,10 @@ export default function Bot() {
       {/* Abas */}
       <div className="flex gap-1 border-b mb-6 flex-wrap">
         {[
-          { k: ABA_CONFIG, l: '⚙️ Configuracao' },
-          { k: ABA_META,   l: '📱 Meta API' },
-          { k: ABA_MSGS,   l: '💬 Mensagens' },
-          { k: ABA_LOG,    l: '📊 Log' },
+          { k: ABA_CONFIG, l: 'Configuracao' },
+          { k: ABA_META,   l: 'Meta API' },
+          { k: ABA_MSGS,   l: 'Mensagens' },
+          { k: ABA_LOG,    l: 'Log' },
         ].map(t => (
           <button key={t.k} onClick={() => setAba(t.k)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${aba === t.k ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
@@ -210,7 +210,7 @@ export default function Bot() {
 
           {/* Instrucoes */}
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-            <p className="font-semibold text-blue-800 mb-2">📋 Como configurar a Meta Cloud API</p>
+            <p className="font-semibold text-blue-800 mb-2">Como configurar a Meta Cloud API</p>
             <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
               <li>Acesse <strong>developers.facebook.com</strong> → Crie um app tipo "Business"</li>
               <li>Adicione o produto <strong>WhatsApp</strong> ao app</li>
@@ -247,7 +247,7 @@ export default function Bot() {
           <div className="bg-white rounded-2xl shadow p-5 space-y-4">
             <p className="font-semibold">Credenciais Meta</p>
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              ⚠️ O token e o Phone Number ID devem ser salvos como variáveis de ambiente no Railway, não aqui.
+              (!) O token e o Phone Number ID devem ser salvos como variáveis de ambiente no Railway, não aqui.
               Use os nomes: <code>Meta__PhoneNumberId</code>, <code>Meta__Token</code>, <code>Meta__WabaId</code>
             </p>
 
