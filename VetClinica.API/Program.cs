@@ -26,7 +26,7 @@ builder.Services.AddHttpClient<WhatsAppService>();
 builder.Services.AddHostedService<NotificacaoDispatcher>();
 builder.Services.AddHostedService<AgendadorMensagens>();
 builder.Services.AddHttpClient<ReceituarioPdfService>();
-builder.Services.AddScoped<BotWhatsAppService>();
+builder.Services.AddScoped<BotWAService>();
 builder.Services.AddScoped<FuncionarioService>();
 builder.Services.AddScoped<ComissaoService>();
 builder.Services.AddScoped<FechamentoService>();

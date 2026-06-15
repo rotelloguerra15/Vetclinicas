@@ -28,11 +28,11 @@ namespace VetClinica.API.Controllers;
 public class WebhookController : ControllerBase
 {
     private readonly AppDbContext _db;
-    private readonly BotWhatsAppService _bot;
+    private readonly BotWAService _bot;
     private readonly IConfiguration _cfg;
     private readonly ILogger<WebhookController> _log;
 
-    public WebhookController(AppDbContext db, BotWhatsAppService bot,
+    public WebhookController(AppDbContext db, BotWAService bot,
         IConfiguration cfg, ILogger<WebhookController> log)
     { _db = db; _bot = bot; _cfg = cfg; _log = log; }
 

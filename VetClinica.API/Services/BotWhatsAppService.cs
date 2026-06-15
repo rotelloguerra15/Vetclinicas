@@ -10,14 +10,14 @@ namespace VetClinica.API.Services;
 /// Estados: inicio → aguardando_servico → aguardando_data → aguardando_horario → concluido
 /// Migrado de ZApiService para WhatsAppService (Meta Cloud API).
 /// </summary>
-public class BotWhatsAppService
+public class BotWAService
 {
     private readonly AppDbContext _db;
     private readonly AgendaService _agenda;
     private readonly WhatsAppService _wa;   // ← Meta Cloud API (era ZApiService)
     private readonly ILogger<BotWhatsAppService> _log;
 
-    public BotWhatsAppService(AppDbContext db, AgendaService agenda,
+    public BotWAService(AppDbContext db, AgendaService agenda,
         WhatsAppService wa, ILogger<BotWhatsAppService> log)
     { _db = db; _agenda = agenda; _wa = wa; _log = log; }
 
