@@ -16,25 +16,42 @@ public class BotConfigController : ControllerBase
     private readonly TenantContext _t;
     public BotConfigController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
 
-    // ── Configuração ──────────────────────────────────────────────────────────
-
     [HttpGet("config")]
     public async Task<IActionResult> GetConfig()
     {
         var cfg = await _db.BotConfigs.FirstOrDefaultAsync(b => b.TenantId == _t.TenantId);
         if (cfg == null) return NotFound();
-        return Ok(cfg);
+        return Ok(new {
+            cfg.Id, cfg.Ativo,
+            horaInicio             = cfg.HoraInicio.ToString("HH:mm"),
+            horaFim                = cfg.HoraFim.ToString("HH:mm"),
+            cfg.DiasSemana, cfg.DiasAntecedenciaMin, cfg.DiasAntecedenciaMax,
+            cfg.TimeoutConversaMin, cfg.MsgBoasVindas, cfg.MsgQualPet,
+            cfg.MsgQualServico, cfg.MsgQualData, cfg.MsgHorariosDisponiveis,
+            cfg.MsgConfirmacao, cfg.MsgSemHorarios, cfg.MsgForaHorario,
+            cfg.MsgErro, cfg.MsgCancelar,
+            cfg.MetaPhoneNumberId, cfg.MetaWabaId
+        });
     }
 
+    public record BotConfigDto(
+        bool Ativo,
+        string HoraInicio, string HoraFim, string DiasSemana,
+        int DiasAntecedenciaMin, int DiasAntecedenciaMax, int TimeoutConversaMin,
+        string MsgBoasVindas, string MsgQualPet, string MsgQualServico,
+        string MsgQualData, string MsgHorariosDisponiveis, string MsgConfirmacao,
+        string MsgSemHorarios, string MsgForaHorario, string MsgErro, string MsgCancelar,
+        string? MetaPhoneNumberId, string? MetaWabaId);
+
     [HttpPut("config")]
-    public async Task<IActionResult> SalvarConfig([FromBody] BotConfig dto)
+    public async Task<IActionResult> SalvarConfig([FromBody] BotConfigDto dto)
     {
         var cfg = await _db.BotConfigs.FirstOrDefaultAsync(b => b.TenantId == _t.TenantId);
         if (cfg == null) return NotFound();
 
         cfg.Ativo                  = dto.Ativo;
-        cfg.HoraInicio             = dto.HoraInicio;
-        cfg.HoraFim                = dto.HoraFim;
+        cfg.HoraInicio             = TimeOnly.Parse(dto.HoraInicio);
+        cfg.HoraFim                = TimeOnly.Parse(dto.HoraFim);
         cfg.DiasSemana             = dto.DiasSemana;
         cfg.DiasAntecedenciaMin    = dto.DiasAntecedenciaMin;
         cfg.DiasAntecedenciaMax    = dto.DiasAntecedenciaMax;
@@ -57,27 +74,17 @@ public class BotConfigController : ControllerBase
         return NoContent();
     }
 
-    // ── Logs ──────────────────────────────────────────────────────────────────
-
     [HttpGet("logs")]
     public async Task<IActionResult> GetLogs(
-        [FromQuery] string? telefone,
-        [FromQuery] string? direcao,
-        [FromQuery] DateTime? de,
-        [FromQuery] DateTime? ate,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] string? telefone, [FromQuery] string? direcao,
+        [FromQuery] DateTime? de, [FromQuery] DateTime? ate,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
         var q = _db.BotLogs.Where(l => l.TenantId == _t.TenantId).AsQueryable();
-
-        if (!string.IsNullOrEmpty(telefone))
-            q = q.Where(l => l.Telefone.Contains(telefone));
-        if (!string.IsNullOrEmpty(direcao))
-            q = q.Where(l => l.Direcao == direcao);
-        if (de.HasValue)
-            q = q.Where(l => l.CriadoEm >= de.Value);
-        if (ate.HasValue)
-            q = q.Where(l => l.CriadoEm <= ate.Value);
+        if (!string.IsNullOrEmpty(telefone)) q = q.Where(l => l.Telefone.Contains(telefone));
+        if (!string.IsNullOrEmpty(direcao))  q = q.Where(l => l.Direcao == direcao);
+        if (de.HasValue)  q = q.Where(l => l.CriadoEm >= de.Value);
+        if (ate.HasValue) q = q.Where(l => l.CriadoEm <= ate.Value);
 
         var total = await q.CountAsync();
         var items = await q
@@ -88,7 +95,6 @@ public class BotConfigController : ControllerBase
                 l.EstadoAntes, l.EstadoApos, l.Erro, l.CriadoEm
             })
             .ToListAsync();
-
         return Ok(new { items, total, page, pageSize });
     }
 
@@ -99,20 +105,18 @@ public class BotConfigController : ControllerBase
         var logs  = await _db.BotLogs
             .Where(l => l.TenantId == _t.TenantId && l.CriadoEm >= desde)
             .ToListAsync();
-
         var conversas = await _db.BotConversas
             .Where(c => c.TenantId == _t.TenantId)
             .ToListAsync();
-
         return Ok(new {
-            totalMensagens     = logs.Count,
-            mensagensEntrada   = logs.Count(l => l.Direcao == "entrada"),
-            mensagensSaida     = logs.Count(l => l.Direcao == "saida"),
-            conversasAtivas    = conversas.Count(c => c.Estado != "concluido" && c.Estado != "cancelado"),
-            conversasConcluidas= conversas.Count(c => c.Estado == "concluido"),
-            conversasCanceladas= conversas.Count(c => c.Estado == "cancelado"),
-            erros              = logs.Count(l => l.Erro != null),
-            telefonesUnicos    = logs.Select(l => l.Telefone).Distinct().Count(),
+            totalMensagens      = logs.Count,
+            mensagensEntrada    = logs.Count(l => l.Direcao == "entrada"),
+            mensagensSaida      = logs.Count(l => l.Direcao == "saida"),
+            conversasAtivas     = conversas.Count(c => c.Estado != "concluido" && c.Estado != "cancelado"),
+            conversasConcluidas = conversas.Count(c => c.Estado == "concluido"),
+            conversasCanceladas = conversas.Count(c => c.Estado == "cancelado"),
+            erros               = logs.Count(l => l.Erro != null),
+            telefonesUnicos     = logs.Select(l => l.Telefone).Distinct().Count(),
             porDia = logs
                 .GroupBy(l => l.CriadoEm.Date)
                 .OrderBy(g => g.Key)
@@ -131,4 +135,3 @@ public class BotConfigController : ControllerBase
         return Ok(new { removidos = count });
     }
 }
-

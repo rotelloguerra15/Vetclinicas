@@ -46,7 +46,9 @@ export default function Bot() {
   const [diasResumo, setDiasResumo]   = useState(7)
 
   useEffect(() => {
-    api.get('/bot-config/config').then(r => setCfg(r.data)).catch(() => {})
+    api.get('/bot-config/config')
+      .then(r => setCfg(r.data))
+      .catch(() => setCfg({ ativo: false, diasSemana: '1,2,3,4,5,6', horaInicio: '08:00', horaFim: '18:00', diasAntecedenciaMin: 0, diasAntecedenciaMax: 30, timeoutConversaMin: 30, msgBoasVindas: '', msgQualPet: '', msgQualServico: '', msgQualData: '', msgHorariosDisponiveis: '', msgConfirmacao: '', msgSemHorarios: '', msgForaHorario: '', msgErro: '', msgCancelar: '', metaPhoneNumberId: '', metaWabaId: '' }))
   }, [])
 
   useEffect(() => {
