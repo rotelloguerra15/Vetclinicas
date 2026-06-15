@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -30,14 +31,21 @@ public class WhatsAppService
 
     // ── Envio de texto livre ─────────────────────────────────────────────────
     // Usado dentro de conversas ativas (janela de 24h após última msg do cliente)
-    public Task<bool> EnviarTexto(string telefone, string mensagem) =>
-        Post(new
+    public Task<bool> EnviarTexto(string telefone, string mensagem)
+    {
+        var payload = new Dictionary<string, object>
         {
-            messaging_product = "whatsapp",
-            to                = LimparTelefone(telefone),
-            type              = "text",
-            text              = new { preview_url = false, body = mensagem }
-        });
+            ["messaging_product"] = "whatsapp",
+            ["to"]               = LimparTelefone(telefone),
+            ["type"]             = "text",
+            ["text"]             = new Dictionary<string, object>
+            {
+                ["preview_url"] = false,
+                ["body"]        = mensagem
+            }
+        };
+        return Post(payload);
+    }
 
     // ── Envio de imagem com legenda ──────────────────────────────────────────
     public Task<bool> EnviarImagem(string telefone, string imageUrl, string? caption = null) =>
