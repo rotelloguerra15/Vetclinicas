@@ -27,7 +27,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ProvisionamentoService>();
 builder.Services.AddScoped<AgendaService>();
 builder.Services.AddScoped<AgendamentoLinkService>();
-builder.Services.AddHttpClient<ZApiService>();
+builder.Services.AddHttpClient<WhatsAppService>();
 builder.Services.AddHostedService<NotificacaoDispatcher>();
 builder.Services.AddHostedService<AgendadorMensagens>();
 
@@ -36,6 +36,7 @@ builder.Services.AddHttpClient<ReceituarioPdfService>();
 
 // Bot WhatsApp
 builder.Services.AddScoped<BotWhatsAppService>();
+builder.Services.AddScoped<CampanhaWhatsAppService>();
 
 // RH
 builder.Services.AddScoped<FuncionarioService>();
@@ -120,8 +121,6 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", ts = DateTime.UtcNow }));
 
 app.Run();
- 
- 
  
  
  

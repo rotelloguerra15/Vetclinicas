@@ -687,6 +687,9 @@ public class BotConfig
     [Column("timeout_conversa_min")]  public int TimeoutConversaMin { get; set; } = 30;
 
     [Column("criado_em")]     public DateTime CriadoEm { get; set; }
+    [Column("meta_phone_number_id")] public string? MetaPhoneNumberId { get; set; }
+    [Column("meta_waba_id")]          public string? MetaWabaId { get; set; }
+
     [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
 }
 
@@ -922,8 +925,19 @@ public class MetaFaturamento
     [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
 }
 
-// ── M5: Planos de Saúde ──────────────────────────────────────────────────────
+// ── Raças ─────────────────────────────────────────────────────────────────────
+[Table("racas")]
+public class Raca
+{
+    [Column("id")]        public Guid Id { get; set; }
+    [Column("tenant_id")] public Guid TenantId { get; set; }
+    [Column("nome")]      public string Nome { get; set; } = "";
+    [Column("especie")]   public string Especie { get; set; } = "cao";
+    [Column("ativo")]     public bool Ativo { get; set; } = true;
+    [Column("criado_em")] public DateTime CriadoEm { get; set; }
+}
 
+// ── M5: Planos de Saúde ───────────────────────────────────────────────────────
 [Table("planos_saude")]
 public class PlanoSaude
 {
@@ -975,17 +989,4 @@ public class TutorPlano
 
     public Tutor? Tutor { get; set; }
     public PlanoSaude? Plano { get; set; }
-}
-
-// ── Raças ────────────────────────────────────────────────────────────────────
-
-[Table("racas")]
-public class Raca
-{
-    [Column("id")]        public Guid Id { get; set; }
-    [Column("tenant_id")] public Guid TenantId { get; set; }
-    [Column("nome")]      public string Nome { get; set; } = "";
-    [Column("especie")]   public string Especie { get; set; } = "cao";
-    [Column("ativo")]     public bool Ativo { get; set; } = true;
-    [Column("criado_em")] public DateTime CriadoEm { get; set; }
 }

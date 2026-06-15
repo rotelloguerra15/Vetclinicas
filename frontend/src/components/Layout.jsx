@@ -18,7 +18,6 @@ const menu = [
 
   { group: 'Vendas' },
   { to: '/pdv',      label: 'PDV / Caixa', highlight: true },
-  { to: '/servicos', label: 'Servicos' },
 
   { group: 'Estoque' },
   { to: '/estoque',      label: 'Controle de Estoque' },
@@ -45,6 +44,7 @@ const menu = [
 
   { group: 'Cadastros' },
   { to: '/usuarios',              label: 'Usuarios' },
+  { to: '/servicos',              label: 'Servicos' },
   { to: '/cadastros/racas',       label: 'Racas' },
   { to: '/cadastros/pelagens',    label: 'Pelagens' },
   { to: '/cadastros/vias',        label: 'Vias de Administracao' },

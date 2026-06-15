@@ -15,21 +15,20 @@ function fmt(v) {
 
 // ─── Abertura de caixa ─────────────────────────────────────────────
 function AberturaCaixa({ onAberto }) {
-  const [saldo, setSaldo] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [saldo, setSaldo]           = useState('')
+  const [saving, setSaving]         = useState(false)
   const [saldoAnterior, setSaldoAnterior] = useState(null)
 
   useEffect(() => {
-    // Busca saldo final do dia anterior para exibir como referência
     api.get('/caixa/historico?ultimos=1')
-      .then(r => { if (r.data[0]?.saldoFinal) setSaldoAnterior(r.data[0].saldoFinal) })
+      .then(r => { if (r.data[0]?.saldoFinal != null) setSaldoAnterior(r.data[0].saldoFinal) })
       .catch(() => {})
   }, [])
 
   async function abrir() {
     setSaving(true)
     try {
-      const { data } = await api.post('/caixa/abrir', { saldoInicial: +saldo || 0 })
+      const { data } = await api.post('/caixa/abrir', { saldoInicial: saldo !== '' ? +saldo : (saldoAnterior ?? 0) })
       onAberto(data.saldoInicial)
     } catch (e) {
       alert(e.response?.data?.erro || 'Erro ao abrir caixa')
@@ -41,20 +40,20 @@ function AberturaCaixa({ onAberto }) {
       <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
         <div className="text-4xl mb-4">🏪</div>
         <h2 className="text-xl font-bold mb-2">Abrir Caixa</h2>
-        {saldoAnterior !== null ? (
-          <p className="text-slate-500 text-sm mb-2">
+        {saldoAnterior !== null && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 mb-4 text-sm text-emerald-700">
             Saldo final do dia anterior: <strong>{fmt(saldoAnterior)}</strong>
-          </p>
-        ) : null}
+          </div>
+        )}
         <p className="text-slate-400 text-xs mb-4">
-          O saldo inicial será preenchido automaticamente com o saldo final do dia anterior.
+          O saldo inicial é preenchido automaticamente com o saldo final do dia anterior.
           Altere se necessário.
         </p>
         <input
           className="border rounded-lg px-3 py-2 w-full mb-4 text-center text-lg"
           placeholder="R$ 0,00"
           type="number" step="0.01"
-          value={saldo || saldoAnterior || ''}
+          value={saldo !== '' ? saldo : (saldoAnterior ?? '')}
           onChange={e => setSaldo(e.target.value)}
         />
         <button onClick={abrir} disabled={saving}
@@ -66,11 +65,87 @@ function AberturaCaixa({ onAberto }) {
   )
 }
 
+// ─── Tela: caixa fechado ───────────────────────────────────────────
+function CaixaFechado({ caixa, onReabrir }) {
+  const [reabrindo, setReabrindo] = useState(false)
+  const papel = localStorage.getItem('papel')
+
+  const retiradas = caixa.movimentacoes?.filter(m => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0) || 0
+  const depositos = caixa.movimentacoes?.filter(m => m.tipo === 'deposito').reduce((s, m) => s + m.valor, 0) || 0
+
+  async function reabrir() {
+    if (!confirm('Reabrir o caixa? Esta ação será registrada para auditoria.')) return
+    setReabrindo(true)
+    try {
+      await api.post(`/caixa/${caixa.id}/reabrir`)
+      onReabrir()
+    } catch (e) {
+      alert(e.response?.data?.erro || 'Erro ao reabrir')
+    } finally { setReabrindo(false) }
+  }
+
+  return (
+    <div className="max-w-md mx-auto mt-10">
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="text-center mb-6">
+          <div className="text-4xl mb-2">🔒</div>
+          <h2 className="text-xl font-bold text-slate-800">Caixa Fechado</h2>
+          <p className="text-sm text-slate-400 mt-1">
+            Fechado em {new Date(caixa.fechadoEm).toLocaleString('pt-BR')}
+          </p>
+        </div>
+
+        <div className="space-y-2 text-sm mb-6">
+          <div className="flex justify-between py-2 border-b">
+            <span className="text-slate-500">Saldo inicial</span>
+            <span className="font-medium">{fmt(caixa.saldoInicial)}</span>
+          </div>
+          <div className="flex justify-between py-2 border-b">
+            <span className="text-slate-500">Total vendas</span>
+            <span className="font-medium text-emerald-600">+ {fmt(caixa.totalVendas)}</span>
+          </div>
+          <div className="flex justify-between py-2 border-b">
+            <span className="text-slate-500">Total serviços</span>
+            <span className="font-medium text-emerald-600">+ {fmt(caixa.totalServicos)}</span>
+          </div>
+          {depositos > 0 && (
+            <div className="flex justify-between py-2 border-b">
+              <span className="text-slate-500">Depósitos</span>
+              <span className="font-medium text-emerald-600">+ {fmt(depositos)}</span>
+            </div>
+          )}
+          {retiradas > 0 && (
+            <div className="flex justify-between py-2 border-b">
+              <span className="text-slate-500">Retiradas</span>
+              <span className="font-medium text-red-500">− {fmt(retiradas)}</span>
+            </div>
+          )}
+          <div className="flex justify-between py-3 font-bold text-base border-t-2 border-slate-200">
+            <span>Saldo Final</span>
+            <span className="text-blue-700">{fmt(caixa.saldoFinal)}</span>
+          </div>
+        </div>
+
+        {['owner','admin'].includes(papel) ? (
+          <button onClick={reabrir} disabled={reabrindo}
+            className="w-full bg-amber-500 text-white py-3 rounded-lg font-medium hover:bg-amber-600 disabled:opacity-50">
+            {reabrindo ? 'Reabrindo...' : '🔓 Reabrir Caixa (Admin)'}
+          </button>
+        ) : (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center text-sm text-slate-500">
+            Somente administradores podem reabrir o caixa.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Modal Retirada / Depósito ─────────────────────────────────────
 function ModalMovimentacao({ tipo, onClose, onSaved }) {
-  const [valor, setValor]       = useState('')
+  const [valor, setValor]         = useState('')
   const [descricao, setDescricao] = useState('')
-  const [saving, setSaving]     = useState(false)
+  const [saving, setSaving]       = useState(false)
 
   async function salvar() {
     if (!valor || +valor <= 0) return alert('Informe um valor válido.')
@@ -122,15 +197,35 @@ function ModalMovimentacao({ tipo, onClose, onSaved }) {
 
 // ─── Modal Fechamento de Caixa ─────────────────────────────────────
 function ModalFechamento({ caixa, onClose, onFechado }) {
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [obsVal, setObsVal]         = useState('')
+  const [resumo, setResumo]         = useState(null)
+  const [loadingResumo, setLoadingResumo] = useState(true)
 
-  const retiradas = caixa.movimentacoes?.filter(m => m.tipo === 'retirada').reduce((s,m) => s+m.valor, 0) || 0
-  const depositos = caixa.movimentacoes?.filter(m => m.tipo === 'deposito').reduce((s,m) => s+m.valor, 0) || 0
+  // Busca preview do fechamento (saldo calculado pelo backend)
+  useEffect(() => {
+    api.get('/caixa/hoje')
+      .then(r => setResumo(r.data))
+      .catch(() => {})
+      .finally(() => setLoadingResumo(false))
+  }, [])
+
+  const retiradas = caixa.movimentacoes?.filter(m => m.tipo === 'retirada').reduce((s, m) => s + m.valor, 0) || 0
+  const depositos = caixa.movimentacoes?.filter(m => m.tipo === 'deposito').reduce((s, m) => s + m.valor, 0) || 0
+
+  // Saldo calculado localmente (igual à lógica do backend):
+  // saldo inicial + totalVendas + totalServicos + depositos - retiradas
+  // Nota: o backend considera só vendas em dinheiro; aqui mostramos o total geral para transparência
+  const saldoEsperado = (caixa.saldoInicial || 0)
+    + (caixa.totalVendas || 0)
+    + (caixa.totalServicos || 0)
+    + depositos
+    - retiradas
 
   async function fechar() {
     setSaving(true)
     try {
-      const { data } = await api.put('/caixa/fechar', { saldoFinal: null, obs: null })
+      const { data } = await api.put('/caixa/fechar', { saldoFinal: null, obs: obsVal || null })
       onFechado(data)
       onClose()
     } catch (e) {
@@ -143,37 +238,40 @@ function ModalFechamento({ caixa, onClose, onFechado }) {
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
         <h3 className="font-bold text-lg mb-5">📊 Fechamento de Caixa</h3>
 
-        <div className="space-y-2 text-sm mb-5">
+        <div className="space-y-1 text-sm mb-4">
           <div className="flex justify-between py-2 border-b">
-            <span className="text-slate-600">Saldo inicial</span>
+            <span className="text-slate-500">Saldo inicial (dinheiro físico)</span>
             <span className="font-medium">{fmt(caixa.saldoInicial)}</span>
           </div>
           <div className="flex justify-between py-2 border-b">
-            <span className="text-slate-600">Entradas (dinheiro)</span>
-            <span className="font-medium text-emerald-600">+ {fmt(caixa.totalVendas + caixa.totalServicos)}</span>
+            <span className="text-slate-500">Vendas do dia</span>
+            <span className="font-medium text-emerald-600">+ {fmt(caixa.totalVendas)}</span>
+          </div>
+          <div className="flex justify-between py-2 border-b">
+            <span className="text-slate-500">Serviços do dia</span>
+            <span className="font-medium text-emerald-600">+ {fmt(caixa.totalServicos)}</span>
           </div>
           {depositos > 0 && (
             <div className="flex justify-between py-2 border-b">
-              <span className="text-slate-600">Depósitos</span>
+              <span className="text-slate-500">Depósitos</span>
               <span className="font-medium text-emerald-600">+ {fmt(depositos)}</span>
             </div>
           )}
           {retiradas > 0 && (
             <div className="flex justify-between py-2 border-b">
-              <span className="text-slate-600">Retiradas</span>
+              <span className="text-slate-500">Retiradas</span>
               <span className="font-medium text-red-500">− {fmt(retiradas)}</span>
             </div>
           )}
-          <div className="flex justify-between py-3 font-bold text-base">
+          <div className="flex justify-between py-3 font-bold text-base border-t-2 border-slate-300">
             <span>Saldo Final Esperado</span>
-            <span className="text-blue-700">
-              {fmt(caixa.saldoInicial + caixa.totalVendas + caixa.totalServicos + depositos - retiradas)}
-            </span>
+            <span className="text-blue-700">{fmt(saldoEsperado)}</span>
           </div>
         </div>
 
+        {/* Movimentações do dia */}
         {caixa.movimentacoes?.length > 0 && (
-          <div className="bg-slate-50 rounded-xl p-3 mb-5">
+          <div className="bg-slate-50 rounded-xl p-3 mb-4">
             <p className="text-xs font-semibold text-slate-500 mb-2">Movimentações do dia</p>
             {caixa.movimentacoes.map(m => (
               <div key={m.id} className="flex justify-between text-xs py-1">
@@ -186,8 +284,18 @@ function ModalFechamento({ caixa, onClose, onFechado }) {
           </div>
         )}
 
+        {/* Observação */}
+        <div className="mb-4">
+          <label className="text-xs font-medium text-slate-500 block mb-1">Observação (opcional)</label>
+          <input type="text"
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Ex: Caixa confere"
+            value={obsVal}
+            onChange={e => setObsVal(e.target.value)} />
+        </div>
+
         <p className="text-xs text-slate-400 mb-4">
-          ⚠️ Após fechar, o caixa só poderá ser reaberto com aprovação de administrador.
+          ⚠️ Após fechar, o caixa só poderá ser reaberto por um administrador.
           O saldo final será registrado no Financeiro automaticamente.
         </p>
 
@@ -222,24 +330,24 @@ function CardOS({ os, selecionada, onClick }) {
 
 // ─── PDV principal ─────────────────────────────────────────────────
 export default function PDV() {
-  const [caixa, setCaixa]             = useState(null)
-  const [caixaLoading, setCaixaLoading] = useState(true)
-  const [produtos, setProdutos]       = useState([])
-  const [osProntas, setOsProntas]     = useState([])
-  const [busca, setBusca]             = useState('')
-  const [modalMov, setModalMov]       = useState(null) // 'retirada' | 'deposito' | null
+  const [caixa, setCaixa]                     = useState(null)
+  const [caixaLoading, setCaixaLoading]       = useState(true)
+  const [produtos, setProdutos]               = useState([])
+  const [osProntas, setOsProntas]             = useState([])
+  const [busca, setBusca]                     = useState('')
+  const [modalMov, setModalMov]               = useState(null)
   const [modalFechamento, setModalFechamento] = useState(false)
 
-  const [osId, setOsId]               = useState(null)
-  const [tutorId, setTutorId]         = useState(null)
-  const [tutorNome, setTutorNome]     = useState('')
-  const [petNome, setPetNome]         = useState('')
-  const [carrinho, setCarrinho]       = useState([])
-  const [pagamento, setPagamento]     = useState('PIX')
+  const [osId, setOsId]           = useState(null)
+  const [tutorId, setTutorId]     = useState(null)
+  const [tutorNome, setTutorNome] = useState('')
+  const [petNome, setPetNome]     = useState('')
+  const [carrinho, setCarrinho]   = useState([])
+  const [pagamento, setPagamento] = useState('PIX')
   const [mostrarDesconto, setMostrarDesconto] = useState(false)
-  const [desconto, setDesconto]       = useState('')
-  const [saving, setSaving]           = useState(false)
-  const [msg, setMsg]                 = useState(null)
+  const [desconto, setDesconto]   = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [msg, setMsg]             = useState(null)
 
   const carregarDados = useCallback(() => {
     api.get('/produtos').then(r => setProdutos(r.data)).catch(() => {})
@@ -313,9 +421,7 @@ export default function PDV() {
     setSaving(true); setMsg(null)
     try {
       const produtosCarrinho = carrinho.filter(i => i.tipo === 'produto')
-
       if (produtosCarrinho.length > 0) {
-        // Tem produtos — cria venda normalmente (já marca OS como paga no backend)
         await api.post('/vendas', {
           tutorId: tutorId || null,
           osId: osId || null,
@@ -324,10 +430,8 @@ export default function PDV() {
           formaPagamento: pagamento
         })
       } else if (osId) {
-        // Só serviços — marca a OS como paga diretamente
         await api.put(`/ordens-servico/${osId}/status`, { status: 'pago' })
       }
-
       setMsg({ tipo: 'ok', texto: `✅ Venda finalizada! ${fmt(total)}` })
       setCarrinho([]); setOsId(null); setTutorId(null); setTutorNome(''); setPetNome('')
       setDesconto(''); setMostrarDesconto(false)
@@ -341,8 +445,13 @@ export default function PDV() {
 
   if (caixaLoading) return <div className="text-center py-20 text-slate-400">Carregando...</div>
 
+  // Caixa não existe hoje — tela de abertura
   if (!caixa?.aberto && !caixa?.id)
     return <AberturaCaixa onAberto={() => carregarCaixa()} />
+
+  // Caixa existe mas está fechado — tela de caixa fechado
+  if (caixa?.id && caixa?.fechadoEm)
+    return <CaixaFechado caixa={caixa} onReabrir={() => carregarCaixa()} />
 
   return (
     <div className="h-full">
@@ -356,10 +465,8 @@ export default function PDV() {
             </p>
           )}
         </div>
-
         {caixa?.aberto && (
           <div className="flex gap-2">
-            {/* Retirada e Depósito */}
             <button onClick={() => setModalMov('deposito')}
               className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-lg text-sm font-medium hover:bg-emerald-100 transition">
               + Depósito
