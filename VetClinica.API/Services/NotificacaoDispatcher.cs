@@ -32,7 +32,7 @@ public class NotificacaoDispatcher : BackgroundService
     {
         using var scope = _sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var zapi = scope.ServiceProvider.GetRequiredService<ZApiService>();
+        var zapi = scope.ServiceProvider.GetRequiredService<WhatsAppService>();
         var linkService = scope.ServiceProvider.GetRequiredService<AgendamentoLinkService>();
 
         var pendentes = await db.NotificacoesFila
