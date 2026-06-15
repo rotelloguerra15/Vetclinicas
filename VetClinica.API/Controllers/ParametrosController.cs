@@ -7,6 +7,16 @@ using VetClinica.API.Models;
 
 namespace VetClinica.API.Controllers;
 
+
+public record BotConfigSalvarDto(
+    bool Ativo,
+    string HoraInicio, string HoraFim, string DiasSemana,
+    int DiasAntecedenciaMin, int DiasAntecedenciaMax, int TimeoutConversaMin,
+    string MsgBoasVindas, string MsgQualPet, string MsgQualServico,
+    string MsgQualData, string MsgHorariosDisponiveis, string MsgConfirmacao,
+    string MsgSemHorarios, string MsgForaHorario, string MsgErro, string MsgCancelar,
+    string? MetaPhoneNumberId, string? MetaWabaId);
+
 [ApiController]
 [Authorize]
 [Route("api/parametros")]
