@@ -49,6 +49,8 @@ public class BotConfigController : ControllerBase
         cfg.MsgForaHorario         = dto.MsgForaHorario;
         cfg.MsgErro                = dto.MsgErro;
         cfg.MsgCancelar            = dto.MsgCancelar;
+        cfg.MetaPhoneNumberId      = dto.MetaPhoneNumberId;
+        cfg.MetaWabaId             = dto.MetaWabaId;
         cfg.AtualizadoEm           = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -129,3 +131,4 @@ public class BotConfigController : ControllerBase
         return Ok(new { removidos = count });
     }
 }
+
