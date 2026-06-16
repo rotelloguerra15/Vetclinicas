@@ -7,9 +7,9 @@ namespace VetClinica.API.Services.RH;
 
 public class FechamentoService
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
 
-    public FechamentoService(AppDbContext db) => _db = db;
+    public FechamentoService(TenantDbContextFactory factory) { _db = factory.Create(); }
 
     public async Task<FechamentoMensal> GerarFechamentoAsync(
         Guid funcionarioId, DateOnly competencia, string? observacoes, Guid tenantId, Guid userId)

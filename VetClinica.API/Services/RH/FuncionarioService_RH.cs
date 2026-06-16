@@ -7,9 +7,9 @@ namespace VetClinica.API.Services.RH;
 
 public class FuncionarioService
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
 
-    public FuncionarioService(AppDbContext db) => _db = db;
+    public FuncionarioService(TenantDbContextFactory factory) { _db = factory.Create(); }
 
     public async Task<List<Funcionario>> GetAllAsync(Guid tenantId)
         => await _db.Funcionarios

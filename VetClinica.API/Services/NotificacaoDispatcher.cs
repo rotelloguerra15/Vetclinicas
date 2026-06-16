@@ -31,10 +31,27 @@ public class NotificacaoDispatcher : BackgroundService
     private async Task ProcessarFila(CancellationToken ct)
     {
         using var scope = _sp.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var zapi = scope.ServiceProvider.GetRequiredService<WhatsAppService>();
+        var platform = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var factory  = scope.ServiceProvider.GetRequiredService<TenantDbContextFactory>();
+        var zapi     = scope.ServiceProvider.GetRequiredService<WhatsAppService>();
         var linkService = scope.ServiceProvider.GetRequiredService<AgendamentoLinkService>();
 
+        // Processa fila de cada tenant ativo separadamente (isolamento por schema)
+        var tenants = await platform.Tenants
+            .Where(t => t.Ativo && t.SuspensoEm == null && t.SchemaName != null)
+            .Select(t => t.SchemaName!)
+            .ToListAsync(ct);
+
+        foreach (var schema in tenants)
+        {
+            await ProcessarFiaTenant(factory.CreateForSchema(schema), zapi, linkService, ct);
+        }
+    }
+
+    private async Task ProcessarFiaTenant(
+        TenantDbContext db, WhatsAppService zapi,
+        AgendamentoLinkService linkService, CancellationToken ct)
+    {
         var pendentes = await db.NotificacoesFila
             .Where(n => n.Status == "pendente" && n.AgendadoPara <= DateTime.UtcNow)
             .OrderBy(n => n.AgendadoPara)

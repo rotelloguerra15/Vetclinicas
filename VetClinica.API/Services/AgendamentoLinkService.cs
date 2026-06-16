@@ -5,12 +5,12 @@ namespace VetClinica.API.Services;
 
 public class AgendamentoLinkService
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly IConfiguration _cfg;
 
-    public AgendamentoLinkService(AppDbContext db, IConfiguration cfg)
+    public AgendamentoLinkService(TenantDbContextFactory factory, IConfiguration cfg)
     {
-        _db = db;
+        _db = factory.Create();
         _cfg = cfg;
     }
 

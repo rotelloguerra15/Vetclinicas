@@ -12,14 +12,14 @@ namespace VetClinica.API.Services;
 /// </summary>
 public class BotWAService
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly AgendaService _agenda;
     private readonly WhatsAppService _wa;   // ← Meta Cloud API (era ZApiService)
     private readonly ILogger<BotWAService> _log;
 
-    public BotWAService(AppDbContext db, AgendaService agenda,
+    public BotWAService(TenantDbContextFactory factory, AgendaService agenda,
         WhatsAppService wa, ILogger<BotWAService> log)
-    { _db = db; _agenda = agenda; _wa = wa; _log = log; }
+    { _db = factory.Create(); _agenda = agenda; _wa = wa; _log = log; }
 
     public async Task ProcessarMensagem(Guid tenantId, string telefone, string texto)
     {

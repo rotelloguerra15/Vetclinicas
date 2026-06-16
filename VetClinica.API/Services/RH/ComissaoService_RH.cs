@@ -6,15 +6,15 @@ namespace VetClinica.API.Services.RH;
 
 public class ComissaoService
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
 
-    public ComissaoService(AppDbContext db) => _db = db;
+    public ComissaoService(TenantDbContextFactory factory) { _db = factory.Create(); }
 
     /// <summary>
     /// Chamado automaticamente ao entregar uma OS.
     /// Verifica parâmetros da clínica e gera comissão se ativo.
     /// </summary>
-    public async Task GerarComissaoOSAsync(OrdemServico os, Guid tenantId, AppDbContext? db = null)
+    public async Task GerarComissaoOSAsync(OrdemServico os, Guid tenantId, TenantDbContext? db = null)
     {
         var ctx = db ?? _db;
 

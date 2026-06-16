@@ -6,8 +6,8 @@ namespace VetClinica.API.Services;
 
 public class AgendaService
 {
-    private readonly AppDbContext _db;
-    public AgendaService(AppDbContext db) => _db = db;
+    private readonly TenantDbContext _db;
+    public AgendaService(TenantDbContextFactory factory) { _db = factory.Create(); }
 
     private static readonly TimeOnly AberturaDefault  = new(8, 0);
     private static readonly TimeOnly FechamentoDefault = new(18, 0);

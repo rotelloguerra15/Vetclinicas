@@ -36,7 +36,8 @@ public class AgendadorMensagens : BackgroundService
     private async Task Rodar(CancellationToken ct)
     {
         using var scope = _sp.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var factory = scope.ServiceProvider.GetRequiredService<TenantDbContextFactory>();
+        var db = factory.Create();
 
         await ProcessarAniversarios(db, ct);
         await ProcessarLembretesAgendamento(db, ct);
@@ -51,7 +52,7 @@ public class AgendadorMensagens : BackgroundService
                 .Replace("{hora}", hora);
 
     // ---- Aniversários de pet e tutor (dispara uma vez por dia) ----
-    private async Task ProcessarAniversarios(AppDbContext db, CancellationToken ct)
+    private async Task ProcessarAniversarios(TenantDbContext db, CancellationToken ct)
     {
         var hoje = DateTime.Today;
 
@@ -128,7 +129,7 @@ public class AgendadorMensagens : BackgroundService
     }
 
     // ---- Lembrete de agendamento X horas antes ----
-    private async Task ProcessarLembretesAgendamento(AppDbContext db, CancellationToken ct)
+    private async Task ProcessarLembretesAgendamento(TenantDbContext db, CancellationToken ct)
     {
         var cfg = await db.ConfigMensagens
             .FirstOrDefaultAsync(c => c.Ativo && c.Gatilho == "lembrete_agendamento", ct);
@@ -168,7 +169,7 @@ public class AgendadorMensagens : BackgroundService
     }
 
     // Evita duplicar: já existe notif desse tipo, pra esse pet, criada hoje?
-    private static async Task<bool> JaEnfileirado(AppDbContext db, Guid tenantId, string tipo,
+    private static async Task<bool> JaEnfileirado(TenantDbContext db, Guid tenantId, string tipo,
         Guid petId, DateTime referencia, CancellationToken ct)
     {
         var inicioDia = referencia.Date;
@@ -177,7 +178,7 @@ public class AgendadorMensagens : BackgroundService
             && n.CriadoEm >= inicioDia.AddDays(-1), ct);
     }
 
-    private static Task Enfileirar(AppDbContext db, ConfigMensagem cfg, Guid tutorId,
+    private static Task Enfileirar(TenantDbContext db, ConfigMensagem cfg, Guid tutorId,
         string telefone, Guid petId, string mensagem, string tipo)
     {
         db.NotificacoesFila.Add(new NotificacaoFila
