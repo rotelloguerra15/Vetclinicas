@@ -18,10 +18,6 @@ public class FinanceiroController : ControllerBase
 
     public FinanceiroController(TenantDbContextFactory factory, TenantContext t)
     { _db = factory.Create(); _t = t; }
-    {
-        _db = factory.Create();
-        _t = t;
-    }
 
     // ================================================================
     //  CATEGORIAS

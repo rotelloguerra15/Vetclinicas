@@ -18,10 +18,6 @@ public class PlanosSaudeController : ControllerBase
 
     public PlanosSaudeController(TenantDbContextFactory factory, TenantContext t)
     { _db = factory.Create(); _t = t; }
-    {
-        _db = factory.Create();
-        _t = t;
-    }
 
     // ── Operadoras / Planos ───────────────────────────────────────────────────
 
