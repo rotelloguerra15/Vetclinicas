@@ -20,7 +20,7 @@ public class IaController : ControllerBase
 
     public IaController(TenantDbContextFactory factory, TenantContext t, IHttpClientFactory http)
     {
-        _db   = db;
+        _db   = factory.Create();
         _t    = t;
         _http = http;
     }
