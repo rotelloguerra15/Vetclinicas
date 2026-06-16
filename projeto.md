@@ -53,212 +53,123 @@ psql $DB -f "C:\Projetos\vetclinica\database\ARQUIVO.sql"
 6. **Tabela financeira:** chama `contas` (não `lancamentos`)
 7. **Venda:** tem `TutorId` direto (não via Pet)
 8. **PedidoItem FK:** configurar `HasForeignKey` no `OnModelCreating`
-9. **DbSets:** `OrdensServico`, `Vendas`, `Tutores`, `Pets`, `Contas`, `PedidosCompra`, `MetasFaturamento`, `Pelagens`, `Cargos`, `ConciliacoesDiarias`, `RecebimentoAnexos`, `FechamentosContabeis`, `FechamentoDocumentos`
+9. **DbSets:** `OrdensServico`, `Vendas`, `Tutores`, `Pets`, `Contas`, `PedidosCompra`, `MetasFaturamento`, `Pelagens`, `Cargos`, `ConciliacoesDiarias`, `RecebimentoAnexos`, `FechamentosContabeis`, `FechamentoDocumentos`, `PlanosSaude`, `PetPlanos`, `TutorPlanos`, `Racas`, `BotConfigs`, `BotConversas`, `BotLogs`
 10. **Arquivos:** sempre entregar com nome final correto (sem sufixos `_cur`, `_fix`, `_v2`)
-11. **Railway cache:** forçar rebuild com `Add-Content "VetClinica.API/Program.cs" " "` + commit
+11. **Railway cache:** forçar rebuild mudando comentario no `.csproj` + commit
 12. **using:** sempre incluir `using VetClinica.API.Models;` em controllers que usam entities
 13. **PowerShell:** NÃO usar `&&` — separar em linhas individuais
 14. **SQL com emojis:** NÃO colocar emojis em .sql — encoding WIN1252 quebra no psql Windows
-15. **iText7 assinatura:** NÃO tentar integrar iText7+BouncyCastle sem testar localmente — causa cascata de erros
+15. **iText7 assinatura:** NÃO tentar integrar iText7+BouncyCastle sem testar localmente
 16. **Sempre ler o arquivo atual antes de modificar** — nunca editar às cegas
+17. **BotConfigController foi removido** — endpoints de bot estão em `ParametrosController` com rotas `~/api/bot-config/*`
+18. **BotWhatsAppService** foi renomeado internamente para `BotWAService` (classe) mas o arquivo ainda chama `BotWhatsAppService.cs`
+19. **bot_config seed:** INSERT manual necessário — migration não cria o registro automaticamente
+20. **Add-Content no Program.cs PROIBIDO** — corrompe o arquivo com chars nulos. Para cache bust: editar comentario no `.csproj`
 
 ---
 
-## Migrations Aplicadas (37 total)
+## Migrations Aplicadas (40 total)
 
 | # | Arquivo | Descrição |
-|---|---------|-----------|
-| 01 | 01-schema.sql | Schema base |
-| 02 | 02-estoque-mensagens.sql | Estoque, mensagens, vendas |
-| 03 | 03-aniversario-tutor.sql | Campos aniversário tutor |
-| 04 | 04-branding-fonseca.sql | Branding inicial |
-| 05 | 05-plataforma-saas.sql | Plataforma SaaS multi-tenant |
-| 06 | 06-promocoes.sql | Promoções/campanhas |
-| 07 | 07-fix-enums-to-varchar.sql | Fix enums |
-| 08 | 08-prontuario-campos.sql | Prontuário |
-| 09 | 09-caixa.sql | Caixa PDV |
-| 10 | 010_funcionarios.sql | Funcionários RH |
-| 11 | 011_parametros_sistema.sql | Parâmetros sistema |
-| 12 | 012_comissoes.sql | Comissões |
-| 13 | 013_fechamento_mensal.sql | Fechamento mensal |
-| 14 | 014_os_funcionario.sql | Vínculo OS/funcionário |
-| 15 | 015_movimentacoes_caixa.sql | Movimentações caixa |
-| 16 | 016_m1_ajustes.sql | Endereço tutor + microchip + plano saúde |
-| 17 | 017_crmv_funcionario.sql | CRMV funcionários |
-| 18 | 018_receituario_campos.sql | Registro MAPA + código pet |
-| 19 | 019_vias_administracao.sql | Vias de administração |
-| 20 | 020_bot_whatsapp.sql | Bot WhatsApp |
-| 21 | 021_movimentacao_bancaria.sql | Contas bancárias e movimentações |
-| 22 | 022_fornecedores_compras.sql | Fornecedores e pedidos de compra |
-| 23 | 023_condicoes_recebimento.sql | Condições pagamento + recebimento mercadoria |
-| 24 | 024_codigo_cadastros.sql | Campo `codigo` em produtos/fornecedores/funcionários |
-| 25 | 025_seed_mensagens.sql | Templates padrão mensagens automáticas |
-| 26 | 026_contas_financeiro.sql | Tabela `contas` (financeiro) |
-| 27 | 027_metas_faturamento.sql | Tabela `metas_faturamento` |
-| 28 | 028_conciliacao_bancaria.sql | `conciliacoes_diarias` + campo `origem` |
-| 29 | 029_ia_diagnostico.sql | `anthropic_api_key` e `ia_ativo` em parametros_sistema |
-| 30 | 030_assina_receituario.sql | Campo `assina_receituario` em funcionarios |
-| 31 | 031_cargos_funcionario_usuario.sql | Tabela `cargos` + `cargo_id` + `usuario_id` em funcionarios |
-| 32 | 032_agendamento_servico.sql | Campo `servico_id` em agendamentos |
-| 33 | 033_servico_icone.sql | Campo `icone` em servicos |
-| 34 | 034_pelagens.sql | Tabela `pelagens` |
-| 35 | 035_certificado_digital.sql | Campos certificado A1 em parametros_sistema |
-| 36 | 036_recebimento_anexos.sql | Tabela `recebimento_anexos` |
-| 37 | 037_modulo_contabil.sql | SMTP em parametros_sistema + `fechamentos_contabeis` + `fechamento_documentos` |
+|---|---------|-----------| 
+| 01-37 | (ver versão anterior) | Schema base até módulo contábil |
+| 38 | 038_m5_planos_saude.sql | Planos de saúde, pet_planos, tutor_planos |
+| 39 | 039_racas.sql | Tabela racas com seed cão/gato |
+| 40 | 040_meta_whatsapp.sql | meta_phone_number_id e meta_waba_id em bot_config |
 
 ---
 
 ## Módulos Implementados
 
 ### Clínica
-- Auth, multi-tenant, JWT
-- **Tutores** — endereço, código, aniversário, painel de pets vinculados, redirect para cadastro de pet após criar tutor
-- **Pets** — microchip, plano saúde, idade estimada (anos+meses→data), código, pelagem via cadastro, campo castrado com "Não sei"
+- Auth, multi-tenant, JWT (expiração via `Jwt__ExpireHours`, padrão 12h)
+- **Tutores** — endereço, código, aniversário, painel de pets vinculados
+- **Pets** — microchip, plano saúde (M5), raça por select filtrado por espécie, idade estimada, pelagem, castrado
 - Prontuário, Vacinas
-- **Agenda** — grade de horários 08h-18h, slots vagos, header com nome/CRMV do vet logado, KPIs do dia, abas Hoje/Semana, seleção de serviço com multi-seleção e duração somada automática
-- **Iniciar atendimento** — cria OS vinculada, muda status agendamento, navega direto para PetDetalhe
+- **Agenda** — grade horários, slots vagos, KPIs do dia, iniciar atendimento
 - OS Kanban, Atendimentos
-- **Receituário PDF** — QR Code + código único `REC-2026-XXXXXXXX` no rodapé
-- **Validação eletrônica** — `/validar/:codigo` página pública sem login
-- **IA Diagnóstico** — assistente no receituário, microfone, Claude API por tenant
+- **Receituário PDF** — QR Code + código único, validação pública
+- **IA Diagnóstico** — assistente Claude API por tenant
 
 ### Vendas / PDV
-- PDV/Caixa — retirada, depósito, fechamento gera `Conta` por forma de pagamento + `MovimentacaoBancaria`
-- Venda finalizada gera `MovimentacaoBancaria` automática
-- **Serviços** — ícone emoji, picker visual, categorias, duração
-- Estoque, código de barras
-- **Dashboard de Vendas** — produtos mais vendidos, serviços mais executados, dia a dia do mês, pizzas de composição
+- PDV/Caixa — tela de abertura com saldo anterior, tela de fechado com bloqueio
+- Reabrir caixa restrito a `owner` e `admin`
+- Retirada/Depósito via modal
+- Fechamento gera `Conta` por forma de pagamento + `MovimentacaoBancaria`
+- Serviços, Estoque, Dashboard de Vendas
 
-### Compras (M4)
+### M4 Compras
 - Fornecedores, Condições de pagamento, Pedidos de compra
-- **Recebimento de Mercadoria** — conferência de itens, atualiza estoque, **anexos de NF** (PDF/JPG/XML, drag-drop, download)
+- Recebimento de Mercadoria — anexos NF
+
+### M5 Planos de Saúde
+- Cadastro de planos/operadoras com desconto padrão
+- Vínculo por pet (1 ativo por vez) e por tutor
+- Endpoint `GET /api/planos-saude/desconto?petId=` para PDV/OS aplicar desconto automático
+- Vínculo integrado no cadastro de pets (select dos planos cadastrados)
 
 ### Financeiro (M2)
-- Contas a pagar/receber — baixa gera `MovimentacaoBancaria` automática
+- Contas a pagar/receber, baixa, estorno
 - Movimentação bancária + Conciliação Diária
 - Categorias financeiras
 
 ### RH (M3)
-- **Cargos** — cadastro com toggle `pode_receituario`
-- **Funcionários** — vínculo com usuário (`usuario_id`), cargo (`cargo_id`)
-- Comissões, fechamento mensal, relatórios RH
+- Cargos, Funcionários, Comissões, Fechamento mensal, Relatórios RH
 
-### Certificado Digital
-- Upload `.pfx` A1 em Parâmetros → Assinatura Digital
-- Criptografia AES-256 (chave via `CERT_ENCRYPTION_KEY` env var)
-- Interface plugável `ICertificadoService` — pronta para A3 nuvem
-- **STATUS:** assinatura visual PDF pendente — validar com .pfx real da Dra. Barbara
+### Módulo Contábil
+- Fechamento mensal, DRE CSV, envio por email via SMTP
 
-### Módulo Contábil (NOVO)
-- **Fechamento mensal** — seleciona mês/ano, checklist de 9 documentos
-- **Gerar do sistema:** DRE (receitas-despesas CSV), Estoque final (CSV), Repasses ao sócio (CSV)
-- **Upload manual:** extratos bancários, faturas cartão, NF-e tomadas, extratos aplicações, contratos
-- **Envio por email** — empacota tudo em ZIP organizado por tipo, envia via SMTP configurado
-- **Histórico** de fechamentos com data de envio
-- SMTP configurável em Parâmetros (Gmail, Outlook, Zoho, qualquer servidor)
+### Cadastros (menu unificado)
+- Usuários (com tabela de permissões por papel — owner/admin podem reabrir caixa)
+- Serviços
+- Raças (por espécie, seed cão/gato)
+- Pelagens
+- Vias de administração
+- Planos de Saúde
 
-### Dashboards (menu unificado)
-- **Clínica** — KPIs, agenda, aniversariantes
-- **Financeiro BI** — receitas, despesas, metas (gauge), evolução 12 meses, rankings
-- **RH** — produtividade, comissões, custo mensal
-- **Vendas** — produtos + serviços top 10, dia a dia, pizzas composição
+### WhatsApp Bot (Meta Cloud API)
+- **Migrado de Z-API para Meta Cloud API**
+- Webhook: `GET/POST /api/bot/webhook`
+- Bot config endpoints em `ParametrosController` (rotas `~/api/bot-config/*`)
+- Máquina de estados: inicio → aguardando_servico → aguardando_data → aguardando_horario → concluido
+- Log de conversas com resumo e filtros
+- App Meta publicado, webhook verificado e assinado (campo `messages`)
+- **STATUS número:** `+55 31 8624-0841` adicionado no Meta, Phone Number ID `1169474326252832`, WABA ID `3463684367146236`, pendente de verificação (limite de tentativas atingido — aguardar 1h)
+- Templates criados: `lembrete_de_agendamento` (em análise), `hello_world` (ativo)
+- Templates pendentes de criação: `pet_pronto`, `promocao_marketing`
+
+### Dashboards
+- Clínica, Financeiro BI, RH, Vendas
 
 ### Gestão à Vista (TV)
-- Colunas: Agendados | Aguardando | Em Atendimento | Pronto | Stats
-- Loop de notícias RSS corrigido (useRef para cache)
-
-### Cadastros
-- Usuários, Vias de administração, **Pelagens**, **Cargos**, Condições de pagamento
-
-### Parâmetros / Configurações
-- Logo, branding, comissões, bot WhatsApp
-- IA (chave Anthropic por tenant)
-- Certificado Digital A1
-- **SMTP + Email contabilidade** (novo)
+- Kanban OS em tempo real, RSS news
 
 ---
 
 ## BACKLOG
 
-### Bugs / Validações Pendentes
-- [ ] **Validar assinatura digital PDF** — aguarda Dra. Barbara testar com `.pfx` real A1
-- [ ] **Gestão à Vista** — confirmar loops corrigidos em produção
+### Pendente Imediato (próxima sessão)
+- [ ] **WhatsApp — verificar número** `+55 31 8624-0841` após desbloqueio Meta (aguardar 1h desde última tentativa ~21h de 15/06/2026). Deletar WhatsApp consumer do número → registrar via API
+- [ ] **Templates Meta** — criar `pet_pronto` e `promocao_marketing` no Gerenciador do WhatsApp
+- [ ] **Foto do pet pronto** — botão "Avisar tutor" na OS status=entregue, envia foto via WhatsApp
 
-### Funcionalidades Pendentes
-- [ ] **M5 — Planos de saúde** — cadastro e vínculo com pet
-- [ ] **Webhook Vercel → GitHub** — deploy ainda é manual
-- [ ] **Assinatura PDF visual (cadeado Adobe)** — testar iText7 localmente com .pfx real antes de commitar
-- [ ] **Tempo de produtividade** — homem-hora por atendimento (OS.Inicio/Fim já coletados)
-- [ ] **PDV — Fechamento de caixa pendências:**
-  - Caixa fechado não pode reabrir sem aprovação
-  - Saldo físico (dinheiro) carrega saldo do dia anterior
-  - Aba Retirada/Depósito separada
-  - Saldo final = saldo anterior + entradas dinheiro − retiradas − contas pagas dinheiro
+### Bugs / Validações
+- [ ] **Validar assinatura digital PDF** — aguarda .pfx real da Dra. Barbara
+- [ ] **Gestão à Vista** — confirmar loops em produção
 
-### Backlog Técnico
-- [ ] **Consulta automática NF-e via SEFAZ** — usar certificado A1 do CNPJ (não e-CPF), consultar NF-e emitidas contra o CNPJ e importar para módulo contábil
-- [ ] **WhatsApp Meta Cloud API** — substituir Z-API
-- [ ] **Storage de imagens** — Cloudflare R2 ou Supabase (atualmente anexos ficam em base64 no banco — OK até ~50MB/mês)
-- [ ] **Integração Asaas** — PIX/boleto + suspensão automática de tenant inadimplente
-- [ ] **Self-service cadastro de tenant** — trial 7 dias grátis
-- [ ] **Certificado A3 nuvem** — Safeweb Cloud API (interface ICertificadoService já plugável)
+### Funcionalidades
+- [ ] **Campanhas de marketing WhatsApp** — disparo segmentado via template `promocao_marketing`
+- [ ] **Agenda online pública** — cliente agenda sem login via link `/agendar/[slug]`
+- [ ] **M7 Metas** — UI de metas (backend `metas_faturamento` já existe)
+- [ ] **Tempo de produtividade** — homem-hora por OS
+- [ ] **Integração Asaas** — PIX/boleto + suspensão tenant
+- [ ] **Self-service tenant** — trial 7 dias
+- [ ] **Storage imagens** — Cloudflare R2
+- [ ] **Consulta NF-e SEFAZ** — via certificado A1
+
+### Técnico
 - [ ] **Reconectar webhook Vercel → GitHub**
-
----
-
-## Estrutura de Arquivos
-
-```
-C:\Projetos\vetclinica\
-  VetClinica.API\
-    Controllers\
-      IaController.cs
-      ValidacaoController.cs
-      CertificadoController.cs
-      CargosController.cs
-      PelagensController.cs
-      RelatoriosController.cs
-      ContabilController.cs          (NOVO)
-      AgendamentosController.cs      (iniciar-atendimento)
-      RecebimentoController.cs       (anexos NF)
-      VendasController.cs            (MovimentacaoBancaria ao finalizar)
-      CaixaController.cs             (fechamento → contas por forma pagamento)
-      ReceituarioController.cs       (QR Code + codigo validacao + assinatura)
-    Models\
-      Entities.cs
-    DTOs\
-      Dtos.cs
-    Data\
-      AppDbContext.cs
-    Services\
-      ReceituarioPdfService.cs       (QR Code no rodape)
-      BotWhatsAppService.cs
-      Certificado\
-        ICertificadoService.cs
-        PfxCertificadoService.cs     (X509Certificate2 nativo .NET 8)
-        NullCertificadoService.cs
-        CertificadoCryptoHelper.cs   (AES-256-GCM)
-  frontend\src\
-    pages\
-      Agenda.jsx                     (grade horarios, iniciar atendimento, servicos)
-      PetDetalhe.jsx                 (receituario modal grande, IA, validacao)
-      Tutores.jsx                    (painel pets vinculados, redirect apos criar)
-      Pets.jsx                       (idade estimada, pelagem, castrado nao sei)
-      Recebimentos.jsx               (anexos NF drag-drop)
-      Contabil.jsx                   (NOVO — fechamento contabil)
-      Parametros.jsx                 (SMTP adicionado)
-      DashboardVendas.jsx            (NOVO)
-      Validar.jsx                    (pagina publica validacao receituario)
-      Cadastros/Pelagens.jsx         (NOVO)
-      RH/Cargos.jsx                  (NOVO)
-      RH/Funcionarios.jsx            (cargo_id + usuario_id)
-    components\
-      Layout.jsx                     (menu: Dashboards, Contabil)
-    api\
-      client.js
-  database\                          (37 migrations)
-  projeto.md
-```
+- [ ] **Certificado A3 nuvem** — Safeweb Cloud API
 
 ---
 
@@ -266,8 +177,53 @@ C:\Projetos\vetclinica\
 
 | Variável | Valor |
 |----------|-------|
-| `ConnectionStrings__Default` | string de conexão PostgreSQL |
-| `Jwt__Key` | chave JWT (min 32 chars) |
+| `ConnectionStrings__Default` | string PostgreSQL |
+| `Jwt__Key` | chave JWT min 32 chars |
+| `Jwt__ExpireHours` | 720 (30 dias) |
 | `App__FrontendUrl` | https://vetclinicas.vercel.app |
-| `CERT_ENCRYPTION_KEY` | chave para criptografar .pfx (recomendado adicionar) |
+| `CERT_ENCRYPTION_KEY` | chave AES para .pfx |
 | `QuestPDF__LicenseType` | Community |
+| `Meta__PhoneNumberId` | 1169474326252832 |
+| `Meta__Token` | token permanente VetClinica Bot |
+| `Meta__WabaId` | 3463684367146236 |
+| `Meta__WebhookVerifyToken` | vetclinica_webhook_2026 |
+
+---
+
+## Meta Cloud API — Configuração Atual
+
+- **App:** VetClinica (ID: 980278631564376) — publicado
+- **WABA:** Gestão Inteligente para Clinica e Pet Shop (ID: 3463684367146236)
+- **Número:** +55 31 8624-0841 (Phone Number ID: 1169474326252832) — status: Pendente
+- **Número de teste:** +1 555 202 3293 (Phone Number ID: 1184328571429350) — ativo
+- **Webhook URL:** https://vetclinicas-production.up.railway.app/api/bot/webhook
+- **Verify Token:** vetclinica_webhook_2026
+- **Campo assinado:** messages
+
+## Estrutura de Arquivos Relevantes
+
+```
+C:\Projetos\vetclinica\
+  VetClinica.API\
+    Controllers\
+      WebhookController.cs         (Meta Cloud API webhook — AllowAnonymous)
+      ParametrosController.cs      (inclui endpoints ~/api/bot-config/*)
+      PlanosSaudeController.cs     (M5)
+      RacasController.cs           (cadastro de racas)
+    Models\
+      Entities.cs                  (inclui PlanoSaude, PetPlano, TutorPlano, Raca, BotWAService→BotConfig)
+    Services\
+      WhatsAppService.cs           (Meta Cloud API — usa Dictionary para JSON snake_case)
+      BotWhatsAppService.cs        (classe BotWAService internamente)
+      NotificacaoDispatcher.cs     (usa WhatsAppService, não ZApiService)
+  frontend\src\
+    pages\
+      PDV.jsx                      (tela fechado + reabrir owner/admin + saldo anterior)
+      Usuarios.jsx                 (tabela permissoes por papel)
+      Pets.jsx                     (select de racas por especie + vinculo M5)
+      Cadastros\Racas.jsx          (novo)
+      PlanosSaude.jsx              (M5 — 3 abas)
+      Parametros\Bot.jsx           (4 abas: Config, Meta API, Mensagens, Log)
+    components\
+      Layout.jsx                   (Cadastros unificado: Usuarios, Servicos, Racas, Pelagens, Vias, Planos)
+```

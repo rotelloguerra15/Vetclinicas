@@ -13,9 +13,9 @@ namespace VetClinica.API.Controllers;
 [Route("api/publico")]
 public class PublicoController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly AgendaService _agenda;
-    public PublicoController(AppDbContext db, AgendaService agenda) { _db = db; _agenda = agenda; }
+    public PublicoController(TenantDbContextFactory factory, AgendaService agenda) { _db = factory.Create(); _agenda = agenda; }
 
     // Tutor abre o link recebido por WhatsApp e vê horários livres
     [HttpGet("agendar/{token}")]

@@ -13,12 +13,13 @@ namespace VetClinica.API.Controllers;
 [Route("api/financeiro")]
 public class FinanceiroController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
 
-    public FinanceiroController(AppDbContext db, TenantContext t)
+    public FinanceiroController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
     {
-        _db = db;
+        _db = factory.Create();
         _t = t;
     }
 

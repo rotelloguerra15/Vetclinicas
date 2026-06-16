@@ -14,11 +14,11 @@ namespace VetClinica.API.Controllers;
 [Route("api/ia")]
 public class IaController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
     private readonly IHttpClientFactory _http;
 
-    public IaController(AppDbContext db, TenantContext t, IHttpClientFactory http)
+    public IaController(TenantDbContextFactory factory, TenantContext t, IHttpClientFactory http)
     {
         _db   = db;
         _t    = t;

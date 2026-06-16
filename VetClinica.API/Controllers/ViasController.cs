@@ -12,9 +12,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/cadastros/vias")]
 public class ViasController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public ViasController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public ViasController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     [HttpGet]
     public async Task<IActionResult> Listar()

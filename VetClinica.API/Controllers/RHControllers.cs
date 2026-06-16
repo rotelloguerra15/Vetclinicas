@@ -17,10 +17,11 @@ namespace VetClinica.API.Controllers;
 [Route("api/rh/comissoes")]
 public class ComissoesController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
 
-    public ComissoesController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public ComissoesController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     [HttpGet]
     public async Task<IActionResult> Listar(
@@ -63,12 +64,12 @@ public class ComissoesController : ControllerBase
 [Route("api/rh/fechamento")]
 public class FechamentoController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
     private readonly FechamentoService _service;
 
-    public FechamentoController(AppDbContext db, TenantContext t, FechamentoService service)
-    { _db = db; _t = t; _service = service; }
+    public FechamentoController(TenantDbContextFactory factory, TenantContext t, FechamentoService service)
+    { _db = factory.Create(); _t = t; _service = service; }
 
     [HttpGet]
     public async Task<IActionResult> Listar([FromQuery] DateOnly? competencia)
@@ -122,10 +123,11 @@ public class FechamentoController : ControllerBase
 [Route("api/rh/parametros")]
 public class ParametrosSistemaController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
 
-    public ParametrosSistemaController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public ParametrosSistemaController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     [HttpGet]
     public async Task<IActionResult> Obter()
@@ -168,10 +170,11 @@ public class ParametrosSistemaController : ControllerBase
 [Route("api/rh/relatorios")]
 public class RHRelatoriosController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
 
-    public RHRelatoriosController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public RHRelatoriosController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     [HttpGet("mensal")]
     public async Task<IActionResult> Mensal([FromQuery] DateOnly? competencia)

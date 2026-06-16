@@ -8,8 +8,8 @@ namespace VetClinica.API.Controllers;
 [Route("api/validar")]
 public class ValidacaoController : ControllerBase
 {
-    private readonly AppDbContext _db;
-    public ValidacaoController(AppDbContext db) { _db = db; }
+    private readonly TenantDbContext _db;
+    public ValidacaoController(TenantDbContextFactory factory) { _db = factory.Create(); }
 
     [HttpGet("{codigo}")]
     public async Task<IActionResult> Validar(string codigo)

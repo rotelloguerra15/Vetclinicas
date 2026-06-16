@@ -12,9 +12,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/certificado")]
 public class CertificadoController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public CertificadoController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public CertificadoController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     // GET /api/certificado/status
     // Retorna info do certificado configurado (sem expor a chave)

@@ -13,14 +13,14 @@ namespace VetClinica.API.Controllers;
 [Route("api/bot/webhook")]
 public class WebhookController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConfiguration _cfg;
     private readonly ILogger<WebhookController> _log;
 
-    public WebhookController(AppDbContext db, IServiceScopeFactory scopeFactory,
+    public WebhookController(TenantDbContextFactory factory, IServiceScopeFactory scopeFactory,
         IConfiguration cfg, ILogger<WebhookController> log)
-    { _db = db; _scopeFactory = scopeFactory; _cfg = cfg; _log = log; }
+    { _db = factory.Create(); _scopeFactory = scopeFactory; _cfg = cfg; _log = log; }
 
     [HttpGet]
     public IActionResult Verificar(

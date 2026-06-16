@@ -14,9 +14,10 @@ public record ComprasStatusUpdate(string Status);
 [Route("api/compras")]
 public class ComprasController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public ComprasController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public ComprasController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     // ── Condicoes de pagamento ────────────────────────────────────────────────
 

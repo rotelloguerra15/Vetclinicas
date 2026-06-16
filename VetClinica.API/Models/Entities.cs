@@ -190,6 +190,8 @@ public class Tenant
     [Column("cor_primaria")] public string? CorPrimaria { get; set; }
     [Column("suspenso_em")] public DateTime? SuspensoEm { get; set; }
     [Column("ativo")] public bool Ativo { get; set; } = true;
+    // Nome do schema SQL Server desta clinica (ex: "vet_barbarafonseca").
+    [Column("schema_name")] public string? SchemaName { get; set; }
 }
 
 [Table("users")]

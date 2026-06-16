@@ -14,13 +14,13 @@ namespace VetClinica.API.Controllers;
 [Route("api/rh/funcionarios")]
 public class FuncionariosController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
     private readonly FuncionarioService _service;
 
-    public FuncionariosController(AppDbContext db, TenantContext t, FuncionarioService service)
+    public FuncionariosController(TenantDbContextFactory factory, TenantContext t, FuncionarioService service)
     {
-        _db = db; _t = t; _service = service;
+        _db = factory.Create(); _t = t; _service = service;
     }
 
     [HttpGet]

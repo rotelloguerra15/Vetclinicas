@@ -10,7 +10,7 @@ namespace VetClinica.API.Controllers;
 [Route("api/gestao-vista")]
 public class GestaoVistaController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly IHttpClientFactory _http;
 
     private static readonly List<(string Id, string Nome, string Cor, string Icone, string Url)> Feeds =
@@ -22,9 +22,9 @@ public class GestaoVistaController : ControllerBase
         ("saude",    "Saude Animal",      "#7c3aed", "🐾", "https://www.petlove.com.br/dicas/feed"),
     ];
 
-    public GestaoVistaController(AppDbContext db, IHttpClientFactory http)
+    public GestaoVistaController(TenantDbContextFactory factory, IHttpClientFactory http)
     {
-        _db = db;
+        _db = factory.Create();
         _http = http;
     }
 

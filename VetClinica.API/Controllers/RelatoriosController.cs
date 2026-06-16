@@ -12,9 +12,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/relatorios")]
 public class RelatoriosController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public RelatoriosController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public RelatoriosController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     // ── Mensal básico (existente) ─────────────────────────────────────────────
 

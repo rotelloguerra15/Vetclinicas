@@ -12,9 +12,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/dashboard")]
 public class DashboardController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public DashboardController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public DashboardController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     [HttpGet]
     public async Task<IActionResult> Resumo([FromQuery] int? ano, [FromQuery] int? mes)

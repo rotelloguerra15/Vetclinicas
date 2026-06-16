@@ -1,0 +1,20 @@
+using Microsoft.EntityFrameworkCore;
+using VetClinica.API.Models;
+
+namespace VetClinica.API.Data;
+
+// Contexto da plataforma (Ketra / Rotello).
+// Schema "platform" — só metadados: lista de clínicas e super-admins.
+public class PlatformDbContext : DbContext
+{
+    public PlatformDbContext(DbContextOptions<PlatformDbContext> options) : base(options) { }
+
+    public DbSet<Tenant>        Tenants        => Set<Tenant>();
+    public DbSet<PlatformAdmin> PlatformAdmins => Set<PlatformAdmin>();
+
+    protected override void OnModelCreating(ModelBuilder mb)
+    {
+        mb.HasDefaultSchema("platform");
+        base.OnModelCreating(mb);
+    }
+}

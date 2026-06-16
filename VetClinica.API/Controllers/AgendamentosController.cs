@@ -14,11 +14,11 @@ namespace VetClinica.API.Controllers;
 [Route("api/agendamentos")]
 public class AgendamentosController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
     private readonly AgendaService _agenda;
-    public AgendamentosController(AppDbContext db, TenantContext t, AgendaService agenda)
-    { _db = db; _t = t; _agenda = agenda; }
+    public AgendamentosController(TenantDbContextFactory factory, TenantContext t, AgendaService agenda)
+    { _db = factory.Create(); _t = t; _agenda = agenda; }
 
     [HttpGet]
     public async Task<IActionResult> Listar([FromQuery] DateTime? de, [FromQuery] DateTime? ate)

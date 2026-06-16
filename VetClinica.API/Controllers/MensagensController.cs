@@ -12,9 +12,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/mensagens")]
 public class MensagensController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public MensagensController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public MensagensController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     // Lista todas as configs de mensagem do tenant
     [HttpGet("config")]

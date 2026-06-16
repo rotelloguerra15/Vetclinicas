@@ -13,9 +13,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/vacinas")]
 public class VacinacoesController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public VacinacoesController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public VacinacoesController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     [HttpPost]
     public async Task<IActionResult> Criar(VacinaCreate dto)

@@ -10,36 +10,62 @@ namespace VetClinica.API.Services;
 
 public class AuthService
 {
-    private readonly AppDbContext _db;
-    private readonly IConfiguration _cfg;
+    private readonly PlatformDbContext _platform;
+    private readonly IConfiguration   _cfg;
 
-    public AuthService(AppDbContext db, IConfiguration cfg)
+    public AuthService(PlatformDbContext platform, IConfiguration cfg)
     {
-        _db = db;
-        _cfg = cfg;
+        _platform = platform;
+        _cfg      = cfg;
     }
 
     public async Task<LoginResponse?> Login(LoginRequest req)
     {
-        var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.Email == req.Email && u.Ativo);
+        // 1. Tenta login como owner (email = email do tenant)
+        var tenantRecord = await _platform.Tenants
+            .FirstOrDefaultAsync(t => t.Email == req.Email
+                                   && t.Ativo
+                                   && t.SuspensoEm == null
+                                   && t.SchemaName != null);
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(req.Senha, user.SenhaHash))
-            return null;
+        if (tenantRecord != null)
+        {
+            // Valida senha dentro do schema do owner
+            using var db = CriarDbParaSchema(tenantRecord.SchemaName!);
+            var owner = await db.Users
+                .FirstOrDefaultAsync(u => u.Email == req.Email && u.Ativo);
 
-        // bloqueia acesso se a clínica estiver inativa ou suspensa (ex.: inadimplência)
-        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == user.TenantId);
-        if (tenant == null || !tenant.Ativo || tenant.SuspensoEm != null)
-            return null;
+            if (owner == null || !BCrypt.Net.BCrypt.Verify(req.Senha, owner.SenhaHash))
+                return null;
 
-        var token = GerarToken(user.Id, user.TenantId, user.Papel);
-        return new LoginResponse(token, user.Nome, user.Papel, user.TenantId);
+            var token = GerarToken(owner.Id, tenantRecord.Id, owner.Papel, tenantRecord.SchemaName!);
+            return new LoginResponse(token, owner.Nome, owner.Papel, tenantRecord.Id);
+        }
+
+        // 2. Login como usuário não-owner — busca o schema varrendo os tenants ativos
+        var tenants = await _platform.Tenants
+            .Where(t => t.Ativo && t.SuspensoEm == null && t.SchemaName != null)
+            .ToListAsync();
+
+        foreach (var t in tenants)
+        {
+            using var db = CriarDbParaSchema(t.SchemaName!);
+            var user = await db.Users
+                .FirstOrDefaultAsync(u => u.Email == req.Email && u.Ativo);
+
+            if (user != null && BCrypt.Net.BCrypt.Verify(req.Senha, user.SenhaHash))
+            {
+                var token = GerarToken(user.Id, t.Id, user.Papel, t.SchemaName!);
+                return new LoginResponse(token, user.Nome, user.Papel, t.Id);
+            }
+        }
+
+        return null;
     }
 
-    // Login do super-admin da plataforma (você). Não pertence a nenhuma clínica.
     public async Task<LoginResponse?> LoginPlataforma(LoginRequest req)
     {
-        var admin = await _db.PlatformAdmins
+        var admin = await _platform.PlatformAdmins
             .FirstOrDefaultAsync(a => a.Email == req.Email && a.Ativo);
 
         if (admin == null || !BCrypt.Net.BCrypt.Verify(req.Senha, admin.SenhaHash))
@@ -49,9 +75,38 @@ public class AuthService
         return new LoginResponse(token, admin.Nome, "superadmin", Guid.Empty);
     }
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private TenantDbContext CriarDbParaSchema(string schema)
+    {
+        var connStr = _cfg.GetConnectionString("Default")!;
+        var opts = new DbContextOptionsBuilder<TenantDbContext>()
+            .UseNpgsql(connStr)
+            .Options;
+        return new TenantDbContext(opts, schema);
+    }
+
+    private string GerarToken(Guid userId, Guid tenantId, string papel, string schema)
+    {
+        var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_cfg["Jwt:Key"]!));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim("tenant_id", tenantId.ToString()),
+            new Claim("papel",     papel),
+            new Claim("schema",    schema)   // <- isolamento pelo schema PostgreSQL
+        };
+        var token = new JwtSecurityToken(
+            issuer: _cfg["Jwt:Issuer"], audience: _cfg["Jwt:Audience"], claims: claims,
+            expires: DateTime.UtcNow.AddHours(int.Parse(_cfg["Jwt:ExpireHours"] ?? "12")),
+            signingCredentials: creds);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     private string GerarTokenPlataforma(Guid adminId)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_cfg["Jwt:Key"]!));
+        var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_cfg["Jwt:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new[]
         {
@@ -63,28 +118,6 @@ public class AuthService
             issuer: _cfg["Jwt:Issuer"], audience: _cfg["Jwt:Audience"], claims: claims,
             expires: DateTime.UtcNow.AddHours(int.Parse(_cfg["Jwt:ExpireHours"] ?? "12")),
             signingCredentials: creds);
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    private string GerarToken(Guid userId, Guid tenantId, string papel)
-    {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_cfg["Jwt:Key"]!));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim("tenant_id", tenantId.ToString()),
-            new Claim("papel", papel)
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: _cfg["Jwt:Issuer"],
-            audience: _cfg["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(int.Parse(_cfg["Jwt:ExpireHours"] ?? "12")),
-            signingCredentials: creds);
-
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

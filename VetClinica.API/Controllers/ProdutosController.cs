@@ -13,9 +13,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/produtos")]
 public class ProdutosController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public ProdutosController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public ProdutosController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     [HttpGet]
     public async Task<IActionResult> Listar([FromQuery] string? busca, [FromQuery] string? categoria)

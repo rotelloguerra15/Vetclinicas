@@ -17,9 +17,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/contabil")]
 public class ContabilController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public ContabilController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public ContabilController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     // ── Configuracao SMTP ─────────────────────────────────────────────────────
 

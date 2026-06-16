@@ -38,13 +38,13 @@ public record ReimprimirRequest(Guid ProntuarioItemId, bool EnviarWhatsApp);
 [Route("api/receituario")]
 public class ReceituarioController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
     private readonly ReceituarioPdfService _pdf;
     private readonly WhatsAppService _zapi;
 
-    public ReceituarioController(AppDbContext db, TenantContext t, ReceituarioPdfService pdf, WhatsAppService zapi)
-    { _db = db; _t = t; _pdf = pdf; _zapi = zapi; }
+    public ReceituarioController(TenantDbContextFactory factory, TenantContext t, ReceituarioPdfService pdf, WhatsAppService zapi)
+    { _db = factory.Create(); _t = t; _pdf = pdf; _zapi = zapi; }
 
     // GET /api/receituario/veterinarios
     // Retorna quem pode assinar: cargo.pode_receituario = true OU assinaReceituario legacy

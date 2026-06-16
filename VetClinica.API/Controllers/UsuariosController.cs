@@ -12,9 +12,10 @@ namespace VetClinica.API.Controllers;
 [Route("api/usuarios")]
 public class UsuariosController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
-    public UsuariosController(AppDbContext db, TenantContext t) { _db = db; _t = t; }
+    public UsuariosController(TenantDbContextFactory factory, TenantContext t)
+    { _db = factory.Create(); _t = t; }
 
     [HttpGet]
     public async Task<IActionResult> Listar()

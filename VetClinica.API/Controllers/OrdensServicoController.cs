@@ -15,13 +15,13 @@ namespace VetClinica.API.Controllers;
 [Route("api/ordens-servico")]
 public class OrdensServicoController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly TenantDbContext _db;
     private readonly TenantContext _t;
     private readonly ComissaoService _comissao;
 
-    public OrdensServicoController(AppDbContext db, TenantContext t, ComissaoService comissao)
+    public OrdensServicoController(TenantDbContextFactory factory, TenantContext t, ComissaoService comissao)
     {
-        _db = db;
+        _db = factory.Create();
         _t = t;
         _comissao = comissao;
     }
