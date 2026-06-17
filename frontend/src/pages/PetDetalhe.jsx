@@ -373,6 +373,8 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
   const [iaAberto, setIaAberto]         = useState(false)
   const [iaSintomas, setIaSintomas]     = useState('')
   const [iaResposta, setIaResposta]     = useState('')
+  const [iaMedicamentos, setIaMedicamentos] = useState([])
+  const [receituarioAberto, setReceituarioAberto] = useState(false)
   const [iaCarregando, setIaCarregando] = useState(false)
   const [ouvindo, setOuvindo]           = useState(false)
   const recognitionRef                  = useRef(null)
@@ -409,7 +411,7 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
     setIaCarregando(true)
     setIaResposta('')
     try {
-      const r = await api.post('/ia/diagnostico', {
+      const r = await api.post('/ia/diagnostico-receituario', {
         sintomas: iaSintomas,
         petNome: petNome,
         especie: null,
@@ -418,8 +420,9 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
         pesoKg: null
       })
       console.log('IA response:', r.data)
-      const textoResposta = r.data?.texto || r.data?.text || r.data?.content || JSON.stringify(r.data)
-      setIaResposta(textoResposta || 'Sem resposta da IA.')
+      // Armazena o objeto completo (diagnostico + medicamentos)
+      setIaResposta(r.data?.diagnostico || 'Sem resposta da IA.')
+      setIaMedicamentos(r.data?.medicamentos || [])
     } catch (err) {
       const msg = err.response?.data?.erro || err.response?.data?.detalhe || 'Erro ao consultar a IA.'
       setIaResposta(`Erro: ${msg}`)
@@ -438,7 +441,21 @@ function ModalReceita({ petId, petNome, tutorNome, onClose, onSaved }) {
   function usarDiagnostico() {
     if (iaResposta) {
       setMotivo(iaResposta)
+      // Popula os medicamentos sugeridos pela IA
+      if (iaMedicamentos && iaMedicamentos.length > 0) {
+        setMeds(iaMedicamentos.map(m => ({
+          nome:         m.nome         || '',
+          apresentacao: m.apresentacao || '',
+          dosagem:      m.dosagem      || '',
+          frequencia:   m.frequencia   || '',
+          duracao:      m.duracao      || '',
+          via:          m.via          || '',
+          quantidade:   m.quantidade   || ''
+        })))
+      }
       setIaAberto(false)
+      // Abre o modal do receituário automaticamente
+      setReceituarioAberto(true)
     }
   }
 
