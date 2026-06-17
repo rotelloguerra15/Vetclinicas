@@ -189,7 +189,9 @@ public class ProvisionamentoService
             suspenso_em  TIMESTAMPTZ,
             ativo        BOOLEAN     NOT NULL DEFAULT TRUE,
             criado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            schema_name  TEXT
+            schema_name  TEXT,
+            whatsapp_number TEXT,
+            whatsapp_token  TEXT
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".users (
@@ -208,14 +210,16 @@ public class ProvisionamentoService
             tenant_id UUID    NOT NULL,
             nome      TEXT    NOT NULL,
             especie   TEXT    NOT NULL DEFAULT 'cao',
-            ativo     BOOLEAN NOT NULL DEFAULT TRUE
+            ativo     BOOLEAN NOT NULL DEFAULT TRUE,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".pelagens (
             id        UUID    NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id UUID    NOT NULL,
             nome      TEXT    NOT NULL,
-            ativo     BOOLEAN NOT NULL DEFAULT TRUE
+            ativo     BOOLEAN NOT NULL DEFAULT TRUE,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".tutores (
@@ -239,6 +243,10 @@ public class ProvisionamentoService
             observacoes      TEXT,
             aceita_promocoes BOOLEAN     NOT NULL DEFAULT TRUE,
             ativo            BOOLEAN     NOT NULL DEFAULT TRUE,
+            endereco         TEXT,
+            obs              TEXT,
+            pontos           INT         NOT NULL DEFAULT 0,
+            num_end          TEXT,
             criado_em        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             atualizado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
@@ -257,6 +265,16 @@ public class ProvisionamentoService
             peso            NUMERIC(8,2),
             microchip       TEXT,
             castrado        BOOLEAN     NOT NULL DEFAULT FALSE,
+            peso_kg         NUMERIC(8,2),
+            pelagem         TEXT,
+            cor             TEXT,
+            obs             TEXT,
+            tem_microchip   BOOLEAN     NOT NULL DEFAULT FALSE,
+            microchip_num   TEXT,
+            tem_plano_saude BOOLEAN     NOT NULL DEFAULT FALSE,
+            plano_saude_nome TEXT,
+            plano_saude_carteira TEXT,
+            codigo_sequencial INT,
             foto_url        TEXT,
             observacoes     TEXT,
             ativo           BOOLEAN     NOT NULL DEFAULT TRUE,
@@ -282,7 +300,8 @@ public class ProvisionamentoService
             id        UUID    NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id UUID    NOT NULL,
             nome      TEXT    NOT NULL,
-            ativo     BOOLEAN NOT NULL DEFAULT TRUE
+            ativo     BOOLEAN NOT NULL DEFAULT TRUE,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".agendamentos (
@@ -311,7 +330,9 @@ public class ProvisionamentoService
             funcionario_id UUID,
             status         TEXT        NOT NULL DEFAULT 'aguardando',
             valor_total    NUMERIC(12,2) NOT NULL DEFAULT 0,
+            fotos_urls     TEXT[],
             inicio         TIMESTAMPTZ,
+            fim            TIMESTAMPTZ,
             entregue_em    TIMESTAMPTZ,
             obs            TEXT,
             criado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -330,11 +351,16 @@ public class ProvisionamentoService
             id          UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id   UUID        NOT NULL,
             pet_id      UUID        NOT NULL REFERENCES "{sc}".pets(id),
+            user_id     UUID,
+            data        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             tipo        TEXT        NOT NULL,
             titulo      TEXT,
             descricao   TEXT,
             data_evento DATE,
             codigo_unico TEXT,
+            motivo      TEXT,
+            receituario TEXT,
+            anexo_url   TEXT,
             criado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
@@ -342,11 +368,15 @@ public class ProvisionamentoService
             id              UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id       UUID        NOT NULL,
             pet_id          UUID        NOT NULL REFERENCES "{sc}".pets(id),
+            user_id        UUID,
+            vacina         TEXT,
             nome_vacina     TEXT        NOT NULL,
+            fabricante      TEXT,
             lote            TEXT,
             data_aplicacao  DATE        NOT NULL,
             proxima_dose    DATE,
             veterinario     TEXT,
+            obs             TEXT,
             criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
@@ -357,7 +387,9 @@ public class ProvisionamentoService
             pet_id    UUID        REFERENCES "{sc}".pets(id),
             tutor_id  UUID        REFERENCES "{sc}".tutores(id),
             expires_at TIMESTAMPTZ,
+            expira_em  TIMESTAMPTZ,
             usado     BOOLEAN     NOT NULL DEFAULT FALSE,
+            usado_em   TIMESTAMPTZ,
             criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
@@ -372,6 +404,9 @@ public class ProvisionamentoService
             preco_custo     NUMERIC(12,2) NOT NULL DEFAULT 0,
             estoque_atual   NUMERIC(12,2) NOT NULL DEFAULT 0,
             estoque_minimo  NUMERIC(12,2) NOT NULL DEFAULT 0,
+            estoque_ideal   NUMERIC(12,2),
+            codigo_barras   TEXT,
+            controla_validade BOOLEAN     NOT NULL DEFAULT FALSE,
             ativo           BOOLEAN       NOT NULL DEFAULT TRUE,
             criado_em       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
         );
@@ -381,9 +416,14 @@ public class ProvisionamentoService
             tenant_id  UUID          NOT NULL,
             produto_id UUID          NOT NULL REFERENCES "{sc}".produtos(id),
             tipo       TEXT          NOT NULL,
-            quantidade NUMERIC(12,2) NOT NULL,
-            motivo     TEXT,
-            criado_em  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+            quantidade   NUMERIC(12,2) NOT NULL,
+            estoque_apos NUMERIC(12,2) NOT NULL DEFAULT 0,
+            custo_unitario NUMERIC(12,2),
+            motivo       TEXT,
+            venda_id     UUID,
+            user_id      UUID,
+            data         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            criado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".caixas (
@@ -422,10 +462,14 @@ public class ProvisionamentoService
             os_id           UUID          REFERENCES "{sc}".ordens_servico(id),
             numero          TEXT,
             valor_subtotal  NUMERIC(12,2) NOT NULL DEFAULT 0,
+            valor_produtos  NUMERIC(12,2) NOT NULL DEFAULT 0,
+            valor_desconto  NUMERIC(12,2) NOT NULL DEFAULT 0,
             desconto        NUMERIC(12,2) NOT NULL DEFAULT 0,
             valor_total     NUMERIC(12,2) NOT NULL DEFAULT 0,
+            user_id         UUID,
             forma_pagamento TEXT,
             status          TEXT          NOT NULL DEFAULT 'finalizada',
+            finalizada_em   TIMESTAMPTZ,
             criado_em       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
@@ -439,7 +483,8 @@ public class ProvisionamentoService
             quantidade     NUMERIC(12,2) NOT NULL DEFAULT 1,
             preco_unitario NUMERIC(12,2) NOT NULL DEFAULT 0,
             desconto       NUMERIC(12,2) NOT NULL DEFAULT 0,
-            preco_total    NUMERIC(12,2) NOT NULL DEFAULT 0
+            preco_total    NUMERIC(12,2) NOT NULL DEFAULT 0,
+            subtotal       NUMERIC(12,2) NOT NULL DEFAULT 0
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".categorias_financeiras (
@@ -453,6 +498,8 @@ public class ProvisionamentoService
         CREATE TABLE IF NOT EXISTS "{sc}".contas (
             id               UUID          NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id        UUID          NOT NULL,
+            os_id            UUID,
+            venda_id         UUID,
             pedido_id        UUID,
             tipo             TEXT          NOT NULL,
             descricao        TEXT          NOT NULL,
@@ -465,6 +512,7 @@ public class ProvisionamentoService
             status           TEXT          NOT NULL DEFAULT 'aberta',
             categoria_id     UUID          REFERENCES "{sc}".categorias_financeiras(id),
             conta_bancaria   TEXT,
+            obs_baixa        TEXT,
             criado_por       UUID,
             criado_em        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
             atualizado_em    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -478,12 +526,15 @@ public class ProvisionamentoService
             valor           NUMERIC(12,2) NOT NULL,
             data_vencimento DATE          NOT NULL,
             data_pagamento  DATE,
+            data_baixa      DATE,
+            valor_pago      NUMERIC(12,2),
             status          TEXT          NOT NULL DEFAULT 'aberto'
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".lancamentos (
             id           UUID          NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id    UUID          NOT NULL,
+            os_id        UUID,
             tipo         TEXT          NOT NULL,
             descricao    TEXT          NOT NULL,
             valor        NUMERIC(12,2) NOT NULL,
@@ -514,6 +565,8 @@ public class ProvisionamentoService
             valor             NUMERIC(12,2) NOT NULL,
             data_movimentacao DATE          NOT NULL,
             conta_id          UUID,
+            categoria_id      UUID,
+            conta_destino_id  UUID,
             origem            TEXT,
             conciliado        BOOLEAN       NOT NULL DEFAULT FALSE,
             criado_por        UUID,
@@ -525,11 +578,18 @@ public class ProvisionamentoService
             tenant_id         UUID          NOT NULL,
             conta_bancaria_id UUID          NOT NULL REFERENCES "{sc}".contas_bancarias(id),
             data_conciliacao  DATE          NOT NULL,
+            saldo_anterior    NUMERIC(12,2) NOT NULL DEFAULT 0,
+            total_entradas    NUMERIC(12,2) NOT NULL DEFAULT 0,
+            total_saidas      NUMERIC(12,2) NOT NULL DEFAULT 0,
+            saldo_final       NUMERIC(12,2) NOT NULL DEFAULT 0,
             saldo_sistema     NUMERIC(12,2) NOT NULL DEFAULT 0,
             saldo_extrato     NUMERIC(12,2) NOT NULL DEFAULT 0,
             diferenca         NUMERIC(12,2) NOT NULL DEFAULT 0,
             status            TEXT          NOT NULL DEFAULT 'pendente',
             observacoes       TEXT,
+            observacao        TEXT,
+            fechado_por       UUID,
+            fechado_em        TIMESTAMPTZ,
             criado_em         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
             CONSTRAINT uq_conciliacao_{sc} UNIQUE (conta_bancaria_id, data_conciliacao)
         );
@@ -610,6 +670,7 @@ public class ProvisionamentoService
             tenant_id            UUID        NOT NULL UNIQUE,
             comissao_os_ativo    BOOLEAN     NOT NULL DEFAULT TRUE,
             comissao_pdv_ativo   BOOLEAN     NOT NULL DEFAULT FALSE,
+            criado_em            TIMESTAMPTZ DEFAULT NOW(),
             anthropic_api_key    TEXT,
             ia_ativo             BOOLEAN     NOT NULL DEFAULT FALSE,
             cert_pfx_encrypted   TEXT,
@@ -642,9 +703,12 @@ public class ProvisionamentoService
             contato   TEXT,
             logradouro TEXT,
             numero    TEXT,
+            num_end   TEXT,
+            bairro    TEXT,
             cidade    TEXT,
             estado    TEXT,
             cep       TEXT,
+            obs       TEXT,
             ativo     BOOLEAN     NOT NULL DEFAULT TRUE,
             criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
@@ -655,7 +719,8 @@ public class ProvisionamentoService
             nome          TEXT    NOT NULL,
             parcelas      INT     NOT NULL DEFAULT 1,
             intervalo_dias INT    NOT NULL DEFAULT 30,
-            ativo         BOOLEAN NOT NULL DEFAULT TRUE
+            ativo         BOOLEAN NOT NULL DEFAULT TRUE,
+            criado_em     TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".pedidos_compra (
@@ -667,6 +732,7 @@ public class ProvisionamentoService
             forma_pagamento     TEXT,
             status              TEXT          NOT NULL DEFAULT 'rascunho',
             data_pedido         DATE          NOT NULL,
+            data_recebimento    DATE,
             valor_total         NUMERIC(12,2) NOT NULL DEFAULT 0,
             parcelas            INT           NOT NULL DEFAULT 1,
             obs                 TEXT,
@@ -696,6 +762,7 @@ public class ProvisionamentoService
             data_recebimento DATE        NOT NULL,
             status           TEXT        NOT NULL DEFAULT 'pendente',
             observacoes      TEXT,
+            obs              TEXT,
             criado_por       UUID,
             criado_em        TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
@@ -718,7 +785,13 @@ public class ProvisionamentoService
             tenant_id      UUID        NOT NULL,
             recebimento_id UUID        NOT NULL REFERENCES "{sc}".recebimentos_mercadoria(id),
             nome_arquivo   TEXT        NOT NULL,
-            url            TEXT        NOT NULL,
+            nome           TEXT        NOT NULL DEFAULT '',
+            url            TEXT        NOT NULL DEFAULT '',
+            tipo_arquivo   TEXT        NOT NULL DEFAULT 'application/octet-stream',
+            tamanho_bytes  INT         NOT NULL DEFAULT 0,
+            dados_base64   TEXT        NOT NULL DEFAULT '',
+            descricao      TEXT,
+            criado_por     UUID,
             criado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
@@ -728,8 +801,11 @@ public class ProvisionamentoService
             nome            TEXT          NOT NULL,
             operadora       TEXT,
             desconto_padrao NUMERIC(5,2)  NOT NULL DEFAULT 0,
+            desconto_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+            obs             TEXT,
             ativo           BOOLEAN       NOT NULL DEFAULT TRUE,
-            criado_em       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+            criado_em       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+            atualizado_em   TIMESTAMPTZ   NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".pet_planos (
@@ -737,11 +813,15 @@ public class ProvisionamentoService
             tenant_id       UUID        NOT NULL,
             pet_id          UUID        NOT NULL REFERENCES "{sc}".pets(id),
             plano_id        UUID        NOT NULL REFERENCES "{sc}".planos_saude(id),
-            numero_carteira TEXT,
-            data_inicio     DATE,
-            data_fim        DATE,
-            ativo           BOOLEAN     NOT NULL DEFAULT TRUE,
-            criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            numero_carteira  TEXT,
+            num_carteirinha  TEXT,
+            data_inicio      DATE,
+            data_fim         DATE,
+            validade         DATE,
+            desconto_percent NUMERIC(5,2),
+            ativo            BOOLEAN     NOT NULL DEFAULT TRUE,
+            criado_em        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".tutor_planos (
@@ -749,10 +829,14 @@ public class ProvisionamentoService
             tenant_id       UUID        NOT NULL,
             tutor_id        UUID        NOT NULL REFERENCES "{sc}".tutores(id),
             plano_id        UUID        NOT NULL REFERENCES "{sc}".planos_saude(id),
-            numero_carteira TEXT,
-            data_inicio     DATE,
-            ativo           BOOLEAN     NOT NULL DEFAULT TRUE,
-            criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            numero_carteira  TEXT,
+            num_carteirinha  TEXT,
+            data_inicio      DATE,
+            validade         DATE,
+            desconto_percent NUMERIC(5,2),
+            ativo            BOOLEAN     NOT NULL DEFAULT TRUE,
+            criado_em        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".fechamentos_contabeis (
@@ -814,20 +898,32 @@ public class ProvisionamentoService
         CREATE TABLE IF NOT EXISTS "{sc}".bot_conversas (
             id            UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id     UUID        NOT NULL,
-            telefone      TEXT        NOT NULL,
-            estado        TEXT        NOT NULL DEFAULT 'inicio',
-            contexto      TEXT,
-            criado_em     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            telefone         TEXT        NOT NULL,
+            estado           TEXT        NOT NULL DEFAULT 'inicio',
+            contexto         TEXT,
+            tutor_id         UUID,
+            pet_id           UUID,
+            pet_nome_digitado TEXT,
+            servico_id       UUID,
+            servico_nome     TEXT,
+            duracao_min      INT,
+            data_escolhida   DATE,
+            ultima_msg_em    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            criado_em        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".bot_logs (
             id          UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id   UUID        NOT NULL,
-            conversa_id UUID        REFERENCES "{sc}".bot_conversas(id),
-            direcao     TEXT        NOT NULL,
-            mensagem    TEXT,
-            criado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            conversa_id  UUID        REFERENCES "{sc}".bot_conversas(id),
+            telefone     TEXT        NOT NULL DEFAULT '',
+            direcao      TEXT        NOT NULL,
+            mensagem     TEXT,
+            estado_antes TEXT,
+            estado_apos  TEXT,
+            erro         TEXT,
+            criado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".config_mensagens (
@@ -836,7 +932,9 @@ public class ProvisionamentoService
             gatilho   TEXT        NOT NULL,
             canal     TEXT        NOT NULL DEFAULT 'whatsapp',
             ativo     BOOLEAN     NOT NULL DEFAULT FALSE,
+            horas_antes INT,
             template  TEXT,
+            hora_envio TIME        DEFAULT '09:00:00',
             criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
@@ -862,6 +960,9 @@ public class ProvisionamentoService
         CREATE TABLE IF NOT EXISTS "{sc}".notificacoes_fila (
             id             UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
             tenant_id      UUID        NOT NULL,
+            agendamento_id UUID,
+            os_id          UUID,
+            pet_id         UUID,
             tutor_id       UUID        REFERENCES "{sc}".tutores(id),
             canal          TEXT        NOT NULL DEFAULT 'whatsapp',
             tipo           TEXT        NOT NULL,
@@ -871,6 +972,8 @@ public class ProvisionamentoService
             tentativas     INT         NOT NULL DEFAULT 0,
             agendado_para  TIMESTAMPTZ,
             processado_em  TIMESTAMPTZ,
+            enviado_em     TIMESTAMPTZ,
+            erro           TEXT,
             criado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
@@ -879,8 +982,9 @@ public class ProvisionamentoService
             tenant_id UUID          NOT NULL,
             ano       INT           NOT NULL,
             mes       INT           NOT NULL,
-            valor_meta NUMERIC(12,2) NOT NULL DEFAULT 0,
-            criado_em TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+            valor_meta    NUMERIC(12,2) NOT NULL DEFAULT 0,
+            criado_em     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+            atualizado_em TIMESTAMPTZ   NOT NULL DEFAULT NOW()
         );
         """;
 
