@@ -5,16 +5,17 @@ using VetClinica.API.Models;
 
 namespace VetClinica.API.Services;
 
-// Provisiona uma clínica nova "chave na mão" no PostgreSQL:
-// 1. Gera o schema name (ex: "vet_barbarafonseca")
-// 2. Cria o schema no PostgreSQL + todas as tabelas
-// 3. Registra em platform.tenants
-// 4. Insere owner + seeds (categorias, serviços, raças, etc.)
+// Provisiona uma clínica nova copiando a estrutura do schema template.
+// Qualquer campo novo adicionado ao banco fica automaticamente disponível
+// para todos os novos tenants — sem DDL manual.
 public class ProvisionamentoService
 {
     private readonly PlatformDbContext      _platform;
     private readonly TenantDbContextFactory _factory;
     private readonly IConfiguration         _cfg;
+
+    // Schema que serve como template de estrutura para novos tenants
+    private const string SCHEMA_TEMPLATE = "vet_barbarafonseca";
 
     public ProvisionamentoService(
         PlatformDbContext platform,
@@ -45,12 +46,34 @@ public class ProvisionamentoService
             tentativa = $"{schema}_{i++}";
         schema = tentativa;
 
-        // 2. Cria schema PostgreSQL (rápido)
+        // 2. Cria schema e copia estrutura das tabelas do template
         var connStr = _cfg.GetConnectionString("Default")!;
         await using var conn = new NpgsqlConnection(connStr);
         await conn.OpenAsync();
-        await using (var cmdSchema = new NpgsqlCommand($"CREATE SCHEMA IF NOT EXISTS \"{schema}\";", conn))
-            await cmdSchema.ExecuteNonQueryAsync();
+
+        // Cria o schema novo
+        await using (var cmd = new NpgsqlCommand($"CREATE SCHEMA IF NOT EXISTS \"{schema}\";", conn))
+            await cmd.ExecuteNonQueryAsync();
+
+        // Lista tabelas do schema template
+        var tabelas = new List<string>();
+        await using (var cmd = new NpgsqlCommand(
+            $"SELECT table_name FROM information_schema.tables WHERE table_schema = '{SCHEMA_TEMPLATE}' AND table_type = 'BASE TABLE' ORDER BY table_name;", conn))
+        await using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+                tabelas.Add(reader.GetString(0));
+        }
+
+        // Copia estrutura de cada tabela (sem dados, sem FKs por enquanto)
+        foreach (var tabela in tabelas)
+        {
+            await using var cmd = new NpgsqlCommand(
+                $"CREATE TABLE IF NOT EXISTS \"{schema}\".\"{tabela}\" (LIKE \"{SCHEMA_TEMPLATE}\".\"{tabela}\" INCLUDING DEFAULTS INCLUDING CONSTRAINTS);", conn);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await conn.CloseAsync();
 
         // 3. Registra na platform.tenants
         var tenant = new Tenant
@@ -68,13 +91,7 @@ public class ProvisionamentoService
         _platform.Tenants.Add(tenant);
         await _platform.SaveChangesAsync();
 
-        // 4. Cria tabelas via EF Core e seeds
-        var opts2 = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDbContext>()
-            .UseNpgsql(connStr)
-            .Options;
-        using var dbSetup = new TenantDbContext(opts2, schema);
-        await dbSetup.Database.EnsureCreatedAsync();
-
+        // 4. Seeds dentro do schema recém-criado
         using var db = _factory.CreateForSchema(schema);
 
         var senhaTemp = GerarSenhaTemporaria();
@@ -115,7 +132,7 @@ public class ProvisionamentoService
             ("Tosa higienica",         "banho_tosa", 40m,  45),
             ("Consulta clinica geral", "consulta",   150m, 30),
             ("Vacina V8/V10",          "vacina",     85m,  15),
-            ("Vacina antirrábica",     "vacina",     65m,  15)
+            ("Vacina antirrabica",     "vacina",     65m,  15)
         };
         foreach (var s in servicos)
             db.Servicos.Add(new Servico
@@ -136,11 +153,10 @@ public class ProvisionamentoService
                 { Id = Guid.NewGuid(), TenantId = tenant.Id, Gatilho = m.gat,
                   Canal = "whatsapp", Ativo = false, Template = m.tpl, CriadoEm = DateTime.UtcNow });
 
-        // Raças seed
+        // Raças
         var racasCao  = new[] { "SRD", "Labrador", "Golden Retriever", "Bulldog", "Poodle",
                                  "Yorkshire", "Shih Tzu", "Beagle", "Pastor Alemao", "Dachshund" };
         var racasGato = new[] { "SRD", "Persa", "Siames", "Maine Coon", "Ragdoll", "Bengal" };
-
         foreach (var r in racasCao)
             db.Racas.Add(new Raca { Id = Guid.NewGuid(), TenantId = tenant.Id, Nome = r, Especie = "cao", Ativo = true });
         foreach (var r in racasGato)
@@ -159,7 +175,6 @@ public class ProvisionamentoService
         return new NovaClinicaResult(tenant.Id, owner.Id, emailDono, senhaTemp, schema);
     }
 
-    // ── Criação do schema + tabelas no PostgreSQL ─────────────────────────────
     public static string GerarSchemaName(string nomeClinica)
     {
         var slug = nomeClinica
