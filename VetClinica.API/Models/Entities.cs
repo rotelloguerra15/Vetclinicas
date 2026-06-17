@@ -190,8 +190,6 @@ public class Tenant
     [Column("cor_primaria")] public string? CorPrimaria { get; set; }
     [Column("suspenso_em")] public DateTime? SuspensoEm { get; set; }
     [Column("ativo")] public bool Ativo { get; set; } = true;
-    // Nome do schema SQL Server desta clinica (ex: "vet_barbarafonseca").
-    [Column("schema_name")] public string? SchemaName { get; set; }
 }
 
 [Table("users")]
@@ -689,8 +687,10 @@ public class BotConfig
     [Column("timeout_conversa_min")]  public int TimeoutConversaMin { get; set; } = 30;
 
     [Column("criado_em")]     public DateTime CriadoEm { get; set; }
-    [Column("meta_phone_number_id")] public string? MetaPhoneNumberId { get; set; }
-    [Column("meta_waba_id")]          public string? MetaWabaId { get; set; }
+    [Column("meta_phone_number_id")]   public string? MetaPhoneNumberId { get; set; }
+    [Column("meta_waba_id")]            public string? MetaWabaId { get; set; }
+    [Column("meta_token")]              public string? MetaToken { get; set; }
+    [Column("webhook_verify_token")]    public string? WebhookVerifyToken { get; set; }
 
     [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
 }
