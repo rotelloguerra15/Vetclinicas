@@ -62,7 +62,7 @@ public class TrialController : ControllerBase
         var jaExiste = await _platform.Tenants
             .AnyAsync(t => t.Email == req.Email);
         if (jaExiste)
-            return Conflict(new { erro = "Já existe uma conta com este e-mail. Faça login ou use outro e-mail." });
+            return Ok(new { jaExiste = true, mensagem = "Ja existe uma conta com este e-mail.", urlLogin = $"{_cfg["App:FrontendUrl"] ?? "https://vetclinicas.vercel.app"}/login" });
 
         // Cria o tenant + seeds
         var resultado = await _prov.CriarClinica(

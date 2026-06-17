@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import api from '../services/api'
+import api from '../api/client'
 
 // Mascara CNPJ: 00.000.000/0000-00
 function mascaraCnpj(v = '') {
@@ -73,6 +73,11 @@ export default function Trial() {
         estado:            form.estado || null,
         cep:               form.cep.replace(/\D/g, '') || null
       })
+      if (r.data?.jaExiste) {
+        // Email já existe — redireciona para login
+        window.location.href = '/login?email=' + encodeURIComponent(form.email) + '&msg=ja_existe'
+        return
+      }
       setResultado(r.data)
       setStep(3)
     } catch (err) {
