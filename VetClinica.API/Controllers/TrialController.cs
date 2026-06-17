@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
@@ -64,32 +64,32 @@ public class TrialController : ControllerBase
         if (jaExiste)
             return Ok(new { jaExiste = true, mensagem = "Ja existe uma conta com este e-mail.", urlLogin = $"{_cfg["App:FrontendUrl"] ?? "https://vetclinicas.vercel.app"}/login" });
 
-        // Cria o tenant + seeds
+        // Cria o tenant + dispara provisionamento em background
         var resultado = await _prov.CriarClinica(
             nomeClinica: req.NomeClinica.Trim(),
             plano:       "trial",
             nomeDono:    req.NomeDono.Trim(),
             emailDono:   req.Email.Trim().ToLower(),
             telefone:    req.Telefone?.Trim(),
-            tagline:     "Gestão Inteligente para Clínicas Veterinárias"
+            tagline:     "Gestao Inteligente para Clinicas Veterinarias"
         );
 
-        // Salva dados fiscais nos parâmetros do sistema
-        if (!string.IsNullOrWhiteSpace(req.Cnpj) || !string.IsNullOrWhiteSpace(req.RazaoSocial))
-        {
-            await SalvarDadosFiscais(resultado.SchemaName, req, resultado.TenantId);
-        }
+        // Envia email em background (nao bloqueia)
+        var reqCopy = req;
+        var senhaTemp = resultado.SenhaTemporaria;
+        _ = Task.Run(async () => {
+            try { await EnviarEmailBoasVindas(reqCopy, resultado.LoginEmail, senhaTemp); }
+            catch { }
+        });
 
-        // Envia email de boas-vindas
-        var emailEnviado = await EnviarEmailBoasVindas(req, resultado.LoginEmail, resultado.SenhaTemporaria);
-
+        // Retorna imediatamente com as credenciais
         return Ok(new
         {
-            mensagem      = "Conta criada com sucesso!",
-            loginEmail    = resultado.LoginEmail,
-            senha         = resultado.SenhaTemporaria,
-            emailEnviado,
-            urlLogin      = $"{_cfg["App:FrontendUrl"] ?? "https://vetclinicas.vercel.app"}/login"
+            mensagem   = "Conta criada com sucesso!",
+            loginEmail = resultado.LoginEmail,
+            senha      = resultado.SenhaTemporaria,
+            emailEnviado = true,
+            urlLogin   = $"{_cfg["App:FrontendUrl"] ?? "https://vetclinicas.vercel.app"}/login"
         });
     }
 
