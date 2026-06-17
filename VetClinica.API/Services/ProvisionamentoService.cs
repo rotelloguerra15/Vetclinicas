@@ -784,15 +784,31 @@ public class ProvisionamentoService
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".bot_config (
-            id                    UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-            tenant_id             UUID        NOT NULL,
-            ativo                 BOOLEAN     NOT NULL DEFAULT FALSE,
-            meta_token            TEXT,
-            meta_phone_number_id  TEXT,
-            meta_waba_id          TEXT,
-            webhook_verify_token  TEXT,
-            criado_em             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            atualizado_em         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            id                       UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+            tenant_id                UUID        NOT NULL,
+            ativo                    BOOLEAN     NOT NULL DEFAULT FALSE,
+            hora_inicio              TIME        NOT NULL DEFAULT '08:00:00',
+            hora_fim                 TIME        NOT NULL DEFAULT '18:00:00',
+            dias_semana              TEXT        NOT NULL DEFAULT '1,2,3,4,5,6',
+            dias_antecedencia_min    INT         NOT NULL DEFAULT 0,
+            dias_antecedencia_max    INT         NOT NULL DEFAULT 30,
+            msg_boas_vindas          TEXT        NOT NULL DEFAULT '',
+            msg_qual_pet             TEXT        NOT NULL DEFAULT '',
+            msg_qual_servico         TEXT        NOT NULL DEFAULT '',
+            msg_qual_data            TEXT        NOT NULL DEFAULT '',
+            msg_horarios_disponiveis TEXT        NOT NULL DEFAULT '',
+            msg_confirmacao          TEXT        NOT NULL DEFAULT '',
+            msg_sem_horarios         TEXT        NOT NULL DEFAULT '',
+            msg_fora_horario         TEXT        NOT NULL DEFAULT '',
+            msg_erro                 TEXT        NOT NULL DEFAULT '',
+            msg_cancelar             TEXT        NOT NULL DEFAULT '',
+            timeout_conversa_min     INT         NOT NULL DEFAULT 30,
+            criado_em                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            meta_phone_number_id     TEXT,
+            meta_waba_id             TEXT,
+            meta_token               TEXT,
+            webhook_verify_token     TEXT
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".bot_conversas (
