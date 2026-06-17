@@ -13,31 +13,77 @@ namespace VetClinica.API.Controllers;
 [Route("api/bot/webhook")]
 public class WebhookController : ControllerBase
 {
-    private readonly TenantDbContext _db;
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IConfiguration _cfg;
+    private readonly PlatformDbContext      _platform;
+    private readonly IServiceScopeFactory   _scopeFactory;
+    private readonly IConfiguration         _cfg;
     private readonly ILogger<WebhookController> _log;
 
-    public WebhookController(TenantDbContextFactory factory, IServiceScopeFactory scopeFactory,
-        IConfiguration cfg, ILogger<WebhookController> log)
-    { _db = factory.Create(); _scopeFactory = scopeFactory; _cfg = cfg; _log = log; }
+    public WebhookController(
+        PlatformDbContext platform,
+        IServiceScopeFactory scopeFactory,
+        IConfiguration cfg,
+        ILogger<WebhookController> log)
+    {
+        _platform     = platform;
+        _scopeFactory = scopeFactory;
+        _cfg          = cfg;
+        _log          = log;
+    }
 
+    // GET — verificação do webhook pela Meta
     [HttpGet]
-    public IActionResult Verificar(
+    public async Task<IActionResult> Verificar(
         [FromQuery(Name = "hub.mode")]         string? mode,
         [FromQuery(Name = "hub.verify_token")] string? verifyToken,
         [FromQuery(Name = "hub.challenge")]    string? challenge)
     {
-        var tokenEsperado = _cfg["Meta:WebhookVerifyToken"];
-        if (mode == "subscribe" && verifyToken == tokenEsperado)
+        if (mode != "subscribe" || string.IsNullOrWhiteSpace(verifyToken))
         {
-            _log.LogInformation("Webhook Meta verificado com sucesso.");
+            _log.LogWarning("Webhook: mode ou token ausente.");
+            return Forbid();
+        }
+
+        // Busca o token esperado no banco do tenant correspondente ao phone number
+        // Como a verificação vem sem phone_number_id, aceita qualquer tenant ativo
+        // que tenha esse verify_token configurado
+        var tenants = await _platform.Tenants
+            .Where(t => t.Ativo && t.SuspensoEm == null && t.SchemaName != null)
+            .ToListAsync();
+
+        foreach (var tenant in tenants)
+        {
+            try
+            {
+                var connStr = _cfg.GetConnectionString("Default")!;
+                var opts = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDbContext>()
+                    .UseNpgsql(connStr).Options;
+                using var db = new TenantDbContext(opts, tenant.SchemaName!);
+
+                var botCfg = await db.BotConfigs
+                    .FirstOrDefaultAsync(b => b.WebhookVerifyToken == verifyToken);
+
+                if (botCfg != null)
+                {
+                    _log.LogInformation("Webhook Meta verificado para tenant {Schema}.", tenant.SchemaName);
+                    return Ok(challenge);
+                }
+            }
+            catch { /* schema pode nao ter bot_config ainda */ }
+        }
+
+        // Fallback: aceita token do appsettings (compatibilidade)
+        var tokenConfig = _cfg["Meta:WebhookVerifyToken"];
+        if (!string.IsNullOrWhiteSpace(tokenConfig) && verifyToken == tokenConfig)
+        {
+            _log.LogInformation("Webhook Meta verificado via appsettings.");
             return Ok(challenge);
         }
-        _log.LogWarning("Falha na verificacao do webhook Meta. Token recebido: {Token}", verifyToken);
+
+        _log.LogWarning("Falha na verificacao do webhook Meta. Token: {Token}", verifyToken);
         return Forbid();
     }
 
+    // POST — recebe mensagens da Meta
     [HttpPost]
     public async Task<IActionResult> ReceberMensagem([FromBody] JsonElement payload)
     {
@@ -61,12 +107,18 @@ public class WebhookController : ControllerBase
 
                     if (!value.TryGetProperty("messages", out var messages)) continue;
 
-                    var tenantId = await ResolverTenantId(phoneNumberId);
-                    if (tenantId == null)
+                    var (tenantId, schemaName) = await ResolverTenant(phoneNumberId);
+                    if (tenantId == null || schemaName == null)
                     {
                         _log.LogWarning("PhoneNumberId {Id} nao mapeado a nenhum tenant", phoneNumberId);
                         continue;
                     }
+
+                    // Salva log de entrada no schema do tenant
+                    var connStr = _cfg.GetConnectionString("Default")!;
+                    var opts = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDbContext>()
+                        .UseNpgsql(connStr).Options;
+                    using var db = new TenantDbContext(opts, schemaName);
 
                     foreach (var msg in messages.EnumerateArray())
                     {
@@ -75,47 +127,39 @@ public class WebhookController : ControllerBase
 
                         string? texto = tipo switch
                         {
-                            "text"        => msg.TryGetProperty("text", out var t)
-                                               ? t.GetProperty("body").GetString() : null,
-                            "button"      => msg.TryGetProperty("button", out var b)
-                                               ? b.GetProperty("payload").GetString() : null,
+                            "text"   => msg.TryGetProperty("text", out var t)
+                                           ? t.GetProperty("body").GetString() : null,
+                            "button" => msg.TryGetProperty("button", out var b)
+                                           ? b.GetProperty("payload").GetString() : null,
                             "interactive" => ExtrairInteractive(msg),
-                            _             => null
+                            _ => null
                         };
 
-                        if (string.IsNullOrWhiteSpace(texto)) continue;
-
-                        // Log de entrada
-                        _db.BotLogs.Add(new BotLog
+                        db.BotLogs.Add(new BotLog
                         {
-                            Id       = Guid.NewGuid(),
-                            TenantId = tenantId.Value,
-                            Telefone = de,
-                            Direcao  = "entrada",
-                            Mensagem = texto,
-                            CriadoEm = DateTime.UtcNow
+                            Id        = Guid.NewGuid(),
+                            TenantId  = tenantId.Value,
+                            Telefone  = de,
+                            Direcao   = "entrada",
+                            Mensagem  = texto,
+                            CriadoEm  = DateTime.UtcNow
                         });
-                        await _db.SaveChangesAsync();
+                        await db.SaveChangesAsync();
 
-                        // Processar em novo scope (evita DbContext disposed)
-                        var tid = tenantId.Value;
-                        var tel = de;
-                        var txt = texto;
-                        var sf  = _scopeFactory;
-                        var log = _log;
+                        // Processa em novo scope
+                        var tid    = tenantId.Value;
+                        var schema = schemaName;
+                        var tel    = de;
+                        var txt    = texto;
+                        var sf     = _scopeFactory;
+                        var log    = _log;
 
                         _ = Task.Run(async () =>
                         {
                             using var scope = sf.CreateScope();
                             var bot = scope.ServiceProvider.GetRequiredService<BotWAService>();
-                            try
-                            {
-                                await bot.ProcessarMensagem(tid, tel, txt);
-                            }
-                            catch (Exception ex)
-                            {
-                                log.LogError(ex, "Erro ao processar msg do bot");
-                            }
+                            try   { await bot.ProcessarMensagem(tid, tel, txt); }
+                            catch (Exception ex) { log.LogError(ex, "Erro ao processar msg do bot"); }
                         });
                     }
                 }
@@ -129,12 +173,34 @@ public class WebhookController : ControllerBase
         return Ok();
     }
 
-    private async Task<Guid?> ResolverTenantId(string? phoneNumberId)
+    // Resolve o tenant pelo phone_number_id varrendo os schemas ativos
+    private async Task<(Guid? tenantId, string? schemaName)> ResolverTenant(string? phoneNumberId)
     {
-        if (string.IsNullOrEmpty(phoneNumberId)) return null;
-        var cfg = await _db.BotConfigs
-            .FirstOrDefaultAsync(b => b.MetaPhoneNumberId == phoneNumberId);
-        return cfg?.TenantId;
+        if (string.IsNullOrEmpty(phoneNumberId)) return (null, null);
+
+        var tenants = await _platform.Tenants
+            .Where(t => t.Ativo && t.SuspensoEm == null && t.SchemaName != null)
+            .ToListAsync();
+
+        var connStr = _cfg.GetConnectionString("Default")!;
+
+        foreach (var tenant in tenants)
+        {
+            try
+            {
+                var opts = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDbContext>()
+                    .UseNpgsql(connStr).Options;
+                using var db = new TenantDbContext(opts, tenant.SchemaName!);
+
+                var cfg = await db.BotConfigs
+                    .FirstOrDefaultAsync(b => b.MetaPhoneNumberId == phoneNumberId && b.Ativo);
+
+                if (cfg != null) return (tenant.Id, tenant.SchemaName);
+            }
+            catch { }
+        }
+
+        return (null, null);
     }
 
     private static string? ExtrairInteractive(JsonElement msg)
@@ -145,7 +211,7 @@ public class WebhookController : ControllerBase
         {
             "button_reply" => interactive.GetProperty("button_reply").GetProperty("id").GetString(),
             "list_reply"   => interactive.GetProperty("list_reply").GetProperty("id").GetString(),
-            _              => null
+            _ => null
         };
     }
 }
