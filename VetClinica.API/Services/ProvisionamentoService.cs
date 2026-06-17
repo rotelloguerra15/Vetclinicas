@@ -791,7 +791,8 @@ public class ProvisionamentoService
             meta_phone_number_id  TEXT,
             meta_waba_id          TEXT,
             webhook_verify_token  TEXT,
-            criado_em             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            criado_em             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            atualizado_em         TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         -- SPLIT --
         CREATE TABLE IF NOT EXISTS "{sc}".bot_conversas (
