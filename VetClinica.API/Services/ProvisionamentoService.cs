@@ -73,18 +73,20 @@ public class ProvisionamentoService
         _platform.Tenants.Add(tenant);
         await _platform.SaveChangesAsync();
 
-        // 5. Cria usuário owner AGORA (não em background)
+        // 5. Cria usuário owner AGORA em SaveChanges separado
         var senhaTemp = GerarSenhaTemporaria();
         var senhaHash = BCrypt.Net.BCrypt.HashPassword(senhaTemp, 12);
         var opts = new DbContextOptionsBuilder<TenantDbContext>().UseNpgsql(connStr).Options;
-        using var db = new TenantDbContext(opts, schema);
-        db.Users.Add(new User
+        using (var dbUser = new TenantDbContext(opts, schema))
         {
-            Id = Guid.NewGuid(), TenantId = tenant.Id, Nome = nomeDono,
-            Email = emailDono, SenhaHash = senhaHash,
-            Papel = "owner", Ativo = true, CriadoEm = DateTime.UtcNow
-        });
-        await db.SaveChangesAsync();
+            dbUser.Users.Add(new User
+            {
+                Id = Guid.NewGuid(), TenantId = tenant.Id, Nome = nomeDono,
+                Email = emailDono, SenhaHash = senhaHash,
+                Papel = "owner", Ativo = true, CriadoEm = DateTime.UtcNow
+            });
+            await dbUser.SaveChangesAsync();
+        }
 
         // 6. Seeds em background (não bloqueia)
         var tenantId = tenant.Id;
