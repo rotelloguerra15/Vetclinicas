@@ -45,13 +45,12 @@ public class ProvisionamentoService
             tentativa = $"{schema}_{i++}";
         schema = tentativa;
 
-        // 2. Cria schema + tabelas via EF Core (sempre em sincronia com as entities)
+        // 2. Cria schema PostgreSQL (rápido)
         var connStr = _cfg.GetConnectionString("Default")!;
-        var opts = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDbContext>()
-            .UseNpgsql(connStr)
-            .Options;
-        using var dbSetup = new TenantDbContext(opts, schema);
-        await dbSetup.Database.EnsureCreatedAsync();
+        await using var conn = new NpgsqlConnection(connStr);
+        await conn.OpenAsync();
+        await using (var cmdSchema = new NpgsqlCommand($"CREATE SCHEMA IF NOT EXISTS \"{schema}\";", conn))
+            await cmdSchema.ExecuteNonQueryAsync();
 
         // 3. Registra na platform.tenants
         var tenant = new Tenant
@@ -69,7 +68,13 @@ public class ProvisionamentoService
         _platform.Tenants.Add(tenant);
         await _platform.SaveChangesAsync();
 
-        // 4. Seeds dentro do schema recém-criado
+        // 4. Cria tabelas via EF Core e seeds
+        var opts2 = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TenantDbContext>()
+            .UseNpgsql(connStr)
+            .Options;
+        using var dbSetup = new TenantDbContext(opts2, schema);
+        await dbSetup.Database.EnsureCreatedAsync();
+
         using var db = _factory.CreateForSchema(schema);
 
         var senhaTemp = GerarSenhaTemporaria();
