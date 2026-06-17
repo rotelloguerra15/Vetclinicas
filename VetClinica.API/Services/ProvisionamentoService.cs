@@ -21,13 +21,13 @@ public class ProvisionamentoService
 
     public record NovaClinicaResult(Guid TenantId, Guid OwnerUserId, string LoginEmail, string SenhaTemporaria, string SchemaName);
 
-    // Etapa 1: rápida — cria tenant + usuário + dispara background
-    // Retorna em < 2 segundos
     public async Task<NovaClinicaResult> CriarClinica(
         string nomeClinica, string plano, string nomeDono,
         string emailDono, string? telefone, string? tagline)
     {
-        // Gera schema name único
+        var connStr = _cfg.GetConnectionString("Default")!;
+
+        // 1. Gera schema name único
         var schema = GerarSchemaName(nomeClinica);
         var tentativa = schema;
         var i = 2;
@@ -35,57 +35,13 @@ public class ProvisionamentoService
             tentativa = $"{schema}_{i++}";
         schema = tentativa;
 
-        // Registra na platform.tenants imediatamente
-        var tenant = new Tenant
-        {
-            Id         = Guid.NewGuid(),
-            Nome       = nomeClinica,
-            Plano      = plano,
-            Email      = emailDono,
-            Telefone   = telefone,
-            Tagline    = tagline ?? "Gestao Inteligente para Clinicas Veterinarias",
-            SchemaName = schema,
-            CriadoEm  = DateTime.UtcNow,
-            Ativo      = true
-        };
-        _platform.Tenants.Add(tenant);
-        await _platform.SaveChangesAsync();
-
-        // Gera senha temporária
-        var senhaTemp = GerarSenhaTemporaria();
-
-        // Dispara provisionamento em background (não bloqueia a resposta)
-        var connStr     = _cfg.GetConnectionString("Default")!;
-        var tenantId    = tenant.Id;
-        var schemaName  = schema;
-        var senhaHash   = BCrypt.Net.BCrypt.HashPassword(senhaTemp, 12);
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await ProvisionarEmBackground(connStr, tenantId, schemaName, nomeDono, emailDono, senhaHash);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Provisioning] ERRO: {ex.Message}");
-            }
-        });
-
-        return new NovaClinicaResult(tenant.Id, Guid.Empty, emailDono, senhaTemp, schema);
-    }
-
-    // Etapa 2: roda em background após retornar as credenciais
-    private async Task ProvisionarEmBackground(string connStr, Guid tenantId, string schema, string nomeDono, string emailDono, string senhaHash)
-    {
-        // 1. Cria schema
+        // 2. Cria schema PostgreSQL (rápido)
         await using var conn = new NpgsqlConnection(connStr);
         await conn.OpenAsync();
-
         await using (var cmd = new NpgsqlCommand($"CREATE SCHEMA IF NOT EXISTS \"{schema}\";", conn))
             await cmd.ExecuteNonQueryAsync();
 
-        // 2. Copia estrutura das tabelas do template
+        // 3. Copia estrutura das tabelas do template (rápido)
         var tabelas = new List<string>();
         await using (var cmd = new NpgsqlCommand(
             $"SELECT table_name FROM information_schema.tables WHERE table_schema = '{SCHEMA_TEMPLATE}' AND table_type = 'BASE TABLE' ORDER BY table_name;", conn))
@@ -94,7 +50,6 @@ public class ProvisionamentoService
             while (await reader.ReadAsync())
                 tabelas.Add(reader.GetString(0));
         }
-
         foreach (var tabela in tabelas)
         {
             try
@@ -103,25 +58,51 @@ public class ProvisionamentoService
                     $"CREATE TABLE IF NOT EXISTS \"{schema}\".\"{tabela}\" (LIKE \"{SCHEMA_TEMPLATE}\".\"{tabela}\" INCLUDING DEFAULTS INCLUDING CONSTRAINTS);", conn);
                 await cmd.ExecuteNonQueryAsync();
             }
-            catch { /* ignora erros de tabela individual */ }
+            catch { }
         }
-
         await conn.CloseAsync();
 
-        // 3. Seeds via EF Core
+        // 4. Registra na platform.tenants
+        var tenant = new Tenant
+        {
+            Id = Guid.NewGuid(), Nome = nomeClinica, Plano = plano,
+            Email = emailDono, Telefone = telefone,
+            Tagline = tagline ?? "Gestao Inteligente para Clinicas Veterinarias",
+            SchemaName = schema, CriadoEm = DateTime.UtcNow, Ativo = true
+        };
+        _platform.Tenants.Add(tenant);
+        await _platform.SaveChangesAsync();
+
+        // 5. Cria usuário owner AGORA (não em background)
+        var senhaTemp = GerarSenhaTemporaria();
+        var senhaHash = BCrypt.Net.BCrypt.HashPassword(senhaTemp, 12);
         var opts = new DbContextOptionsBuilder<TenantDbContext>().UseNpgsql(connStr).Options;
         using var db = new TenantDbContext(opts, schema);
-
-        // Usuário owner
         db.Users.Add(new User
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, Nome = nomeDono,
+            Id = Guid.NewGuid(), TenantId = tenant.Id, Nome = nomeDono,
             Email = emailDono, SenhaHash = senhaHash,
             Papel = "owner", Ativo = true, CriadoEm = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
 
-        // Categorias financeiras
+        // 6. Seeds em background (não bloqueia)
+        var tenantId = tenant.Id;
+        var schemaName = schema;
+        _ = Task.Run(async () =>
+        {
+            try { await SeedEmBackground(connStr, tenantId, schemaName); }
+            catch (Exception ex) { Console.WriteLine($"[Seed] ERRO: {ex.Message}"); }
+        });
+
+        return new NovaClinicaResult(tenant.Id, Guid.Empty, emailDono, senhaTemp, schema);
+    }
+
+    private async Task SeedEmBackground(string connStr, Guid tenantId, string schema)
+    {
+        var opts = new DbContextOptionsBuilder<TenantDbContext>().UseNpgsql(connStr).Options;
+        using var db = new TenantDbContext(opts, schema);
+
         string[] receitas = { "Consultas", "Banho e Tosa", "Vacinas", "Cirurgias", "Exames", "Internacoes", "Vendas PDV", "Outros Servicos" };
         string[] despesas = { "Aluguel", "Agua / Luz / Internet", "Folha de Pagamento", "Medicamentos e Insumos", "Equipamentos", "Marketing", "Impostos e Taxas", "Manutencao", "Outros" };
         foreach (var c in receitas)
@@ -129,7 +110,6 @@ public class ProvisionamentoService
         foreach (var c in despesas)
             db.CategoriasFinanceiras.Add(new CategoriaFinanceira { Id = Guid.NewGuid(), TenantId = tenantId, Nome = c, Tipo = "despesa", Ativo = true });
 
-        // Serviços
         (string nome, string cat, decimal preco, int dur)[] servicos =
         {
             ("Banho pequeno porte", "banho_tosa", 60m, 90), ("Banho medio porte", "banho_tosa", 90m, 120),
@@ -140,7 +120,6 @@ public class ProvisionamentoService
         foreach (var s in servicos)
             db.Servicos.Add(new Servico { Id = Guid.NewGuid(), TenantId = tenantId, Nome = s.nome, Categoria = s.cat, PrecoBase = s.preco, DuracaoMin = s.dur });
 
-        // Mensagens
         (string gat, string tpl)[] msgs =
         {
             ("aniversario_pet", "Hoje e aniversario do {pet}! A equipe da {clinica} deseja muitas festas."),
@@ -152,7 +131,6 @@ public class ProvisionamentoService
         foreach (var m in msgs)
             db.ConfigMensagens.Add(new ConfigMensagem { Id = Guid.NewGuid(), TenantId = tenantId, Gatilho = m.gat, Canal = "whatsapp", Ativo = false, Template = m.tpl, CriadoEm = DateTime.UtcNow });
 
-        // Raças e Pelagens
         foreach (var r in new[] { "SRD", "Labrador", "Golden Retriever", "Bulldog", "Poodle", "Yorkshire", "Shih Tzu", "Beagle", "Pastor Alemao", "Dachshund" })
             db.Racas.Add(new Raca { Id = Guid.NewGuid(), TenantId = tenantId, Nome = r, Especie = "cao", Ativo = true });
         foreach (var r in new[] { "SRD", "Persa", "Siames", "Maine Coon", "Ragdoll", "Bengal" })
@@ -160,12 +138,11 @@ public class ProvisionamentoService
         foreach (var p in new[] { "Curto", "Longo", "Ondulado", "Crespo", "Dupla camada", "Sem pelo" })
             db.Pelagens.Add(new Pelagem { Id = Guid.NewGuid(), TenantId = tenantId, Nome = p, Ativo = true });
 
-        // Parâmetros e Bot
         db.ParametrosSistema.Add(new ParametrosSistema { Id = Guid.NewGuid(), TenantId = tenantId });
         db.BotConfigs.Add(new BotConfig { Id = Guid.NewGuid(), TenantId = tenantId, Ativo = false });
 
         await db.SaveChangesAsync();
-        Console.WriteLine($"[Provisioning] Schema {schema} provisionado com sucesso.");
+        Console.WriteLine($"[Seed] Schema {schema} seeds concluidos.");
     }
 
     public static string GerarSchemaName(string nomeClinica)
