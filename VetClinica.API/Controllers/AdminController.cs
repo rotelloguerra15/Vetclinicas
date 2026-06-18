@@ -150,7 +150,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("smtp-teste")]
-    public async Task<IActionResult> TestarSmtp()
+    public async Task<IActionResult> TestarSmtp([FromQuery] string? destino)
     {
         var g = Guard(); if (g != null) return g;
 
@@ -178,9 +178,10 @@ public class AdminController : ControllerBase
                 IsBodyHtml = true,
                 Body       = "<p>Email de teste enviado com sucesso pelo painel admin do VetClinica.</p>"
             };
-            msg.To.Add(smtpUser);
+            msg.To.Add(!string.IsNullOrWhiteSpace(destino) ? destino : smtpUser);
             await client.SendMailAsync(msg);
-            return Ok(new { mensagem = $"Email de teste enviado para {smtpUser}" });
+            var para = !string.IsNullOrWhiteSpace(destino) ? destino : smtpUser;
+            return Ok(new { mensagem = $"Email de teste enviado para {para}" });
         }
         catch (Exception ex)
         {

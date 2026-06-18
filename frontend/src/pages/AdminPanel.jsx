@@ -17,6 +17,7 @@ export default function AdminPanel() {
   const [smtp, setSmtp] = useState({ host: '', porta: '587', usuario: '', senha: '', ssl: 'true', remetente: '' })
   const [smtpMsg, setSmtpMsg] = useState('')
   const [smtpLoading, setSmtpLoading] = useState(false)
+  const [emailTeste, setEmailTeste] = useState('')
 
   function carregar() {
     api.get('/admin/clinicas').then((r) => setClinicas(r.data)).catch(() => nav('/admin/login'))
@@ -51,8 +52,9 @@ export default function AdminPanel() {
     setSmtpLoading(true)
     setSmtpMsg('')
     try {
-      await api.post('/admin/smtp-teste')
-      setSmtpMsg('Email de teste enviado para ' + smtp.usuario)
+      const dest = emailTeste || smtp.usuario
+      await api.post('/admin/smtp-teste?destino=' + encodeURIComponent(dest))
+      setSmtpMsg('Email de teste enviado para ' + dest)
     } catch (err) {
       setSmtpMsg('Erro: ' + (err.response?.data?.erro || err.message))
     } finally {
@@ -212,6 +214,13 @@ export default function AdminPanel() {
                   </div>
                 )}
 
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Enviar teste para</label>
+                  <input value={emailTeste} onChange={e => setEmailTeste(e.target.value)}
+                    placeholder={smtp.usuario || 'seu@email.com.br'} type="email"
+                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  <p className="text-xs text-slate-400 mt-1">Deixe vazio para usar o usuario SMTP</p>
+                </div>
                 <div className="flex gap-3">
                   <button type="submit" disabled={smtpLoading}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-2 rounded-lg text-sm">
