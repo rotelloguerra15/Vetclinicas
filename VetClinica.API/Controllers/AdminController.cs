@@ -26,6 +26,21 @@ public class AdminController : ControllerBase
     private IActionResult? Guard() =>
         _t.IsPlatformAdmin ? null : StatusCode(403, new { erro = "Acesso restrito ao administrador da plataforma" });
 
+    // ── Helper: le config do banco ────────────────────────────────────
+    private async Task<string?> Cfg(string chave) =>
+        (await _platform.Configuracoes.FirstOrDefaultAsync(c => c.Chave == chave))?.Valor;
+
+    private async Task SetCfg(string chave, string valor)
+    {
+        var c = await _platform.Configuracoes.FirstOrDefaultAsync(x => x.Chave == chave);
+        if (c == null)
+            _platform.Configuracoes.Add(new VetClinica.API.Models.Configuracao { Chave = chave, Valor = valor, AtualizadoEm = DateTime.UtcNow });
+        else
+        { c.Valor = valor; c.AtualizadoEm = DateTime.UtcNow; }
+    }
+
+    // ── Clinicas ──────────────────────────────────────────────────────
+
     [HttpGet("clinicas")]
     public async Task<IActionResult> Clinicas()
     {
@@ -34,11 +49,8 @@ public class AdminController : ControllerBase
             .OrderByDescending(t => t.CriadoEm)
             .Select(t => new {
                 t.Id, t.Nome, t.Plano, t.Ativo,
-                Suspenso       = t.SuspensoEm != null,
-                t.Email,
-                t.SchemaName,
-                t.CriadoEm,
-                t.TrialExpiraEm
+                Suspenso    = t.SuspensoEm != null,
+                t.Email, t.SchemaName, t.CriadoEm, t.TrialExpiraEm
             })
             .ToListAsync();
         return Ok(clinicas);
@@ -50,10 +62,7 @@ public class AdminController : ControllerBase
         var g = Guard(); if (g != null) return g;
         var jaExiste = await _platform.Tenants.AnyAsync(t => t.Email == req.EmailDono);
         if (jaExiste) return BadRequest(new { erro = "Ja existe uma clinica com esse email" });
-
-        var r = await _prov.CriarClinica(req.NomeClinica, req.Plano, req.NomeDono,
-            req.EmailDono, req.Telefone, req.Tagline);
-
+        var r = await _prov.CriarClinica(req.NomeClinica, req.Plano, req.NomeDono, req.EmailDono, req.Telefone, req.Tagline);
         return Ok(new { r.TenantId, r.LoginEmail, r.SenhaTemporaria, r.SchemaName });
     }
 
@@ -113,37 +122,35 @@ public class AdminController : ControllerBase
         return Ok(new { schema = ProvisionamentoService.GerarSchemaName(nome) });
     }
 
-    // ── SMTP Config ───────────────────────────────────────────────────
+    // ── SMTP Config — salva/le do banco ───────────────────────────────
 
     [HttpGet("smtp-config")]
-    public IActionResult GetSmtpConfig()
+    public async Task<IActionResult> GetSmtpConfig()
     {
         var g = Guard(); if (g != null) return g;
         return Ok(new {
-            host      = _cfg["Smtp:Host"]      ?? Environment.GetEnvironmentVariable("Smtp__Host")      ?? "",
-            porta     = _cfg["Smtp:Porta"]     ?? Environment.GetEnvironmentVariable("Smtp__Porta")     ?? "587",
-            usuario   = _cfg["Smtp:Usuario"]   ?? Environment.GetEnvironmentVariable("Smtp__Usuario")   ?? "",
-            senha     = "",
-            ssl       = _cfg["Smtp:Ssl"]       ?? Environment.GetEnvironmentVariable("Smtp__Ssl")       ?? "true",
-            remetente = _cfg["Smtp:Remetente"] ?? Environment.GetEnvironmentVariable("Smtp__Remetente") ?? ""
+            host      = await Cfg("smtp_host")      ?? "",
+            porta     = await Cfg("smtp_porta")     ?? "587",
+            usuario   = await Cfg("smtp_usuario")   ?? "",
+            senha     = "",   // nunca retorna a senha
+            ssl       = await Cfg("smtp_ssl")       ?? "false",
+            remetente = await Cfg("smtp_remetente") ?? ""
         });
     }
 
     [HttpPost("smtp-config")]
-    public IActionResult SaveSmtpConfig([FromBody] SmtpConfigRequest req)
+    public async Task<IActionResult> SaveSmtpConfig([FromBody] SmtpConfigRequest req)
     {
         var g = Guard(); if (g != null) return g;
-        return Ok(new {
-            mensagem = "Atualize as variaveis no Railway com os valores abaixo.",
-            variaveis = new {
-                Smtp__Host      = req.Host,
-                Smtp__Porta     = req.Porta,
-                Smtp__Usuario   = req.Usuario,
-                Smtp__Senha     = req.Senha,
-                Smtp__Ssl       = req.Ssl,
-                Smtp__Remetente = req.Remetente
-            }
-        });
+        await SetCfg("smtp_host",      req.Host);
+        await SetCfg("smtp_porta",     req.Porta);
+        await SetCfg("smtp_usuario",   req.Usuario);
+        await SetCfg("smtp_ssl",       req.Ssl);
+        await SetCfg("smtp_remetente", req.Remetente);
+        if (!string.IsNullOrWhiteSpace(req.Senha))
+            await SetCfg("smtp_senha", req.Senha);
+        await _platform.SaveChangesAsync();
+        return Ok(new { mensagem = "Configuracoes salvas com sucesso." });
     }
 
     [HttpPost("smtp-teste")]
@@ -151,15 +158,15 @@ public class AdminController : ControllerBase
     {
         var g = Guard(); if (g != null) return g;
 
-        var smtpHost  = _cfg["Smtp:Host"]      ?? Environment.GetEnvironmentVariable("Smtp__Host");
-        var smtpPorta = int.Parse(_cfg["Smtp:Porta"] ?? Environment.GetEnvironmentVariable("Smtp__Porta") ?? "587");
-        var smtpUser  = _cfg["Smtp:Usuario"]   ?? Environment.GetEnvironmentVariable("Smtp__Usuario");
-        var smtpSenha = _cfg["Smtp:Senha"]     ?? Environment.GetEnvironmentVariable("Smtp__Senha");
-        var smtpSsl   = bool.Parse(_cfg["Smtp:Ssl"] ?? Environment.GetEnvironmentVariable("Smtp__Ssl") ?? "true");
-        var remetente = _cfg["Smtp:Remetente"] ?? smtpUser;
+        var smtpHost  = await Cfg("smtp_host")      ?? _cfg["Smtp:Host"]    ?? Environment.GetEnvironmentVariable("Smtp__Host");
+        var smtpPorta = int.Parse(await Cfg("smtp_porta")     ?? _cfg["Smtp:Porta"]   ?? Environment.GetEnvironmentVariable("Smtp__Porta")   ?? "587");
+        var smtpUser  = await Cfg("smtp_usuario")   ?? _cfg["Smtp:Usuario"] ?? Environment.GetEnvironmentVariable("Smtp__Usuario");
+        var smtpSenha = await Cfg("smtp_senha")     ?? _cfg["Smtp:Senha"]   ?? Environment.GetEnvironmentVariable("Smtp__Senha");
+        var smtpSsl   = bool.Parse(await Cfg("smtp_ssl") ?? _cfg["Smtp:Ssl"] ?? Environment.GetEnvironmentVariable("Smtp__Ssl") ?? "false");
+        var remetente = await Cfg("smtp_remetente") ?? smtpUser;
 
         if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUser))
-            return BadRequest(new { erro = "SMTP nao configurado nas variaveis de ambiente do Railway." });
+            return BadRequest(new { erro = "SMTP nao configurado. Preencha as configuracoes acima." });
 
         var para = !string.IsNullOrWhiteSpace(destino) ? destino : smtpUser;
 

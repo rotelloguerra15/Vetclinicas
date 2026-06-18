@@ -996,3 +996,12 @@ public class TutorPlano
     public Tutor? Tutor { get; set; }
     public PlanoSaude? Plano { get; set; }
 }
+
+// ── Platform: configuracoes globais (SMTP, etc) ───────────────────────────────
+[Table("configuracoes")]
+public class Configuracao
+{
+    [Column("chave")]         public string   Chave        { get; set; } = "";
+    [Column("valor")]         public string?  Valor        { get; set; }
+    [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
+}
