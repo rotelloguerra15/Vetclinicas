@@ -1001,6 +1001,7 @@ public class TutorPlano
 [Table("configuracoes")]
 public class Configuracao
 {
+    [Key]
     [Column("chave")]         public string   Chave        { get; set; } = "";
     [Column("valor")]         public string?  Valor        { get; set; }
     [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }
