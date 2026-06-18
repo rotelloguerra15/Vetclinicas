@@ -123,7 +123,7 @@ public class AdminController : ControllerBase
             host      = _cfg["Smtp:Host"]      ?? Environment.GetEnvironmentVariable("Smtp__Host")      ?? "",
             porta     = _cfg["Smtp:Porta"]     ?? Environment.GetEnvironmentVariable("Smtp__Porta")     ?? "587",
             usuario   = _cfg["Smtp:Usuario"]   ?? Environment.GetEnvironmentVariable("Smtp__Usuario")   ?? "",
-            senha     = "",  // nunca retorna a senha
+            senha     = "",
             ssl       = _cfg["Smtp:Ssl"]       ?? Environment.GetEnvironmentVariable("Smtp__Ssl")       ?? "true",
             remetente = _cfg["Smtp:Remetente"] ?? Environment.GetEnvironmentVariable("Smtp__Remetente") ?? ""
         });
@@ -133,11 +133,8 @@ public class AdminController : ControllerBase
     public IActionResult SaveSmtpConfig([FromBody] SmtpConfigRequest req)
     {
         var g = Guard(); if (g != null) return g;
-        // As variaveis sao gerenciadas no Railway — aqui apenas validamos e confirmamos
-        // O usuario deve atualizar as variaveis no painel do Railway manualmente
-        // Este endpoint serve para documentar o que deve ser configurado
         return Ok(new {
-            mensagem = "Configuracoes recebidas. Atualize as variaveis no Railway com os valores abaixo.",
+            mensagem = "Atualize as variaveis no Railway com os valores abaixo.",
             variaveis = new {
                 Smtp__Host      = req.Host,
                 Smtp__Porta     = req.Porta,
@@ -165,15 +162,16 @@ public class AdminController : ControllerBase
             return BadRequest(new { erro = "SMTP nao configurado nas variaveis de ambiente do Railway." });
 
         var para = !string.IsNullOrWhiteSpace(destino) ? destino : smtpUser;
+
         try
         {
             using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(20));
             using var client = new SmtpClient(smtpHost, smtpPorta)
             {
-                EnableSsl        = smtpSsl,
-                Credentials      = new NetworkCredential(smtpUser, smtpSenha),
-                Timeout          = 15000,
-                DeliveryMethod   = SmtpDeliveryMethod.Network
+                EnableSsl      = smtpSsl,
+                Credentials    = new NetworkCredential(smtpUser, smtpSenha),
+                Timeout        = 15000,
+                DeliveryMethod = SmtpDeliveryMethod.Network
             };
             var msg = new MailMessage
             {
@@ -182,14 +180,13 @@ public class AdminController : ControllerBase
                 IsBodyHtml = true,
                 Body       = "<p>Email de teste enviado com sucesso pelo painel admin do VetClinica.</p>"
             };
-            msg.To.Add(para);
+            msg.To.Add(para!);
             await client.SendMailAsync(msg, cts.Token);
             return Ok(new { mensagem = $"Email de teste enviado para {para}" });
         }
         catch (Exception ex)
         {
-            return BadRequest(new { erro = ex.Message, inner = ex.InnerException?.Message, stack = ex.StackTrace?.Split("
-").FirstOrDefault() });
+            return BadRequest(new { erro = ex.Message, inner = ex.InnerException?.Message });
         }
     }
 }
