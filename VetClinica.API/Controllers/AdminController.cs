@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
+using System.Net.Mail;
 using VetClinica.API.Data;
 using VetClinica.API.DTOs;
 using VetClinica.API.Middleware;
@@ -16,9 +18,10 @@ public class AdminController : ControllerBase
     private readonly PlatformDbContext      _platform;
     private readonly TenantContext          _t;
     private readonly ProvisionamentoService _prov;
+    private readonly IConfiguration         _cfg;
 
-    public AdminController(PlatformDbContext platform, TenantContext t, ProvisionamentoService prov)
-    { _platform = platform; _t = t; _prov = prov; }
+    public AdminController(PlatformDbContext platform, TenantContext t, ProvisionamentoService prov, IConfiguration cfg)
+    { _platform = platform; _t = t; _prov = prov; _cfg = cfg; }
 
     private IActionResult? Guard() =>
         _t.IsPlatformAdmin ? null : StatusCode(403, new { erro = "Acesso restrito ao administrador da plataforma" });
@@ -31,10 +34,11 @@ public class AdminController : ControllerBase
             .OrderByDescending(t => t.CriadoEm)
             .Select(t => new {
                 t.Id, t.Nome, t.Plano, t.Ativo,
-                Suspenso    = t.SuspensoEm != null,
+                Suspenso       = t.SuspensoEm != null,
                 t.Email,
                 t.SchemaName,
-                t.CriadoEm
+                t.CriadoEm,
+                t.TrialExpiraEm
             })
             .ToListAsync();
         return Ok(clinicas);
@@ -94,6 +98,7 @@ public class AdminController : ControllerBase
             totalClinicas     = await _platform.Tenants.CountAsync(),
             clinicasAtivas    = await _platform.Tenants.CountAsync(t => t.Ativo && t.SuspensoEm == null),
             clinicasSuspensas = await _platform.Tenants.CountAsync(t => t.SuspensoEm != null),
+            totalPets         = 0,
             porPlano          = await _platform.Tenants
                 .GroupBy(t => t.Plano)
                 .Select(grp => new { plano = grp.Key, qtd = grp.Count() })
@@ -106,5 +111,80 @@ public class AdminController : ControllerBase
     {
         var g = Guard(); if (g != null) return g;
         return Ok(new { schema = ProvisionamentoService.GerarSchemaName(nome) });
+    }
+
+    // ── SMTP Config ───────────────────────────────────────────────────
+
+    [HttpGet("smtp-config")]
+    public IActionResult GetSmtpConfig()
+    {
+        var g = Guard(); if (g != null) return g;
+        return Ok(new {
+            host      = _cfg["Smtp:Host"]      ?? Environment.GetEnvironmentVariable("Smtp__Host")      ?? "",
+            porta     = _cfg["Smtp:Porta"]     ?? Environment.GetEnvironmentVariable("Smtp__Porta")     ?? "587",
+            usuario   = _cfg["Smtp:Usuario"]   ?? Environment.GetEnvironmentVariable("Smtp__Usuario")   ?? "",
+            senha     = "",  // nunca retorna a senha
+            ssl       = _cfg["Smtp:Ssl"]       ?? Environment.GetEnvironmentVariable("Smtp__Ssl")       ?? "true",
+            remetente = _cfg["Smtp:Remetente"] ?? Environment.GetEnvironmentVariable("Smtp__Remetente") ?? ""
+        });
+    }
+
+    [HttpPost("smtp-config")]
+    public IActionResult SaveSmtpConfig([FromBody] SmtpConfigRequest req)
+    {
+        var g = Guard(); if (g != null) return g;
+        // As variaveis sao gerenciadas no Railway — aqui apenas validamos e confirmamos
+        // O usuario deve atualizar as variaveis no painel do Railway manualmente
+        // Este endpoint serve para documentar o que deve ser configurado
+        return Ok(new {
+            mensagem = "Configuracoes recebidas. Atualize as variaveis no Railway com os valores abaixo.",
+            variaveis = new {
+                Smtp__Host      = req.Host,
+                Smtp__Porta     = req.Porta,
+                Smtp__Usuario   = req.Usuario,
+                Smtp__Senha     = req.Senha,
+                Smtp__Ssl       = req.Ssl,
+                Smtp__Remetente = req.Remetente
+            }
+        });
+    }
+
+    [HttpPost("smtp-teste")]
+    public async Task<IActionResult> TestarSmtp()
+    {
+        var g = Guard(); if (g != null) return g;
+
+        var smtpHost  = _cfg["Smtp:Host"]      ?? Environment.GetEnvironmentVariable("Smtp__Host");
+        var smtpPorta = int.Parse(_cfg["Smtp:Porta"] ?? Environment.GetEnvironmentVariable("Smtp__Porta") ?? "587");
+        var smtpUser  = _cfg["Smtp:Usuario"]   ?? Environment.GetEnvironmentVariable("Smtp__Usuario");
+        var smtpSenha = _cfg["Smtp:Senha"]     ?? Environment.GetEnvironmentVariable("Smtp__Senha");
+        var smtpSsl   = bool.Parse(_cfg["Smtp:Ssl"] ?? Environment.GetEnvironmentVariable("Smtp__Ssl") ?? "true");
+        var remetente = _cfg["Smtp:Remetente"] ?? smtpUser;
+
+        if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUser))
+            return BadRequest(new { erro = "SMTP nao configurado nas variaveis de ambiente do Railway." });
+
+        try
+        {
+            using var client = new SmtpClient(smtpHost, smtpPorta)
+            {
+                EnableSsl   = smtpSsl,
+                Credentials = new NetworkCredential(smtpUser, smtpSenha)
+            };
+            var msg = new MailMessage
+            {
+                From       = new MailAddress(remetente!, "VetClinica by Ketra"),
+                Subject    = "Teste de SMTP - VetClinica",
+                IsBodyHtml = true,
+                Body       = "<p>Email de teste enviado com sucesso pelo painel admin do VetClinica.</p>"
+            };
+            msg.To.Add(smtpUser);
+            await client.SendMailAsync(msg);
+            return Ok(new { mensagem = $"Email de teste enviado para {smtpUser}" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { erro = ex.Message, inner = ex.InnerException?.Message });
+        }
     }
 }

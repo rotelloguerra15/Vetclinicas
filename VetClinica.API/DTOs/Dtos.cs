@@ -329,3 +329,6 @@ public record DescontoPlanoResponse(Guid? PlanoId, string? PlanoNome, decimal De
 // ── Auth: recuperacao de senha ────────────────────────────────────────────────
 public record EsqueciSenhaRequest(string Email);
 public record RedefinirSenhaRequest(string Token, string NovaSenha);
+
+// ── Admin: SMTP config ────────────────────────────────────────────────────────
+public record SmtpConfigRequest(string Host, string Porta, string Usuario, string Senha, string Ssl, string Remetente);

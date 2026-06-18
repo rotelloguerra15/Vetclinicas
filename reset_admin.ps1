@@ -1,0 +1,2 @@
+$hash = '$2a$11$D5LVbhD8P3bXZTEzI9NXt.HLjmzE0.1ZRlIujPV82tUoWHE5UV3Q.'
+psql "postgresql://postgres:eOpnNTdorWCkkphKLRlNogUWOtiwGibS@gondola.proxy.rlwy.net:16524/railway" -c "UPDATE platform.platform_admins SET senha_hash = '$hash' WHERE email = 'rotello.guerra@ketra.com.br';"
