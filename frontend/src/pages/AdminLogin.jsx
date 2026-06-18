@@ -11,6 +11,8 @@ export default function AdminLogin() {
   async function entrar(e) {
     e.preventDefault()
     setErro('')
+    // Limpa qualquer token de clinica anterior
+    localStorage.clear()
     try {
       const { data } = await api.post('/auth/login-plataforma', { email, senha })
       localStorage.setItem('token', data.token)
@@ -18,7 +20,7 @@ export default function AdminLogin() {
       localStorage.setItem('papel', 'superadmin')
       nav('/admin')
     } catch {
-      setErro('Credenciais inválidas')
+      setErro('Credenciais invalidas')
     }
   }
 
@@ -28,7 +30,7 @@ export default function AdminLogin() {
         <div className="text-center mb-6">
           <div className="text-3xl mb-1">⚙️</div>
           <h1 className="text-xl font-bold">Painel da Plataforma</h1>
-          <p className="text-xs text-slate-400">Administração Ketra</p>
+          <p className="text-xs text-slate-400">Administracao Ketra</p>
         </div>
         {erro && <div className="bg-red-50 text-red-600 text-sm p-2 rounded mb-3">{erro}</div>}
         <input className="w-full border rounded-lg px-3 py-2 mb-3" placeholder="Email" type="email"
