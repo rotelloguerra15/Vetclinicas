@@ -41,6 +41,7 @@ public class TenantDbContext : DbContext
     // ── PDV / Caixa ───────────────────────────────────────────────────────────
     public DbSet<Venda>               Vendas               => Set<Venda>();
     public DbSet<VendaItem>           VendaItens           => Set<VendaItem>();
+    public DbSet<CobrancaPix>         CobrancasPix         => Set<CobrancaPix>();
     public DbSet<Caixa>               Caixas               => Set<Caixa>();
     public DbSet<MovimentacaoCaixa>   MovimentacoesCaixa   => Set<MovimentacaoCaixa>();
 

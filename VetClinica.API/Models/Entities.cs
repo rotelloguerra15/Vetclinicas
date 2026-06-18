@@ -122,6 +122,11 @@ public class ParametrosSistema
     [Column("cert_ativo")]           public bool CertAtivo { get; set; } = false;
     [Column("cert_atualizado_em")]   public DateTime? CertAtualizadoEm { get; set; }
 
+    // ── Asaas (PDV Pagamentos - Pix) — config por tenant (a clinica recebe) ──
+    [Column("asaas_api_key")]   public string? AsaasApiKey { get; set; }
+    [Column("asaas_ambiente")]  public string? AsaasAmbiente { get; set; } = "sandbox"; // sandbox | producao
+    [Column("asaas_pix_ativo")] public bool    AsaasPixAtivo { get; set; } = false;
+
     // SMTP
     [Column("smtp_host")]           public string? SmtpHost { get; set; }
     [Column("smtp_porta")]          public int SmtpPorta { get; set; } = 587;
@@ -493,6 +498,26 @@ public class VendaItem
     [Column("quantidade")] public decimal Quantidade { get; set; }
     [Column("preco_unitario")] public decimal PrecoUnitario { get; set; }
     [Column("subtotal")] public decimal Subtotal { get; set; }
+}
+
+[Table("cobrancas_pix")]
+public class CobrancaPix
+{
+    [Column("id")]                 public Guid Id { get; set; }
+    [Column("tenant_id")]          public Guid TenantId { get; set; }
+    [Column("venda_id")]           public Guid? VendaId { get; set; }
+    [Column("valor")]              public decimal Valor { get; set; }
+    [Column("descricao")]          public string? Descricao { get; set; }
+    [Column("status")]             public string Status { get; set; } = "pendente"; // pendente|pago|expirado|cancelado|erro
+    [Column("provider")]           public string Provider { get; set; } = "asaas";
+    [Column("provider_charge_id")] public string? ProviderChargeId { get; set; }
+    [Column("txid")]               public string? Txid { get; set; }
+    [Column("qr_payload")]         public string? QrPayload { get; set; } // copia-e-cola (EMV)
+    [Column("qr_image")]           public string? QrImage { get; set; }   // imagem base64 (data uri)
+    [Column("expira_em")]          public DateTime? ExpiraEm { get; set; }
+    [Column("pago_em")]            public DateTime? PagoEm { get; set; }
+    [Column("criado_por")]         public Guid? CriadoPor { get; set; }
+    [Column("criado_em")]          public DateTime CriadoEm { get; set; }
 }
 
 [Table("config_mensagens")]
