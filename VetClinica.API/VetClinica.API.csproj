@@ -21,5 +21,5 @@
     <PackageReference Include="QRCoder" Version="1.4.3" />
   </ItemGroup>
 
-  <!-- bust 20260618-graph-email -->
+  <!-- bust 20260618-caixa-fix -->
 </Project>

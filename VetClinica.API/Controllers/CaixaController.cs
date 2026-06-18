@@ -136,10 +136,9 @@ public class CaixaController : ControllerBase
                      && v.CriadoEm >= inicioUtc && v.CriadoEm < fimUtc)
             .SumAsync(v => (decimal?)v.ValorTotal) ?? 0;
 
-        var servicosDinheiro = await _db.OrdensServico
-            .Where(o => o.TenantId == _t.TenantId && o.EntregueEm != null
-                     && o.EntregueEm >= inicioUtc && o.EntregueEm < fimUtc)
-            .SumAsync(o => (decimal?)o.ValorTotal) ?? 0;
+        // NOTA: serviços (OS) são cobrados via PDV, virando Venda com forma de pagamento.
+        // Portanto já entram em entradasDinheiro quando pagos em dinheiro. NÃO somar OS
+        // separadamente aqui — isso duplicaria o serviço no saldo físico.
 
         var retiradas = cx.Movimentacoes
             .Where(m => m.Tipo == "retirada").Sum(m => m.Valor);
@@ -154,10 +153,9 @@ public class CaixaController : ControllerBase
                      && c.DataBaixa == hoje)
             .SumAsync(c => (decimal?)c.ValorPago) ?? 0;
 
-        // Saldo final calculado automaticamente
+        // Saldo final = saldo inicial + entradas dinheiro + depósitos - retiradas - contas pagas em dinheiro
         var saldoFinalCalculado = cx.SaldoInicial
             + entradasDinheiro
-            + servicosDinheiro
             + depositos
             - retiradas
             - contasPagasDinheiro;
@@ -268,16 +266,39 @@ public class CaixaController : ControllerBase
     }
 
     // ── Reabrir com aprovação (Pendência #2) ──────────────────────
+    // Restrito a owner/admin. Estorna os lançamentos do fechamento anterior
+    // para evitar duplicação quando o caixa for fechado novamente.
     [HttpPost("{id:guid}/reabrir")]
     public async Task<IActionResult> Reabrir(Guid id)
     {
+        if (_t.Papel != "owner" && _t.Papel != "admin")
+            return StatusCode(403, new { erro = "Apenas owner ou admin podem reabrir um caixa fechado." });
+
         var cx = await _db.Caixas
             .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == _t.TenantId);
 
         if (cx == null) return NotFound();
         if (cx.FechadoEm == null) return BadRequest(new { erro = "Caixa não está fechado" });
 
-        // Marca como requerendo aprovação — frontend mostrará aviso
+        // Estorna lançamentos gerados pelo fechamento deste dia (idempotência)
+        var prefixoFechamento = $"Fechamento de caixa — {cx.Data:dd/MM/yyyy}";
+        var contasDoFechamento = await _db.Contas
+            .Where(c => c.TenantId == _t.TenantId
+                     && c.DataCompetencia == cx.Data
+                     && (c.Descricao.StartsWith(prefixoFechamento)
+                         || c.Descricao.StartsWith("Retirada de caixa —")))
+            .ToListAsync();
+
+        var movsBancarias = await _db.MovimentacoesBancarias
+            .Where(m => m.TenantId == _t.TenantId
+                     && m.Origem == "caixa"
+                     && m.DataMovimentacao == cx.Data)
+            .ToListAsync();
+
+        if (movsBancarias.Count > 0) _db.MovimentacoesBancarias.RemoveRange(movsBancarias);
+        if (contasDoFechamento.Count > 0) _db.Contas.RemoveRange(contasDoFechamento);
+
+        // Reabre o caixa e registra auditoria
         cx.FechadoEm = null;
         cx.SaldoFinal = null;
         cx.RequerAprovacao = true;
@@ -285,7 +306,12 @@ public class CaixaController : ControllerBase
         cx.AprovadoEm = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return Ok(new { mensagem = "Caixa reaberto. Ação registrada para auditoria." });
+        return Ok(new
+        {
+            mensagem = "Caixa reaberto. Lançamentos do fechamento anterior foram estornados e a ação registrada para auditoria.",
+            lancamentosEstornados = contasDoFechamento.Count,
+            movimentacoesBancariasEstornadas = movsBancarias.Count
+        });
     }
 
     // ── Histórico ─────────────────────────────────────────────────
