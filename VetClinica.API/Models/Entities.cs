@@ -190,7 +190,10 @@ public class Tenant
     [Column("cor_primaria")] public string? CorPrimaria { get; set; }
     [Column("suspenso_em")] public DateTime? SuspensoEm { get; set; }
     [Column("ativo")] public bool Ativo { get; set; } = true;
-    [Column("schema_name")] public string? SchemaName { get; set; }
+    [Column("schema_name")]    public string?   SchemaName       { get; set; }
+    [Column("trial_expira_em")]    public DateTime? TrialExpiraEm    { get; set; }
+    [Column("token_reset_senha")]  public string?   TokenResetSenha  { get; set; }
+    [Column("token_reset_expira")] public DateTime? TokenResetExpira { get; set; }
 }
 
 [Table("users")]

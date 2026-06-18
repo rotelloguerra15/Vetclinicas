@@ -325,3 +325,7 @@ public record TutorPlanoDto(
     string? NumCarteirinha, DateOnly? Validade, decimal DescontoEfetivo, bool Ativo);
 
 public record DescontoPlanoResponse(Guid? PlanoId, string? PlanoNome, decimal Desconto, DateOnly? Validade);
+
+// ── Auth: recuperacao de senha ────────────────────────────────────────────────
+public record EsqueciSenhaRequest(string Email);
+public record RedefinirSenhaRequest(string Token, string NovaSenha);

@@ -42,6 +42,8 @@ import GestaoVista from './pages/GestaoVista'
 import Categorias from './pages/Categorias'
 import PlanosSaude from './pages/PlanosSaude'
 import Trial from './pages/Trial'
+import EsqueciSenha from './pages/EsqueciSenha'
+import Planos from './pages/Planos'
 
 function Protected({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/login" />
@@ -92,6 +94,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </Route>
         <Route path="/validar/:codigo" element={<Validar />} />
         <Route path="/trial" element={<Trial />} />
+        <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+        <Route path="/redefinir-senha" element={<EsqueciSenha />} />
+        <Route path="/planos" element={<Planos />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

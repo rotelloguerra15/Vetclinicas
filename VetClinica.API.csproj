@@ -22,5 +22,5 @@
     <PackageReference Include="QRCoder"                                          Version="1.4.3" />
   </ItemGroup>
 
-  <!-- bust-cache: 20260616-multischema -->
+  <!-- bust-cache: 20260617-trial-reset-senha -->
 </Project>

@@ -1,0 +1,1 @@
+UPDATE vet_soares.users SET senha_hash = '$2a$12$U7Lmk3Xc8qkWLClxdHjeLOkLeVKCrtejbU83C6cH2fLG2AluhPxNa' WHERE email = 'rotello.guerra@ketra.com.br';
