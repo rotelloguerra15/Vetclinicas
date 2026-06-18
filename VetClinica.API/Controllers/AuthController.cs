@@ -17,13 +17,15 @@ public class AuthController : ControllerBase
     private readonly PlatformDbContext _platform;
     private readonly IConfiguration    _cfg;
     private readonly ILogger<AuthController> _logger;
+    private readonly IEmailService     _email;
 
-    public AuthController(AuthService auth, PlatformDbContext platform, IConfiguration cfg, ILogger<AuthController> logger)
+    public AuthController(AuthService auth, PlatformDbContext platform, IConfiguration cfg, ILogger<AuthController> logger, IEmailService email)
     {
         _auth     = auth;
         _platform = platform;
         _cfg      = cfg;
         _logger   = logger;
+        _email    = email;
     }
 
     [HttpPost("login")]
@@ -128,27 +130,6 @@ public class AuthController : ControllerBase
 
     private async Task<bool> EnviarEmailReset(string email, string nomeClinica, string linkReset)
     {
-        var smtpHost  = _cfg["Smtp:Host"]      ?? Environment.GetEnvironmentVariable("Smtp__Host");
-        var smtpPorta = int.Parse(_cfg["Smtp:Porta"] ?? Environment.GetEnvironmentVariable("Smtp__Porta") ?? "587");
-        var smtpUser  = _cfg["Smtp:Usuario"]   ?? Environment.GetEnvironmentVariable("Smtp__Usuario");
-        var smtpSenha = _cfg["Smtp:Senha"]     ?? Environment.GetEnvironmentVariable("Smtp__Senha");
-        var smtpSsl   = bool.Parse(_cfg["Smtp:Ssl"] ?? Environment.GetEnvironmentVariable("Smtp__Ssl") ?? "true");
-        var remetente = _cfg["Smtp:Remetente"] ?? smtpUser;
-
-        _logger.LogInformation("[Reset] SMTP config: host={host} porta={porta} user={user} ssl={ssl}", smtpHost, smtpPorta, smtpUser, smtpSsl);
-
-        if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUser))
-        {
-            _logger.LogError("[Reset] SMTP nao configurado.");
-            return false;
-        }
-
-        using var client = new SmtpClient(smtpHost, smtpPorta)
-        {
-            EnableSsl   = smtpSsl,
-            Credentials = new NetworkCredential(smtpUser, smtpSenha)
-        };
-
         var body = $@"<!DOCTYPE html>
 <html><head><meta charset='utf-8'></head>
 <body style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
@@ -169,16 +150,15 @@ public class AuthController : ControllerBase
   </div>
 </body></html>";
 
-        var msg = new MailMessage
+        var r = await _email.EnviarAsync(email, $"Redefinicao de senha - {nomeClinica}", body);
+
+        if (r.Ok)
         {
-            From       = new MailAddress(remetente!, "VetClinica by Ketra"),
-            Subject    = $"Redefinicao de senha - {nomeClinica}",
-            IsBodyHtml = true,
-            Body       = body
-        };
-        msg.To.Add(email);
-        await client.SendMailAsync(msg);
-        _logger.LogInformation("[Reset] Email enviado com sucesso para {email}", email);
-        return true;
+            _logger.LogInformation("[Reset] Email enviado com sucesso para {email} via {provider}", email, r.Provider);
+            return true;
+        }
+
+        _logger.LogError("[Reset] Falha ao enviar ({provider}): {erro}", r.Provider, r.Erro);
+        return false;
     }
 }

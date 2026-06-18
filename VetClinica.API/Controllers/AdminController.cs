@@ -19,9 +19,10 @@ public class AdminController : ControllerBase
     private readonly TenantContext          _t;
     private readonly ProvisionamentoService _prov;
     private readonly IConfiguration         _cfg;
+    private readonly IEmailService          _email;
 
-    public AdminController(PlatformDbContext platform, TenantContext t, ProvisionamentoService prov, IConfiguration cfg)
-    { _platform = platform; _t = t; _prov = prov; _cfg = cfg; }
+    public AdminController(PlatformDbContext platform, TenantContext t, ProvisionamentoService prov, IConfiguration cfg, IEmailService email)
+    { _platform = platform; _t = t; _prov = prov; _cfg = cfg; _email = email; }
 
     private IActionResult? Guard() =>
         _t.IsPlatformAdmin ? null : StatusCode(403, new { erro = "Acesso restrito ao administrador da plataforma" });
@@ -128,7 +129,12 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetSmtpConfig()
     {
         var g = Guard(); if (g != null) return g;
+        var resendKey = await Cfg("resend_api_key");
         return Ok(new {
+            provider        = await Cfg("email_provider")    ?? "resend",
+            resendApiKey    = "",   // nunca retorna a chave
+            resendConfigurado = !string.IsNullOrWhiteSpace(resendKey),
+            resendRemetente = await Cfg("resend_remetente") ?? "",
             host      = await Cfg("smtp_host")      ?? "",
             porta     = await Cfg("smtp_porta")     ?? "587",
             usuario   = await Cfg("smtp_usuario")   ?? "",
@@ -142,6 +148,14 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> SaveSmtpConfig([FromBody] SmtpConfigRequest req)
     {
         var g = Guard(); if (g != null) return g;
+
+        if (!string.IsNullOrWhiteSpace(req.Provider))
+            await SetCfg("email_provider", req.Provider.Trim().ToLowerInvariant());
+        if (!string.IsNullOrWhiteSpace(req.ResendApiKey))
+            await SetCfg("resend_api_key", req.ResendApiKey.Trim());
+        if (req.ResendRemetente != null)
+            await SetCfg("resend_remetente", req.ResendRemetente.Trim());
+
         await SetCfg("smtp_host",      req.Host);
         await SetCfg("smtp_porta",     req.Porta);
         await SetCfg("smtp_usuario",   req.Usuario);
@@ -158,42 +172,19 @@ public class AdminController : ControllerBase
     {
         var g = Guard(); if (g != null) return g;
 
-        var smtpHost  = await Cfg("smtp_host")      ?? _cfg["Smtp:Host"]    ?? Environment.GetEnvironmentVariable("Smtp__Host");
-        var smtpPorta = int.Parse(await Cfg("smtp_porta")     ?? _cfg["Smtp:Porta"]   ?? Environment.GetEnvironmentVariable("Smtp__Porta")   ?? "587");
-        var smtpUser  = await Cfg("smtp_usuario")   ?? _cfg["Smtp:Usuario"] ?? Environment.GetEnvironmentVariable("Smtp__Usuario");
-        var smtpSenha = await Cfg("smtp_senha")     ?? _cfg["Smtp:Senha"]   ?? Environment.GetEnvironmentVariable("Smtp__Senha");
-        var smtpSsl   = bool.Parse(await Cfg("smtp_ssl") ?? _cfg["Smtp:Ssl"] ?? Environment.GetEnvironmentVariable("Smtp__Ssl") ?? "false");
-        var remetente = await Cfg("smtp_remetente") ?? smtpUser;
+        var para = !string.IsNullOrWhiteSpace(destino)
+            ? destino
+            : (await Cfg("resend_remetente") ?? await Cfg("smtp_usuario"));
 
-        if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUser))
-            return BadRequest(new { erro = "SMTP nao configurado. Preencha as configuracoes acima." });
+        if (string.IsNullOrWhiteSpace(para))
+            return BadRequest(new { erro = "Informe um email de destino para o teste." });
 
-        var para = !string.IsNullOrWhiteSpace(destino) ? destino : smtpUser;
+        var html = "<p>Email de teste enviado com sucesso pelo painel admin do VetClinica.</p>";
+        var r = await _email.EnviarAsync(para!, "Teste de envio - VetClinica", html);
 
-        try
-        {
-            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(20));
-            using var client = new SmtpClient(smtpHost, smtpPorta)
-            {
-                EnableSsl      = smtpSsl,
-                Credentials    = new NetworkCredential(smtpUser, smtpSenha),
-                Timeout        = 15000,
-                DeliveryMethod = SmtpDeliveryMethod.Network
-            };
-            var msg = new MailMessage
-            {
-                From       = new MailAddress(remetente!, "VetClinica by Ketra"),
-                Subject    = "Teste de SMTP - VetClinica",
-                IsBodyHtml = true,
-                Body       = "<p>Email de teste enviado com sucesso pelo painel admin do VetClinica.</p>"
-            };
-            msg.To.Add(para!);
-            await client.SendMailAsync(msg, cts.Token);
-            return Ok(new { mensagem = $"Email de teste enviado para {para}" });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { erro = ex.Message, inner = ex.InnerException?.Message });
-        }
+        if (r.Ok)
+            return Ok(new { mensagem = $"Email de teste enviado para {para} via {r.Provider}." });
+
+        return BadRequest(new { erro = r.Erro, provider = r.Provider });
     }
 }

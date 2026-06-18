@@ -17,15 +17,18 @@ public class TrialController : ControllerBase
     private readonly PlatformDbContext      _platform;
     private readonly ProvisionamentoService _prov;
     private readonly IConfiguration         _cfg;
+    private readonly IEmailService          _email;
 
     public TrialController(
         PlatformDbContext platform,
         ProvisionamentoService prov,
-        IConfiguration cfg)
+        IConfiguration cfg,
+        IEmailService email)
     {
         _platform = platform;
         _prov     = prov;
         _cfg      = cfg;
+        _email    = email;
     }
 
     public record TrialRequest(
@@ -100,18 +103,22 @@ public class TrialController : ControllerBase
         var senhaTemp  = resultado.SenhaTemporaria;
         var loginEmail = resultado.LoginEmail;
 
-        _ = Task.Run(async () =>
+        // Envio sincrono: o Resend e via HTTP (rapido) e queremos saber se chegou.
+        // Nao roda em Task.Run porque o EmailService usa o PlatformDbContext (scoped),
+        // que seria descartado ao fim do request.
+        var emailEnviado = false;
+        try
         {
-            try { await EnviarEmailBoasVindas(reqCopy, loginEmail, senhaTemp, trialExpiraEm, linkReset); }
-            catch (Exception ex) { Console.WriteLine($"[Trial] Email erro: {ex.Message}"); }
-        });
+            emailEnviado = await EnviarEmailBoasVindas(reqCopy, loginEmail, senhaTemp, trialExpiraEm, linkReset);
+        }
+        catch (Exception ex) { Console.WriteLine($"[Trial] Email erro: {ex.Message}"); }
 
         return Ok(new
         {
             mensagem      = "Conta criada com sucesso!",
             loginEmail    = resultado.LoginEmail,
             senha         = resultado.SenhaTemporaria,
-            emailEnviado  = true,
+            emailEnviado,
             trialExpiraEm = trialExpiraEm.ToString("yyyy-MM-dd"),
             diasRestantes = 14,
             urlLogin      = $"{FrontendUrl}/login"
@@ -134,25 +141,6 @@ public class TrialController : ControllerBase
     {
         try
         {
-            var smtpHost  = _cfg["Smtp:Host"]      ?? Environment.GetEnvironmentVariable("Smtp__Host");
-            var smtpPorta = int.Parse(_cfg["Smtp:Porta"] ?? Environment.GetEnvironmentVariable("Smtp__Porta") ?? "587");
-            var smtpUser  = _cfg["Smtp:Usuario"]   ?? Environment.GetEnvironmentVariable("Smtp__Usuario");
-            var smtpSenha = _cfg["Smtp:Senha"]     ?? Environment.GetEnvironmentVariable("Smtp__Senha");
-            var smtpSsl   = bool.Parse(_cfg["Smtp:Ssl"] ?? Environment.GetEnvironmentVariable("Smtp__Ssl") ?? "true");
-            var remetente = _cfg["Smtp:Remetente"] ?? smtpUser;
-
-            if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUser))
-            {
-                Console.WriteLine("[Trial] SMTP nao configurado.");
-                return false;
-            }
-
-            using var client = new SmtpClient(smtpHost, smtpPorta)
-            {
-                EnableSsl   = smtpSsl,
-                Credentials = new NetworkCredential(smtpUser, smtpSenha)
-            };
-
             var dataExpiraBR = trialExpiraEm.ToLocalTime().ToString("dd/MM/yyyy");
 
             var body = $@"<!DOCTYPE html>
@@ -230,17 +218,17 @@ public class TrialController : ControllerBase
 </body>
 </html>";
 
-            var msg = new MailMessage
+            var assunto = $"Bem-vindo ao VetClinica, {req.NomeDono}! Seus dados de acesso";
+            var r = await _email.EnviarAsync(email, assunto, body);
+
+            if (r.Ok)
             {
-                From       = new MailAddress(remetente!, "VetClinica by Ketra"),
-                Subject    = $"Bem-vindo ao VetClinica, {req.NomeDono}! Seus dados de acesso",
-                IsBodyHtml = true,
-                Body       = body
-            };
-            msg.To.Add(email);
-            await client.SendMailAsync(msg);
-            Console.WriteLine($"[Trial] Email de boas-vindas enviado para {email}");
-            return true;
+                Console.WriteLine($"[Trial] Email de boas-vindas enviado para {email} via {r.Provider}");
+                return true;
+            }
+
+            Console.WriteLine($"[Trial] Falha ao enviar email ({r.Provider}): {r.Erro}");
+            return false;
         }
         catch (Exception ex)
         {

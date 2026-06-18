@@ -37,6 +37,7 @@ builder.Services.AddScoped<FuncionarioService>();
 builder.Services.AddScoped<ComissaoService>();
 builder.Services.AddScoped<FechamentoService>();
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // ── JWT ───────────────────────────────────────────────────────────────────────
 var jwtKey = builder.Configuration["Jwt:Key"]
