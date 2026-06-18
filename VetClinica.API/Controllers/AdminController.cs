@@ -164,12 +164,16 @@ public class AdminController : ControllerBase
         if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUser))
             return BadRequest(new { erro = "SMTP nao configurado nas variaveis de ambiente do Railway." });
 
+        var para = !string.IsNullOrWhiteSpace(destino) ? destino : smtpUser;
         try
         {
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(20));
             using var client = new SmtpClient(smtpHost, smtpPorta)
             {
-                EnableSsl   = smtpSsl,
-                Credentials = new NetworkCredential(smtpUser, smtpSenha)
+                EnableSsl        = smtpSsl,
+                Credentials      = new NetworkCredential(smtpUser, smtpSenha),
+                Timeout          = 15000,
+                DeliveryMethod   = SmtpDeliveryMethod.Network
             };
             var msg = new MailMessage
             {
@@ -178,14 +182,14 @@ public class AdminController : ControllerBase
                 IsBodyHtml = true,
                 Body       = "<p>Email de teste enviado com sucesso pelo painel admin do VetClinica.</p>"
             };
-            msg.To.Add(!string.IsNullOrWhiteSpace(destino) ? destino : smtpUser);
-            await client.SendMailAsync(msg);
-            var para = !string.IsNullOrWhiteSpace(destino) ? destino : smtpUser;
+            msg.To.Add(para);
+            await client.SendMailAsync(msg, cts.Token);
             return Ok(new { mensagem = $"Email de teste enviado para {para}" });
         }
         catch (Exception ex)
         {
-            return BadRequest(new { erro = ex.Message, inner = ex.InnerException?.Message });
+            return BadRequest(new { erro = ex.Message, inner = ex.InnerException?.Message, stack = ex.StackTrace?.Split("
+").FirstOrDefault() });
         }
     }
 }
