@@ -65,9 +65,12 @@ public class EmailService : IEmailService
 
         var provider = (await Cfg("email_provider") ?? "resend").Trim().ToLowerInvariant();
 
-        return provider == "smtp"
-            ? await EnviarSmtpAsync(para, assunto, htmlBody)
-            : await EnviarResendAsync(para, assunto, htmlBody);
+        return provider switch
+        {
+            "smtp"  => await EnviarSmtpAsync(para, assunto, htmlBody),
+            "graph" => await EnviarGraphAsync(para, assunto, htmlBody),
+            _       => await EnviarResendAsync(para, assunto, htmlBody)
+        };
     }
 
     // ── Resend (HTTP / porta 443) ─────────────────────────────────────────
@@ -130,6 +133,104 @@ public class EmailService : IEmailService
         {
             _logger.LogError(ex, "[Email] Resend excecao: {msg}", ex.Message);
             return new EmailResult(false, ex.Message, "resend");
+        }
+    }
+
+    // ── Microsoft Graph (Office 365 via HTTP / porta 443) ─────────────────
+    // Usa a caixa do Microsoft 365 (ex: workflow@ketra.com.br) sem SMTP.
+    // Funciona no Railway Hobby porque e tudo HTTPS (443).
+    // Fluxo: client credentials (app-only) -> token -> POST /users/{remetente}/sendMail
+    private async Task<EmailResult> EnviarGraphAsync(string para, string assunto, string htmlBody)
+    {
+        var tenantId  = await Cfg("graph_tenant_id");
+        var clientId  = await Cfg("graph_client_id");
+        var secret    = await Cfg("graph_client_secret");
+        var remetente = await Cfg("graph_remetente");
+
+        if (string.IsNullOrWhiteSpace(tenantId) || string.IsNullOrWhiteSpace(clientId)
+            || string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(remetente))
+            return new EmailResult(false, "Microsoft 365 (Graph) nao configurado: informe Tenant ID, Client ID, Client Secret e remetente.", "graph");
+
+        try
+        {
+            var client = _httpFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(25);
+
+            // 1) Obter token (OAuth2 client credentials / app-only)
+            var tokenUrl = $"https://login.microsoftonline.com/{tenantId.Trim()}/oauth2/v2.0/token";
+            using var tokenReq = new HttpRequestMessage(HttpMethod.Post, tokenUrl)
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["client_id"]     = clientId.Trim(),
+                    ["client_secret"] = secret.Trim(),
+                    ["scope"]         = "https://graph.microsoft.com/.default",
+                    ["grant_type"]    = "client_credentials"
+                })
+            };
+
+            var tokenResp = await client.SendAsync(tokenReq);
+            var tokenBody = await tokenResp.Content.ReadAsStringAsync();
+
+            if (!tokenResp.IsSuccessStatusCode)
+            {
+                var erroTok = tokenBody;
+                try { erroTok = JsonDocument.Parse(tokenBody).RootElement.GetProperty("error_description").GetString() ?? tokenBody; }
+                catch { /* mantem corpo bruto */ }
+                _logger.LogError("[Email] Graph token falhou ({status}): {erro}", (int)tokenResp.StatusCode, erroTok);
+                return new EmailResult(false, $"Graph token ({(int)tokenResp.StatusCode}): {erroTok}", "graph");
+            }
+
+            string? accessToken = null;
+            try { accessToken = JsonDocument.Parse(tokenBody).RootElement.GetProperty("access_token").GetString(); }
+            catch { /* sem token */ }
+
+            if (string.IsNullOrWhiteSpace(accessToken))
+                return new EmailResult(false, "Graph: token de acesso vazio.", "graph");
+
+            // 2) Enviar email via sendMail
+            var sendUrl = $"https://graph.microsoft.com/v1.0/users/{Uri.EscapeDataString(remetente.Trim())}/sendMail";
+            var payload = new
+            {
+                message = new
+                {
+                    subject = assunto,
+                    body = new { contentType = "HTML", content = htmlBody },
+                    toRecipients = new[]
+                    {
+                        new { emailAddress = new { address = para } }
+                    }
+                },
+                saveToSentItems = false
+            };
+            var json = JsonSerializer.Serialize(payload);
+
+            using var sendReq = new HttpRequestMessage(HttpMethod.Post, sendUrl)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+            sendReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var sendResp = await client.SendAsync(sendReq);
+
+            if (sendResp.IsSuccessStatusCode) // 202 Accepted
+            {
+                _logger.LogInformation("[Email] Graph OK para {para} (de {de})", para, remetente);
+                return new EmailResult(true, null, "graph");
+            }
+
+            var sendBody = await sendResp.Content.ReadAsStringAsync();
+            var erro = sendBody;
+            try { erro = JsonDocument.Parse(sendBody).RootElement.GetProperty("error").GetProperty("message").GetString() ?? sendBody; }
+            catch { /* mantem corpo bruto */ }
+
+            _logger.LogError("[Email] Graph sendMail falhou ({status}): {erro}", (int)sendResp.StatusCode, erro);
+            return new EmailResult(false, $"Graph ({(int)sendResp.StatusCode}): {erro}", "graph");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Email] Graph excecao: {msg}", ex.Message);
+            return new EmailResult(false, ex.Message, "graph");
         }
     }
 

@@ -130,11 +130,17 @@ public class AdminController : ControllerBase
     {
         var g = Guard(); if (g != null) return g;
         var resendKey = await Cfg("resend_api_key");
+        var graphSecret = await Cfg("graph_client_secret");
         return Ok(new {
-            provider        = await Cfg("email_provider")    ?? "resend",
-            resendApiKey    = "",   // nunca retorna a chave
+            provider          = await Cfg("email_provider")    ?? "resend",
+            resendApiKey      = "",   // nunca retorna a chave
             resendConfigurado = !string.IsNullOrWhiteSpace(resendKey),
-            resendRemetente = await Cfg("resend_remetente") ?? "",
+            resendRemetente   = await Cfg("resend_remetente") ?? "",
+            graphTenantId     = await Cfg("graph_tenant_id")  ?? "",
+            graphClientId     = await Cfg("graph_client_id")  ?? "",
+            graphClientSecret = "",   // nunca retorna o secret
+            graphConfigurado  = !string.IsNullOrWhiteSpace(graphSecret),
+            graphRemetente    = await Cfg("graph_remetente")  ?? "",
             host      = await Cfg("smtp_host")      ?? "",
             porta     = await Cfg("smtp_porta")     ?? "587",
             usuario   = await Cfg("smtp_usuario")   ?? "",
@@ -151,11 +157,24 @@ public class AdminController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(req.Provider))
             await SetCfg("email_provider", req.Provider.Trim().ToLowerInvariant());
+
+        // Resend
         if (!string.IsNullOrWhiteSpace(req.ResendApiKey))
             await SetCfg("resend_api_key", req.ResendApiKey.Trim());
         if (req.ResendRemetente != null)
             await SetCfg("resend_remetente", req.ResendRemetente.Trim());
 
+        // Microsoft Graph (Office 365)
+        if (!string.IsNullOrWhiteSpace(req.GraphTenantId))
+            await SetCfg("graph_tenant_id", req.GraphTenantId.Trim());
+        if (!string.IsNullOrWhiteSpace(req.GraphClientId))
+            await SetCfg("graph_client_id", req.GraphClientId.Trim());
+        if (!string.IsNullOrWhiteSpace(req.GraphClientSecret))
+            await SetCfg("graph_client_secret", req.GraphClientSecret.Trim());
+        if (req.GraphRemetente != null)
+            await SetCfg("graph_remetente", req.GraphRemetente.Trim());
+
+        // SMTP (legado / plano Pro)
         await SetCfg("smtp_host",      req.Host);
         await SetCfg("smtp_porta",     req.Porta);
         await SetCfg("smtp_usuario",   req.Usuario);
@@ -174,7 +193,7 @@ public class AdminController : ControllerBase
 
         var para = !string.IsNullOrWhiteSpace(destino)
             ? destino
-            : (await Cfg("resend_remetente") ?? await Cfg("smtp_usuario"));
+            : (await Cfg("graph_remetente") ?? await Cfg("resend_remetente") ?? await Cfg("smtp_usuario"));
 
         if (string.IsNullOrWhiteSpace(para))
             return BadRequest(new { erro = "Informe um email de destino para o teste." });
