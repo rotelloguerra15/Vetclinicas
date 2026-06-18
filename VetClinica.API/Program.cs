@@ -39,6 +39,7 @@ builder.Services.AddScoped<FechamentoService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<VetClinica.API.Services.Payments.IPaymentProvider, VetClinica.API.Services.Payments.AsaasPaymentProvider>();
+builder.Services.AddScoped<VetClinica.API.Services.Payments.MercadoPagoProvider>();
 
 // ── JWT ───────────────────────────────────────────────────────────────────────
 var jwtKey = builder.Configuration["Jwt:Key"]

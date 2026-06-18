@@ -127,6 +127,12 @@ public class ParametrosSistema
     [Column("asaas_ambiente")]  public string? AsaasAmbiente { get; set; } = "sandbox"; // sandbox | producao
     [Column("asaas_pix_ativo")] public bool    AsaasPixAtivo { get; set; } = false;
 
+    // ── Mercado Pago (PDV Pagamentos) — config por tenant ──
+    [Column("mp_access_token")] public string? MpAccessToken { get; set; }
+    [Column("mp_device_id")]    public string? MpDeviceId { get; set; }
+    [Column("mp_ambiente")]     public string? MpAmbiente { get; set; } = "sandbox";
+    [Column("mp_ativo")]        public bool    MpAtivo { get; set; } = false;
+
     // SMTP
     [Column("smtp_host")]           public string? SmtpHost { get; set; }
     [Column("smtp_porta")]          public int SmtpPorta { get; set; } = 587;
