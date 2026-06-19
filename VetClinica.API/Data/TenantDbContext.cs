@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using VetClinica.API.Models;
 
 namespace VetClinica.API.Data;
@@ -11,10 +12,24 @@ public class TenantDbContext : DbContext
 {
     private readonly string _schema;
 
+    // Exposto para o TenantModelCacheKeyFactory (cache de modelo por schema).
+    public string Schema => _schema;
+
     public TenantDbContext(DbContextOptions<TenantDbContext> options, string schema)
         : base(options)
     {
         _schema = schema;
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        // CRÍTICO multi-schema: sem isto, o EF cacheia o modelo compilado por
+        // TIPO de DbContext apenas, ignorando o schema da instância — fazendo
+        // todas as instâncias após a primeira reaproveitarem o schema da
+        // primeira clínica resolvida desde o boot do processo (vazamento
+        // entre tenants). Ver TenantModelCacheKeyFactory.
+        optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
+        base.OnConfiguring(optionsBuilder);
     }
 
     // ── Clínica / Tutores / Pets ──────────────────────────────────────────────
