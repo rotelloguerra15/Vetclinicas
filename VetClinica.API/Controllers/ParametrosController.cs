@@ -68,6 +68,44 @@ public class ParametrosController : ControllerBase
         return NoContent();
     }
 
+    // ── Mercado Pago (PDV Pagamentos) ───────────────────────────────────────────
+
+    public record MpConfigDto(string? AccessToken, string? DeviceId, string Ambiente, bool Ativo);
+
+    [HttpGet("mercadopago")]
+    public async Task<IActionResult> GetMercadoPago()
+    {
+        var p = await _db.ParametrosSistema.FirstOrDefaultAsync(x => x.TenantId == _t.TenantId);
+        return Ok(new
+        {
+            configurado = !string.IsNullOrWhiteSpace(p?.MpAccessToken),
+            deviceId    = p?.MpDeviceId ?? "",
+            ambiente    = p?.MpAmbiente ?? "producao",
+            ativo       = p?.MpAtivo ?? false
+        });
+    }
+
+    [HttpPut("mercadopago")]
+    public async Task<IActionResult> SalvarMercadoPago(MpConfigDto dto)
+    {
+        var p = await _db.ParametrosSistema.FirstOrDefaultAsync(x => x.TenantId == _t.TenantId);
+        if (p == null)
+        {
+            p = new ParametrosSistema { Id = Guid.NewGuid(), TenantId = _t.TenantId, CriadoEm = DateTime.UtcNow };
+            _db.ParametrosSistema.Add(p);
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.AccessToken))
+            p.MpAccessToken = dto.AccessToken.Trim();
+        p.MpDeviceId = string.IsNullOrWhiteSpace(dto.DeviceId) ? null : dto.DeviceId.Trim();
+        p.MpAmbiente = dto.Ambiente;
+        p.MpAtivo    = dto.Ativo;
+        p.AtualizadoEm = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
     // ── Bot Config ────────────────────────────────────────────────────────────
 
     public record BotCfgDto(

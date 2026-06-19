@@ -32,9 +32,19 @@ export default function Parametros() {
   const [salvandoIa, setSalvandoIa] = useState(false)
   const [mostrarChave, setMostrarChave] = useState(false)
 
+  // Mercado Pago (PDV Pagamentos)
+  const [mp, setMp] = useState({ configurado: false, deviceId: '', ambiente: 'producao', ativo: false })
+  const [mpToken, setMpToken] = useState('')
+  const [mpMostrarToken, setMpMostrarToken] = useState(false)
+  const [mpDevices, setMpDevices] = useState([])
+  const [mpBuscandoDevices, setMpBuscandoDevices] = useState(false)
+  const [salvandoMp, setSalvandoMp] = useState(false)
+  const [testandoMp, setTestandoMp] = useState(false)
+
   function carregar() {
     api.get('/certificado/status').then(r => setCertStatus(r.data)).catch(() => {})
     api.get('/contabil/config').then(r => setSmtp(r.data || {})).catch(() => {})
+    api.get('/parametros/mercadopago').then(r => setMp(r.data)).catch(() => {})
     api.get('/ia/status').then(r => {
       setIaStatus(r.data)
       setIaAtivo(r.data.ativo)
@@ -214,6 +224,53 @@ export default function Parametros() {
       setMsg({ tipo: 'ok', texto: 'Chave removida.' })
     } catch {
       setMsg({ tipo: 'erro', texto: 'Erro ao remover chave.' })
+    }
+  }
+
+  async function salvarMp() {
+    setSalvandoMp(true)
+    try {
+      await api.put('/parametros/mercadopago', {
+        accessToken: mpToken || null,
+        deviceId: mp.deviceId || null,
+        ambiente: mp.ambiente,
+        ativo: mp.ativo
+      })
+      const r = await api.get('/parametros/mercadopago')
+      setMp(r.data)
+      setMpToken('')
+      setMsg({ tipo: 'ok', texto: 'Configuração do Mercado Pago salva!' })
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: e.response?.data?.erro || 'Erro ao salvar.' })
+    } finally {
+      setSalvandoMp(false)
+    }
+  }
+
+  async function buscarMaquininhas() {
+    setMpBuscandoDevices(true)
+    try {
+      const r = await api.get('/pagamentos/devices')
+      setMpDevices(r.data || [])
+      if ((r.data || []).length === 0)
+        setMsg({ tipo: 'erro', texto: 'Nenhuma maquininha encontrada nesta conta Mercado Pago.' })
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: e.response?.data?.erro || 'Erro ao buscar maquininhas. Salve o token primeiro.' })
+    } finally {
+      setMpBuscandoDevices(false)
+    }
+  }
+
+  async function testarMp() {
+    setTestandoMp(true)
+    setMsg(null)
+    try {
+      const r = await api.post('/pagamentos/pix', { valor: 1, descricao: 'Teste de integração' })
+      setMsg({ tipo: 'ok', texto: `QR de teste gerado com sucesso (R$ 1,00, cobrança ${r.data.id?.slice(0,8)}...). A integração está funcionando.` })
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: '❌ ' + (e.response?.data?.erro || 'Erro ao testar.') })
+    } finally {
+      setTestandoMp(false)
     }
   }
 
@@ -578,6 +635,100 @@ export default function Parametros() {
               🗑️ Remover chave
             </button>
           )}
+        </div>
+      </div>
+
+      {/* ── Mercado Pago (PDV Pagamentos) ───────────────────────────────── */}
+      <div className="bg-white rounded-2xl shadow p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-700">💳 Pagamentos no PDV (Mercado Pago)</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Pix dinâmico e cartão na maquininha, integrados ao caixa
+            </p>
+          </div>
+          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${mp.ativo ? 'bg-emerald-100 text-emerald-700' : mp.configurado ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+            {mp.ativo ? '✓ Ativo' : mp.configurado ? '⏸ Configurado (inativo)' : 'Não configurado'}
+          </span>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 space-y-1">
+          <p>🔑 Pegue o Access Token em: mercadopago.com.br → Suas integrações → sua aplicação → Credenciais</p>
+          <p>💳 Para cobrar no cartão, sua maquininha Point precisa estar vinculada à mesma conta</p>
+        </div>
+
+        {/* Access Token */}
+        <div>
+          <label className="text-xs text-slate-500 font-medium block mb-1">
+            Access Token {mp.configurado && <span className="text-emerald-600">(já configurado)</span>}
+          </label>
+          <div className="flex gap-2">
+            <input type={mpMostrarToken ? 'text' : 'password'}
+              className="border rounded-xl px-3 py-2.5 flex-1 text-sm"
+              placeholder={mp.configurado ? 'Deixe vazio para manter o atual' : 'APP_USR-... ou TEST-...'}
+              value={mpToken} onChange={e => setMpToken(e.target.value)} />
+            <button type="button" onClick={() => setMpMostrarToken(v => !v)}
+              className="border border-slate-200 px-3 rounded-xl text-slate-400 hover:bg-slate-50">
+              {mpMostrarToken ? '🙈' : '👁️'}
+            </button>
+          </div>
+        </div>
+
+        {/* Ambiente */}
+        <div>
+          <label className="text-xs text-slate-500 font-medium block mb-1">Ambiente</label>
+          <select value={mp.ambiente} onChange={e => setMp({ ...mp, ambiente: e.target.value })}
+            className="border rounded-xl px-3 py-2.5 text-sm w-full bg-white">
+            <option value="producao">Produção (cobranças reais)</option>
+            <option value="sandbox">Sandbox (testes, sem dinheiro real)</option>
+          </select>
+        </div>
+
+        {/* Maquininha */}
+        <div>
+          <label className="text-xs text-slate-500 font-medium block mb-1">Maquininha (para cobrar no cartão)</label>
+          <div className="flex gap-2">
+            <select value={mp.deviceId || ''} onChange={e => setMp({ ...mp, deviceId: e.target.value })}
+              className="border rounded-xl px-3 py-2.5 text-sm flex-1 bg-white">
+              <option value="">Nenhuma selecionada (só Pix funcionará)</option>
+              {mpDevices.map(d => (
+                <option key={d.id} value={d.id}>{d.id} {d.name ? `— ${d.name}` : ''}</option>
+              ))}
+              {mp.deviceId && !mpDevices.find(d => d.id === mp.deviceId) && (
+                <option value={mp.deviceId}>{mp.deviceId} (salva)</option>
+              )}
+            </select>
+            <button type="button" onClick={buscarMaquininhas} disabled={mpBuscandoDevices}
+              className="border border-slate-200 px-3 rounded-xl text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 whitespace-nowrap">
+              {mpBuscandoDevices ? '⏳' : '🔄 Buscar'}
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">Clique em "Buscar" depois de salvar o token, para listar as maquininhas da conta.</p>
+        </div>
+
+        {/* Toggle ativo */}
+        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <button type="button" onClick={() => setMp({ ...mp, ativo: !mp.ativo })}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${mp.ativo ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${mp.ativo ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+          <div>
+            <p className="text-sm font-semibold text-slate-700">
+              {mp.ativo ? 'Pagamentos integrados ativados' : 'Pagamentos integrados desativados'}
+            </p>
+            <p className="text-xs text-slate-400">Habilita as opções "Pix Mercado Pago" e "Cartão (maquininha)" no PDV</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={salvarMp} disabled={salvandoMp}
+            className="bg-slate-900 text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-slate-800">
+            {salvandoMp ? '⏳ Salvando...' : '💾 Salvar'}
+          </button>
+          <button onClick={testarMp} disabled={testandoMp || !mp.configurado}
+            className="border border-slate-200 text-slate-600 px-5 py-2 rounded-lg text-sm hover:bg-slate-50 disabled:opacity-40">
+            {testandoMp ? '⏳ Testando...' : '🧪 Testar Pix (R$ 1,00)'}
+          </button>
         </div>
       </div>
 
