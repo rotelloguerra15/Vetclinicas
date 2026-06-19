@@ -2,7 +2,9 @@ import { useEffect, useState, useCallback } from 'react'
 import api from '../api/client'
 
 const FORMAS = [
-  { value: 'PIX',               label: 'PIX' },
+  { value: 'MP_PIX',            label: 'Pix Mercado Pago' },
+  { value: 'MP_CARTAO',         label: 'Cartão (maquininha)' },
+  { value: 'PIX',               label: 'PIX (manual)' },
   { value: 'Dinheiro',          label: 'Dinheiro' },
   { value: 'Cartão de Débito',  label: 'Cartão Débito' },
   { value: 'Cartão de Crédito', label: 'Cartão Crédito' },
@@ -97,16 +99,20 @@ function CaixaFechado({ caixa, onReabrir }) {
 
         <div className="space-y-2 text-sm mb-6">
           <div className="flex justify-between py-2 border-b">
+            <span className="text-slate-500">Vendas do dia (todas as formas)</span>
+            <span className="font-medium text-slate-700">{fmt(caixa.totalVendas)}</span>
+          </div>
+          <div className="flex justify-between py-1 pl-3 text-xs">
+            <span className="text-slate-400">↳ serviços (já inclusos nas vendas)</span>
+            <span className="text-slate-400">{fmt(caixa.totalServicos)}</span>
+          </div>
+
+          <div className="pt-2 mt-1 border-t text-xs font-semibold text-slate-400 uppercase tracking-wide">
+            Caixa físico (dinheiro)
+          </div>
+          <div className="flex justify-between py-2 border-b">
             <span className="text-slate-500">Saldo inicial</span>
             <span className="font-medium">{fmt(caixa.saldoInicial)}</span>
-          </div>
-          <div className="flex justify-between py-2 border-b">
-            <span className="text-slate-500">Total vendas</span>
-            <span className="font-medium text-emerald-600">+ {fmt(caixa.totalVendas)}</span>
-          </div>
-          <div className="flex justify-between py-2 border-b">
-            <span className="text-slate-500">Total serviços</span>
-            <span className="font-medium text-emerald-600">+ {fmt(caixa.totalServicos)}</span>
           </div>
           {depositos > 0 && (
             <div className="flex justify-between py-2 border-b">
@@ -121,9 +127,12 @@ function CaixaFechado({ caixa, onReabrir }) {
             </div>
           )}
           <div className="flex justify-between py-3 font-bold text-base border-t-2 border-slate-200">
-            <span>Saldo Final</span>
+            <span>Saldo Final (dinheiro)</span>
             <span className="text-blue-700">{fmt(caixa.saldoFinal)}</span>
           </div>
+          <p className="text-xs text-slate-400">
+            O Saldo Final reflete apenas o dinheiro em espécie: saldo inicial + recebimentos em dinheiro + depósitos − retiradas − despesas pagas em dinheiro.
+          </p>
         </div>
 
         {['owner','admin'].includes(papel) ? (
@@ -343,7 +352,8 @@ export default function PDV() {
   const [tutorNome, setTutorNome] = useState('')
   const [petNome, setPetNome]     = useState('')
   const [carrinho, setCarrinho]   = useState([])
-  const [pagamento, setPagamento] = useState('PIX')
+  const [pagamento, setPagamento] = useState('MP_PIX')
+  const [cobranca, setCobranca]   = useState(null) // cobrança MP ativa: {id, metodo, qrPayload, qrImage, status}
   const [mostrarDesconto, setMostrarDesconto] = useState(false)
   const [desconto, setDesconto]   = useState('')
   const [saving, setSaving]       = useState(false)
@@ -416,30 +426,70 @@ export default function PDV() {
   const descontoVal = Math.min(+desconto || 0, subtotal)
   const total       = subtotal - descontoVal
 
-  async function finalizar() {
-    if (carrinho.length === 0) return
+  // Registra a venda no sistema (produto cria venda; serviço puro marca OS paga)
+  async function registrarVenda(formaReal) {
+    const produtosCarrinho = carrinho.filter(i => i.tipo === 'produto')
+    if (produtosCarrinho.length > 0) {
+      await api.post('/vendas', {
+        tutorId: tutorId || null,
+        osId: osId || null,
+        itens: produtosCarrinho.map(i => ({ produtoId: i.id, quantidade: i.qtd, precoUnitario: i.preco })),
+        desconto: descontoVal,
+        formaPagamento: formaReal
+      })
+    } else if (osId) {
+      await api.put(`/ordens-servico/${osId}/status`, { status: 'pago' })
+    }
+    setMsg({ tipo: 'ok', texto: `✅ Venda finalizada! ${fmt(total)}` })
+    setCarrinho([]); setOsId(null); setTutorId(null); setTutorNome(''); setPetNome('')
+    setDesconto(''); setMostrarDesconto(false)
+    carregarDados()
+  }
+
+  // Inicia cobrança integrada Mercado Pago (Pix QR ou maquininha)
+  async function iniciarCobrancaMP(metodo) {
     setSaving(true); setMsg(null)
     try {
-      const produtosCarrinho = carrinho.filter(i => i.tipo === 'produto')
-      if (produtosCarrinho.length > 0) {
-        await api.post('/vendas', {
-          tutorId: tutorId || null,
-          osId: osId || null,
-          itens: produtosCarrinho.map(i => ({ produtoId: i.id, quantidade: i.qtd, precoUnitario: i.preco })),
-          desconto: descontoVal,
-          formaPagamento: pagamento
-        })
-      } else if (osId) {
-        await api.put(`/ordens-servico/${osId}/status`, { status: 'pago' })
-      }
-      setMsg({ tipo: 'ok', texto: `✅ Venda finalizada! ${fmt(total)}` })
-      setCarrinho([]); setOsId(null); setTutorId(null); setTutorNome(''); setPetNome('')
-      setDesconto(''); setMostrarDesconto(false)
-      carregarDados()
+      const endpoint = metodo === 'pix' ? '/pagamentos/pix' : '/pagamentos/cartao'
+      const { data } = await api.post(endpoint, {
+        valor: total,
+        descricao: `Venda PDV${petNome ? ' — ' + petNome : ''}`
+      })
+      setCobranca({ id: data.id, metodo, qrPayload: data.qrPayload, qrImage: data.qrImage, status: 'pendente' })
     } catch (e) {
-      setMsg({ tipo: 'erro', texto: '❌ ' + (e.response?.data?.erro || 'Erro ao finalizar') })
+      setMsg({ tipo: 'erro', texto: '❌ ' + (e.response?.data?.erro || 'Erro ao criar cobrança') })
     } finally { setSaving(false) }
   }
+
+  async function finalizar() {
+    if (carrinho.length === 0) return
+    if (pagamento === 'MP_PIX')    return iniciarCobrancaMP('pix')
+    if (pagamento === 'MP_CARTAO') return iniciarCobrancaMP('cartao')
+    setSaving(true); setMsg(null)
+    try { await registrarVenda(pagamento) }
+    catch (e) { setMsg({ tipo: 'erro', texto: '❌ ' + (e.response?.data?.erro || 'Erro ao finalizar') }) }
+    finally { setSaving(false) }
+  }
+
+  // Polling do status da cobrança MP
+  useEffect(() => {
+    if (!cobranca || cobranca.status !== 'pendente') return
+    const iv = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/pagamentos/${cobranca.id}`)
+        if (data.pago) {
+          clearInterval(iv)
+          setCobranca(c => c && ({ ...c, status: 'pago' }))
+          try { await registrarVenda(cobranca.metodo === 'pix' ? 'PIX' : 'Cartão de Crédito') } catch {}
+          setTimeout(() => setCobranca(null), 1800)
+        } else if (data.status === 'cancelado' || data.status === 'erro') {
+          clearInterval(iv)
+          setCobranca(c => c && ({ ...c, status: data.status }))
+        }
+      } catch { /* tenta de novo no próximo tick */ }
+    }, 3000)
+    return () => clearInterval(iv)
+  }, [cobranca])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtrados = produtos.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()) && p.estoqueAtual > 0)
 
@@ -637,6 +687,63 @@ export default function PDV() {
           onClose={() => setModalFechamento(false)}
           onFechado={() => carregarCaixa()}
         />
+      )}
+
+      {/* Modal de cobrança Mercado Pago (Pix QR / maquininha) */}
+      {cobranca && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
+            {cobranca.status === 'pago' ? (
+              <div className="py-8">
+                <div className="text-6xl mb-4">✅</div>
+                <h2 className="text-2xl font-bold text-emerald-600">Pagamento aprovado!</h2>
+                <p className="text-slate-500 mt-2">{fmt(total)}</p>
+              </div>
+            ) : (cobranca.status === 'cancelado' || cobranca.status === 'erro') ? (
+              <div className="py-8">
+                <div className="text-6xl mb-4">❌</div>
+                <h2 className="text-xl font-bold text-red-500">Pagamento não concluído</h2>
+                <button onClick={() => setCobranca(null)}
+                  className="mt-6 w-full bg-slate-900 text-white py-3 rounded-xl font-bold">Fechar</button>
+              </div>
+            ) : cobranca.metodo === 'pix' ? (
+              <>
+                <h2 className="text-xl font-bold mb-1">Pague com Pix</h2>
+                <p className="text-3xl font-extrabold text-slate-900 mb-4">{fmt(total)}</p>
+                {cobranca.qrImage && (
+                  <img src={cobranca.qrImage} alt="QR Code Pix"
+                    className="w-60 h-60 mx-auto rounded-xl border" />
+                )}
+                {cobranca.qrPayload && (
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(cobranca.qrPayload); }}
+                    className="mt-4 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs py-2 px-3 rounded-lg break-all">
+                    Toque para copiar o código Pix
+                  </button>
+                )}
+                <p className="text-sm text-slate-400 mt-4 flex items-center justify-center gap-2">
+                  <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                  Aguardando pagamento...
+                </p>
+                <button onClick={() => setCobranca(null)}
+                  className="mt-4 text-xs text-slate-400 underline">Cancelar</button>
+              </>
+            ) : (
+              <>
+                <div className="text-5xl mb-4">💳</div>
+                <h2 className="text-xl font-bold mb-1">Cartão na maquininha</h2>
+                <p className="text-3xl font-extrabold text-slate-900 mb-4">{fmt(total)}</p>
+                <p className="text-slate-500">O valor foi enviado para a maquininha. Peça ao cliente para aproximar ou inserir o cartão.</p>
+                <p className="text-sm text-slate-400 mt-4 flex items-center justify-center gap-2">
+                  <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                  Aguardando o cartão...
+                </p>
+                <button onClick={() => setCobranca(null)}
+                  className="mt-4 text-xs text-slate-400 underline">Cancelar</button>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

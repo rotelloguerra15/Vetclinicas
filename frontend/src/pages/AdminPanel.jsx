@@ -13,8 +13,12 @@ export default function AdminPanel() {
   const [modal, setModal] = useState(false)
   const [criada, setCriada] = useState(null)
 
-  // Config SMTP
-  const [smtp, setSmtp] = useState({ host: '', porta: '587', usuario: '', senha: '', ssl: 'true', remetente: '' })
+  // Config de E-mail (provider + Resend + Graph + SMTP)
+  const [smtp, setSmtp] = useState({
+    provider: 'resend', resendApiKey: '', resendRemetente: '', resendConfigurado: false,
+    graphTenantId: '', graphClientId: '', graphClientSecret: '', graphRemetente: '', graphConfigurado: false,
+    host: '', porta: '587', usuario: '', senha: '', ssl: 'true', remetente: ''
+  })
   const [smtpMsg, setSmtpMsg] = useState('')
   const [smtpLoading, setSmtpLoading] = useState(false)
   const [emailTeste, setEmailTeste] = useState('')
@@ -161,12 +165,92 @@ export default function AdminPanel() {
         {aba === 'config' && (
           <div className="max-w-lg">
             <div className="bg-white rounded-2xl shadow p-6">
-              <h2 className="font-bold text-lg mb-1">Configuracoes de E-mail (SMTP)</h2>
+              <h2 className="font-bold text-lg mb-1">Configuracoes de E-mail</h2>
               <p className="text-sm text-slate-500 mb-5">
                 Usado para envio de boas-vindas, recuperacao de senha e notificacoes do sistema.
               </p>
 
               <form onSubmit={salvarSmtp} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Provedor de envio</label>
+                  <select value={smtp.provider} onChange={e => setSmtp({...smtp, provider: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="resend">Resend (HTTP/API - recomendado p/ Railway)</option>
+                    <option value="graph">Microsoft 365 / Office 365 (Graph API - HTTP)</option>
+                    <option value="smtp">SMTP (apenas Railway Pro ou ambiente local)</option>
+                  </select>
+                  {smtp.provider === 'smtp' && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Atencao: o Railway bloqueia portas SMTP (25/465/587) nos planos Free/Trial/Hobby. Use Resend ou Microsoft 365.
+                    </p>
+                  )}
+                  {smtp.provider === 'graph' && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Usa sua caixa do Office 365 (ex: workflow@ketra.com.br) via HTTPS. Funciona no Railway Hobby, sem custo extra.
+                    </p>
+                  )}
+                </div>
+
+                {smtp.provider === 'resend' && (
+                  <div className="space-y-3 border border-blue-100 bg-blue-50/40 rounded-xl p-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Resend API Key {smtp.resendConfigurado && <span className="text-green-600">(ja salva)</span>}
+                      </label>
+                      <input value={smtp.resendApiKey} onChange={e => setSmtp({...smtp, resendApiKey: e.target.value})}
+                        placeholder={smtp.resendConfigurado ? 'Deixe vazio para manter a atual' : 're_xxxxxxxxxxxx'}
+                        type="password"
+                        className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Remetente</label>
+                      <input value={smtp.resendRemetente} onChange={e => setSmtp({...smtp, resendRemetente: e.target.value})}
+                        placeholder="VetClinica by Ketra <nao-responda@ketra.com.br>"
+                        className="w-full border rounded-lg px-3 py-2 text-sm" />
+                      <p className="text-xs text-slate-400 mt-1">
+                        Formato: Nome &lt;email@dominio&gt;. Precisa de dominio verificado no Resend.
+                        Para teste rapido use: VetClinica &lt;onboarding@resend.dev&gt; (so envia para o email da sua conta Resend).
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {smtp.provider === 'graph' && (
+                  <div className="space-y-3 border border-blue-100 bg-blue-50/40 rounded-xl p-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Directory (tenant) ID</label>
+                      <input value={smtp.graphTenantId} onChange={e => setSmtp({...smtp, graphTenantId: e.target.value})}
+                        placeholder="ex: 00000000-0000-0000-0000-000000000000"
+                        className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Application (client) ID</label>
+                      <input value={smtp.graphClientId} onChange={e => setSmtp({...smtp, graphClientId: e.target.value})}
+                        placeholder="ex: 00000000-0000-0000-0000-000000000000"
+                        className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Client Secret {smtp.graphConfigurado && <span className="text-green-600">(ja salvo)</span>}
+                      </label>
+                      <input value={smtp.graphClientSecret} onChange={e => setSmtp({...smtp, graphClientSecret: e.target.value})}
+                        placeholder={smtp.graphConfigurado ? 'Deixe vazio para manter o atual' : 'valor do secret do Azure'}
+                        type="password"
+                        className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Remetente (caixa do Office 365)</label>
+                      <input value={smtp.graphRemetente} onChange={e => setSmtp({...smtp, graphRemetente: e.target.value})}
+                        placeholder="workflow@ketra.com.br" type="email"
+                        className="w-full border rounded-lg px-3 py-2 text-sm" />
+                      <p className="text-xs text-slate-400 mt-1">
+                        Caixa de email que vai enviar. O app no Azure precisa da permissao Mail.Send (consentida pelo admin).
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {smtp.provider === 'smtp' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-slate-600 mb-1">Servidor SMTP</label>
@@ -207,6 +291,7 @@ export default function AdminPanel() {
                       className="w-full border rounded-lg px-3 py-2 text-sm" />
                   </div>
                 </div>
+                )}
 
                 {smtpMsg && (
                   <div className={`text-sm px-3 py-2 rounded-lg ${smtpMsg.includes('Erro') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
@@ -219,7 +304,13 @@ export default function AdminPanel() {
                   <input value={emailTeste} onChange={e => setEmailTeste(e.target.value)}
                     placeholder={smtp.usuario || 'seu@email.com.br'} type="email"
                     className="w-full border rounded-lg px-3 py-2 text-sm" />
-                  <p className="text-xs text-slate-400 mt-1">Deixe vazio para usar o usuario SMTP</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {smtp.provider === 'resend'
+                      ? 'Com onboarding@resend.dev, use o email da sua conta Resend. Salve a config antes de testar.'
+                      : smtp.provider === 'graph'
+                      ? 'Salve a config antes de testar. Pode enviar para qualquer email (digite o seu para conferir).'
+                      : 'Deixe vazio para usar o usuario SMTP.'}
+                  </p>
                 </div>
                 <div className="flex gap-3">
                   <button type="submit" disabled={smtpLoading}
