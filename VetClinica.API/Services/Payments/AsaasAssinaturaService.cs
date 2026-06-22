@@ -91,7 +91,7 @@ public class AsaasAssinaturaService
             }));
             var subBody = await subResp.Content.ReadAsStringAsync();
             if (!subResp.IsSuccessStatusCode)
-                return new AssinaturaResult(false, $"Asaas subscription ({(int)subResp.StatusCode}): {ExtrairErro(subBody)}", clienteId: clienteId);
+                return new AssinaturaResult(false, $"Asaas subscription ({(int)subResp.StatusCode}): {ExtrairErro(subBody)}", ClienteId: clienteId);
             var assinaturaId = JsonDocument.Parse(subBody).RootElement.GetProperty("id").GetString();
 
             // 3) Busca o link de pagamento (invoiceUrl) do 1o pagamento gerado pela assinatura.
