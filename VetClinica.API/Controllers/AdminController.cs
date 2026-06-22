@@ -70,7 +70,7 @@ public class AdminController : ControllerBase
             return BadRequest(new { erro = "Clinica sem schema configurado." });
 
         using var db = _factory.CreateForSchema(t.SchemaName!);
-        var owner = await db.Users.FirstOrDefaultAsync(u => u.Email == t.Email && u.Ativo);
+        var owner = await db.Users.FirstOrDefaultAsync(u => u.Email == t.Email && u.Ativo && u.Papel == "owner");
         if (owner == null)
             return NotFound(new { erro = "Usuario principal (owner) nao encontrado nessa clinica." });
 
