@@ -31,6 +31,8 @@ builder.Services.AddScoped<AgendamentoLinkService>();
 builder.Services.AddHttpClient<WhatsAppService>();
 builder.Services.AddHostedService<NotificacaoDispatcher>();
 builder.Services.AddHostedService<AgendadorMensagens>();
+builder.Services.AddHostedService<TrialSuspensorWorker>();
+builder.Services.AddHostedService<AssinaturaAtrasoWorker>();
 builder.Services.AddHttpClient<ReceituarioPdfService>();
 builder.Services.AddScoped<BotWAService>();
 builder.Services.AddScoped<FuncionarioService>();
@@ -39,6 +41,7 @@ builder.Services.AddScoped<FechamentoService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<VetClinica.API.Services.Payments.IPaymentProvider, VetClinica.API.Services.Payments.AsaasPaymentProvider>();
+builder.Services.AddScoped<VetClinica.API.Services.Payments.AsaasAssinaturaService>();
 builder.Services.AddScoped<VetClinica.API.Services.Payments.MercadoPagoProvider>();
 
 // ── JWT ───────────────────────────────────────────────────────────────────────
