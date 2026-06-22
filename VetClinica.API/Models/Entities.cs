@@ -214,6 +214,7 @@ public class Tenant
     // a assinatura no Painel da Plataforma; atualizado pelo webhook a partir dai.
     [Column("asaas_cliente_id")]     public string?  AsaasClienteId     { get; set; }
     [Column("asaas_assinatura_id")]  public string?  AsaasAssinaturaId  { get; set; }
+    [Column("ultimo_aviso_atraso_em")] public DateTime? UltimoAvisoAtrasoEm { get; set; }
 }
 
 [Table("users")]

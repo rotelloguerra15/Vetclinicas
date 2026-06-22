@@ -65,6 +65,7 @@ public class AsaasAssinaturaWebhookController : ControllerBase
                 case "PAYMENT_RECEIVED":
                     tenant.StatusPagamento = "pago";
                     tenant.SuspensoEm = null; // reativa se estava suspensa por trial vencido / atraso
+                    tenant.UltimoAvisoAtrasoEm = null;
                     if (!string.IsNullOrWhiteSpace(planoId)) tenant.Plano = planoId;
                     if (pay.TryGetProperty("nextDueDate", out var ndd) && DateTime.TryParse(ndd.GetString(), out var prox))
                         tenant.ProximoFaturamento = prox;
