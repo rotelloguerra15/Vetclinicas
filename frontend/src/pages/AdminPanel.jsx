@@ -49,8 +49,12 @@ export default function AdminPanel() {
   }
   async function resetarSenha(c) {
     if (!confirm(`Gerar uma nova senha temporaria para o usuario principal de "${c.nome}"? A senha atual deixa de funcionar.`)) return
-    const { data } = await api.post(`/admin/clinicas/${c.id}/resetar-senha`)
-    setCriada({ ...data, _contexto: 'reset' })
+    try {
+      const { data } = await api.post(`/admin/clinicas/${c.id}/resetar-senha`)
+      setCriada({ ...data, _contexto: 'reset' })
+    } catch (err) {
+      alert(err.response?.data?.erro || 'Erro ao resetar a senha.')
+    }
   }
   async function atualizarPagamento(c, campo, valor) {
     const corpo = {
@@ -470,7 +474,9 @@ export default function AdminPanel() {
           dados={criada}
           onClose={() => setCriada(null)}
           {...(criada._contexto === 'reset'
-            ? { titulo: 'Senha redefinida!', subtitulo: 'Envie a nova senha temporaria ao responsavel pela clinica.' }
+            ? { titulo: 'Senha redefinida!', subtitulo: criada.emailEnviado
+                ? 'Email com a senha nova ja foi enviado para a clinica.'
+                : 'Nao foi possivel enviar o email automaticamente -- copie e envie a senha manualmente.' }
             : {})}
         />
       )}

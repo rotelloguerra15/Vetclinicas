@@ -78,7 +78,31 @@ public class AdminController : ControllerBase
         owner.SenhaHash = BCrypt.Net.BCrypt.HashPassword(novaSenha, workFactor: 11);
         await db.SaveChangesAsync();
 
-        return Ok(new { loginEmail = owner.Email, senhaTemporaria = novaSenha });
+        var emailEnviado = false;
+        if (!string.IsNullOrWhiteSpace(owner.Email))
+        {
+            var html = $@"<!DOCTYPE html>
+<html><head><meta charset='utf-8'></head>
+<body style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+  <div style='background: #0f172a; padding: 30px; border-radius: 12px 12px 0 0; text-align: center;'>
+    <h1 style='color: white; margin: 0;'>VetClinica</h1>
+  </div>
+  <div style='background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0;'>
+    <h2>Sua senha foi redefinida</h2>
+    <p>Clinica: <strong>{t.Nome}</strong></p>
+    <p>O administrador da plataforma gerou uma nova senha temporaria para o seu login:</p>
+    <div style='text-align: center; margin: 25px 0;'>
+      <span style='background: #0f172a; color: white; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-family: monospace; font-size: 18px;'>{novaSenha}</span>
+    </div>
+    <p>Login: <strong>{owner.Email}</strong></p>
+    <p style='font-size: 12px; color: #94a3b8;'>Recomendamos trocar essa senha assim que possivel apos o login.</p>
+  </div>
+</body></html>";
+            var r = await _email.EnviarAsync(owner.Email, "Sua senha foi redefinida - VetClinica", html);
+            emailEnviado = r.Ok;
+        }
+
+        return Ok(new { loginEmail = owner.Email, senhaTemporaria = novaSenha, emailEnviado });
     }
 
     [HttpPut("clinicas/{id}/pagamento")]
