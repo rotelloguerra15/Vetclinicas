@@ -22,12 +22,14 @@ public class AuthService
 
     public async Task<LoginOutcome> Login(LoginRequest req)
     {
+        var email = req.Email.Trim().ToLowerInvariant();
+
         // 1. Tenta login como owner (email = email do tenant)
         // Nota: nao filtra SuspensoEm aqui de proposito -- precisamos achar o tenant
         // suspenso para devolver um motivo claro (trial vencido / pagamento) em vez
         // de simplesmente dizer "credenciais invalidas".
         var tenantRecord = await _platform.Tenants
-            .FirstOrDefaultAsync(t => t.Email == req.Email
+            .FirstOrDefaultAsync(t => t.Email == email
                                    && t.Ativo
                                    && t.SchemaName != null);
 
@@ -35,7 +37,7 @@ public class AuthService
         {
             using var db = CriarDbParaSchema(tenantRecord.SchemaName!);
             var owner = await db.Users
-                .FirstOrDefaultAsync(u => u.Email == req.Email && u.Ativo);
+                .FirstOrDefaultAsync(u => u.Email == email && u.Ativo);
 
             if (owner == null || !BCrypt.Net.BCrypt.Verify(req.Senha, owner.SenhaHash))
                 return new LoginOutcome(null, "credenciais_invalidas", null);
@@ -59,7 +61,7 @@ public class AuthService
         {
             using var db = CriarDbParaSchema(t.SchemaName!);
             var user = await db.Users
-                .FirstOrDefaultAsync(u => u.Email == req.Email && u.Ativo);
+                .FirstOrDefaultAsync(u => u.Email == email && u.Ativo);
 
             if (user != null && BCrypt.Net.BCrypt.Verify(req.Senha, user.SenhaHash))
             {

@@ -16,7 +16,7 @@ export default function Login() {
     setErro('')
     setLoading(true)
     try {
-      const { data } = await api.post('/auth/login', { email, senha })
+      const { data } = await api.post('/auth/login', { email: email.trim().toLowerCase(), senha })
       localStorage.setItem('token', data.token)
       localStorage.setItem('nome', data.nome)
       localStorage.setItem('papel', data.papel)
