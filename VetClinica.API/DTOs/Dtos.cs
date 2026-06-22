@@ -7,6 +7,8 @@ public record LoginOutcome(LoginResponse? Resposta, string? CodigoErro, string? 
 
 // ---------- Admin / Plataforma ----------
 public record AtualizarPagamentoRequest(string? StatusPagamento, DateTime? ProximoFaturamento);
+public record AsaasSaasConfigRequest(string? ApiKey, string? Ambiente, string? WebhookToken);
+public record GerarAssinaturaRequest(string PlanoId);
 
 // ---------- Paginação ----------
 public record PagedResult<T>(IEnumerable<T> Items, int Total, int Page, int PageSize);

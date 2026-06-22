@@ -21,9 +21,10 @@ public class AdminController : ControllerBase
     private readonly IConfiguration         _cfg;
     private readonly IEmailService          _email;
     private readonly TenantDbContextFactory _factory;
+    private readonly VetClinica.API.Services.Payments.AsaasAssinaturaService _asaasAssinatura;
 
-    public AdminController(PlatformDbContext platform, TenantContext t, ProvisionamentoService prov, IConfiguration cfg, IEmailService email, TenantDbContextFactory factory)
-    { _platform = platform; _t = t; _prov = prov; _cfg = cfg; _email = email; _factory = factory; }
+    public AdminController(PlatformDbContext platform, TenantContext t, ProvisionamentoService prov, IConfiguration cfg, IEmailService email, TenantDbContextFactory factory, VetClinica.API.Services.Payments.AsaasAssinaturaService asaasAssinatura)
+    { _platform = platform; _t = t; _prov = prov; _cfg = cfg; _email = email; _factory = factory; _asaasAssinatura = asaasAssinatura; }
 
     private IActionResult? Guard() =>
         _t.IsPlatformAdmin ? null : StatusCode(403, new { erro = "Acesso restrito ao administrador da plataforma" });
@@ -240,5 +241,64 @@ public class AdminController : ControllerBase
             return Ok(new { mensagem = $"Email de teste enviado para {para} via {r.Provider}." });
 
         return BadRequest(new { erro = r.Erro, provider = r.Provider });
+    }
+
+    // ── Assinatura SaaS (Asaas — conta da Ketra, nao a de cada clinica) ──
+
+    [HttpGet("asaas-saas-config")]
+    public async Task<IActionResult> GetAsaasSaasConfig()
+    {
+        var g = Guard(); if (g != null) return g;
+        var apiKey = await Cfg("asaas_saas_api_key");
+        var webhookToken = await Cfg("asaas_saas_webhook_token");
+        return Ok(new {
+            apiKey              = "",   // nunca retorna a chave
+            apiKeyConfigurada   = !string.IsNullOrWhiteSpace(apiKey),
+            ambiente            = await Cfg("asaas_saas_ambiente") ?? "sandbox",
+            webhookToken        = "",   // nunca retorna o token
+            webhookConfigurado  = !string.IsNullOrWhiteSpace(webhookToken)
+        });
+    }
+
+    [HttpPost("asaas-saas-config")]
+    public async Task<IActionResult> SaveAsaasSaasConfig(AsaasSaasConfigRequest req)
+    {
+        var g = Guard(); if (g != null) return g;
+        if (!string.IsNullOrWhiteSpace(req.ApiKey))
+            await SetCfg("asaas_saas_api_key", req.ApiKey.Trim());
+        if (!string.IsNullOrWhiteSpace(req.Ambiente))
+            await SetCfg("asaas_saas_ambiente", req.Ambiente.Trim().ToLowerInvariant());
+        if (!string.IsNullOrWhiteSpace(req.WebhookToken))
+            await SetCfg("asaas_saas_webhook_token", req.WebhookToken.Trim());
+        await _platform.SaveChangesAsync();
+        return Ok(new { mensagem = "Configuracao da assinatura SaaS salva." });
+    }
+
+    // Precos fixos no servidor (nao confia em valor vindo do cliente).
+    // Mantenha igual ao frontend/src/pages/Planos.jsx.
+    private static readonly Dictionary<string, decimal> PrecosPlanos = new() {
+        ["starter"] = 149m,
+        ["profissional"] = 289m
+    };
+
+    [HttpPost("clinicas/{id}/gerar-assinatura")]
+    public async Task<IActionResult> GerarAssinatura(Guid id, GerarAssinaturaRequest req)
+    {
+        var g = Guard(); if (g != null) return g;
+        var t = await _platform.Tenants.FirstOrDefaultAsync(x => x.Id == id);
+        if (t == null) return NotFound();
+
+        if (!PrecosPlanos.TryGetValue(req.PlanoId, out var valor))
+            return BadRequest(new { erro = "Plano invalido. Use 'starter' ou 'profissional' (Enterprise e negociado direto)." });
+
+        var resultado = await _asaasAssinatura.CriarAssinatura(t, valor, req.PlanoId, $"Assinatura VetClinica — plano {req.PlanoId}");
+        if (!resultado.Ok)
+            return BadRequest(new { erro = resultado.Erro });
+
+        if (!string.IsNullOrWhiteSpace(resultado.ClienteId))    t.AsaasClienteId    = resultado.ClienteId;
+        if (!string.IsNullOrWhiteSpace(resultado.AssinaturaId)) t.AsaasAssinaturaId = resultado.AssinaturaId;
+        await _platform.SaveChangesAsync();
+
+        return Ok(new { assinaturaId = resultado.AssinaturaId, invoiceUrl = resultado.InvoiceUrl });
     }
 }

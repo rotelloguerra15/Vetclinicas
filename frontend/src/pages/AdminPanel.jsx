@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
 
-const PLANOS = ['trial', 'basico', 'pro', 'enterprise']
-const PLANO_COR = { trial: 'bg-slate-100 text-slate-600', basico: 'bg-blue-100 text-blue-700', pro: 'bg-emerald-100 text-emerald-700', enterprise: 'bg-purple-100 text-purple-700' }
+const PLANOS = ['trial', 'starter', 'profissional', 'enterprise']
+const PLANO_COR = { trial: 'bg-slate-100 text-slate-600', starter: 'bg-blue-100 text-blue-700', profissional: 'bg-emerald-100 text-emerald-700', enterprise: 'bg-purple-100 text-purple-700' }
 
 export default function AdminPanel() {
   const nav = useNavigate()
@@ -23,10 +23,18 @@ export default function AdminPanel() {
   const [smtpLoading, setSmtpLoading] = useState(false)
   const [emailTeste, setEmailTeste] = useState('')
 
+  // Config da assinatura SaaS (Asaas — conta da Ketra)
+  const [asaasSaas, setAsaasSaas] = useState({
+    apiKey: '', apiKeyConfigurada: false, ambiente: 'sandbox', webhookToken: '', webhookConfigurado: false
+  })
+  const [asaasSaasMsg, setAsaasSaasMsg] = useState('')
+  const [asaasSaasLoading, setAsaasSaasLoading] = useState(false)
+
   function carregar() {
     api.get('/admin/clinicas').then((r) => setClinicas(r.data)).catch(() => nav('/admin/login'))
     api.get('/admin/metricas').then((r) => setMetricas(r.data)).catch(() => {})
     api.get('/admin/smtp-config').then((r) => setSmtp(r.data)).catch(() => {})
+    api.get('/admin/asaas-saas-config').then((r) => setAsaasSaas(r.data)).catch(() => {})
   }
   useEffect(() => { carregar() }, [])
 
@@ -51,6 +59,38 @@ export default function AdminPanel() {
     }
     await api.put(`/admin/clinicas/${c.id}/pagamento`, corpo)
     carregar()
+  }
+  async function salvarAsaasSaas(e) {
+    e.preventDefault()
+    setAsaasSaasLoading(true)
+    setAsaasSaasMsg('')
+    try {
+      await api.post('/admin/asaas-saas-config', asaasSaas)
+      setAsaasSaasMsg('Salvo!')
+      carregar()
+    } catch {
+      setAsaasSaasMsg('Erro ao salvar.')
+    } finally {
+      setAsaasSaasLoading(false)
+    }
+  }
+  async function gerarAssinatura(c) {
+    if (c.plano !== 'starter' && c.plano !== 'profissional') {
+      alert('Selecione o plano "starter" ou "profissional" no dropdown de Plano antes de gerar a assinatura. Enterprise é negociado direto.')
+      return
+    }
+    if (!confirm(`Gerar cobranca recorrente (plano ${c.plano}) para "${c.nome}" na Asaas?`)) return
+    try {
+      const { data } = await api.post(`/admin/clinicas/${c.id}/gerar-assinatura`, { planoId: c.plano })
+      if (data.invoiceUrl) {
+        prompt('Link de pagamento gerado — copie e envie para a clinica:', data.invoiceUrl)
+      } else {
+        alert('Assinatura criada na Asaas, mas o link de pagamento ainda nao ficou disponivel (o Asaas gera de forma assincrona). Confira em alguns minutos direto no painel do Asaas.')
+      }
+      carregar()
+    } catch (err) {
+      alert(err.response?.data?.erro || 'Erro ao gerar assinatura.')
+    }
   }
   async function salvarSmtp(e) {
     e.preventDefault()
@@ -184,6 +224,9 @@ export default function AdminPanel() {
                             : <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Ativa</span>}
                         </td>
                         <td className="p-3 text-right space-x-3 whitespace-nowrap">
+                          <button onClick={() => gerarAssinatura(c)} className="text-xs text-emerald-600 hover:underline">
+                            Gerar assinatura
+                          </button>
                           <button onClick={() => resetarSenha(c)} className="text-xs text-slate-500 hover:underline">
                             Resetar senha
                           </button>
@@ -367,6 +410,56 @@ export default function AdminPanel() {
                 </div>
               </form>
             </div>
+
+            <div className="bg-white rounded-2xl shadow p-6 mt-6">
+              <h2 className="font-bold text-lg mb-1">Assinatura SaaS (Asaas)</h2>
+              <p className="text-sm text-slate-500 mb-5">
+                Conta Asaas <strong>da Ketra</strong> (cobra cada clinica pelo uso da plataforma) —
+                diferente da chave Asaas de cada clinica, que e configurada por ela mesma para receber Pix no PDV.
+              </p>
+              <form onSubmit={salvarAsaasSaas} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Ambiente</label>
+                  <select value={asaasSaas.ambiente} onChange={e => setAsaasSaas({...asaasSaas, ambiente: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="sandbox">Sandbox (testes)</option>
+                    <option value="producao">Producao</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    API Key {asaasSaas.apiKeyConfigurada && <span className="text-emerald-600">(configurada — deixe vazio para manter)</span>}
+                  </label>
+                  <input value={asaasSaas.apiKey} onChange={e => setAsaasSaas({...asaasSaas, apiKey: e.target.value})}
+                    placeholder={asaasSaas.apiKeyConfigurada ? '••••••••' : '$aact_...'}
+                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Token do webhook (opcional) {asaasSaas.webhookConfigurado && <span className="text-emerald-600">(configurado — deixe vazio para manter)</span>}
+                  </label>
+                  <input value={asaasSaas.webhookToken} onChange={e => setAsaasSaas({...asaasSaas, webhookToken: e.target.value})}
+                    placeholder="defina um valor e cole o mesmo no Asaas"
+                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Se preenchido, o webhook so aceita chamadas com esse token no header <code>asaas-access-token</code>.
+                    Configure o mesmo valor em: Asaas → Integracoes → Webhooks → Token de autenticacao.
+                  </p>
+                </div>
+                {asaasSaasMsg && (
+                  <div className={`text-sm px-3 py-2 rounded-lg ${asaasSaasMsg.includes('Erro') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                    {asaasSaasMsg}
+                  </div>
+                )}
+                <button type="submit" disabled={asaasSaasLoading}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold py-2 rounded-lg text-sm">
+                  {asaasSaasLoading ? 'Salvando...' : 'Salvar'}
+                </button>
+                <p className="text-xs text-slate-400">
+                  URL do webhook pra cadastrar no Asaas: <code>https://vetclinicas-production.up.railway.app/api/webhooks/asaas-assinatura</code>
+                </p>
+              </form>
+            </div>
           </div>
         )}
       </div>
@@ -424,7 +517,7 @@ function ModalNovaClinica({ onClose, onCriada }) {
           <input className="border rounded-lg px-3 py-2" placeholder="Telefone (opcional)"
             value={f.telefone} onChange={(e) => setF({ ...f, telefone: e.target.value })} />
           <select className="border rounded-lg px-3 py-2" value={f.plano} onChange={(e) => setF({ ...f, plano: e.target.value })}>
-            {['trial', 'basico', 'pro', 'enterprise'].map((p) => <option key={p} value={p}>{p}</option>)}
+            {PLANOS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           <button className="bg-emerald-600 text-white py-2 rounded-lg">Criar clinica</button>
         </form>

@@ -209,6 +209,11 @@ public class Tenant
     // Quando a automacao existir, estes campos passam a ser atualizados pelo webhook em vez de a mao.
     [Column("status_pagamento")]   public string?   StatusPagamento  { get; set; }   // "pago" | "atraso" | null
     [Column("proximo_faturamento")] public DateTime? ProximoFaturamento { get; set; }
+    // Assinatura SaaS da Ketra (conta Asaas DA PLATAFORMA -- diferente de AsaasApiKey acima,
+    // que e a conta de CADA CLINICA pra receber Pix no PDV). Preenchido quando o admin gera
+    // a assinatura no Painel da Plataforma; atualizado pelo webhook a partir dai.
+    [Column("asaas_cliente_id")]     public string?  AsaasClienteId     { get; set; }
+    [Column("asaas_assinatura_id")]  public string?  AsaasAssinaturaId  { get; set; }
 }
 
 [Table("users")]

@@ -53,6 +53,8 @@ BEGIN
                       )
                 LOOP
                     tipo_sql := CASE
+                        WHEN col.data_type = 'ARRAY'
+                            THEN regexp_replace(col.udt_name, '^_', '') || '[]'
                         WHEN col.data_type = 'character varying' AND col.character_maximum_length IS NOT NULL
                             THEN format('varchar(%s)', col.character_maximum_length)
                         WHEN col.data_type = 'numeric' AND col.numeric_precision IS NOT NULL
@@ -77,9 +79,16 @@ BEGIN
                         tenant_schema.schema_name, tbl.table_name, col.column_name,
                         tipo_sql, default_sql, nulo_sql);
 
-                    RAISE NOTICE '%', ddl;
-                    EXECUTE ddl;
-                    total := total + 1;
+                    -- cada coluna no seu proprio savepoint implicito: se uma falhar
+                    -- (tipo exotico que eu nao previ), so ela fica pra trás --
+                    -- nao desfaz as colunas que ja deram certo nesta mesma execucao.
+                    BEGIN
+                        RAISE NOTICE '%', ddl;
+                        EXECUTE ddl;
+                        total := total + 1;
+                    EXCEPTION WHEN OTHERS THEN
+                        RAISE WARNING 'FALHOU (pulei essa, resto continua): % -- erro: %', ddl, SQLERRM;
+                    END;
                 END LOOP;
             END IF;
         END LOOP;
