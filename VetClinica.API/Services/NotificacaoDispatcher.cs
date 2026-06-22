@@ -44,7 +44,14 @@ public class NotificacaoDispatcher : BackgroundService
 
         foreach (var schema in tenants)
         {
-            await ProcessarFiaTenant(factory.CreateForSchema(schema), zapi, linkService, ct);
+            try
+            {
+                await ProcessarFiaTenant(factory.CreateForSchema(schema), zapi, linkService, ct);
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Erro no dispatcher de notificacoes para o schema {Schema}", schema);
+            }
         }
     }
 
