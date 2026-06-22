@@ -20,9 +20,10 @@ public class AdminController : ControllerBase
     private readonly ProvisionamentoService _prov;
     private readonly IConfiguration         _cfg;
     private readonly IEmailService          _email;
+    private readonly TenantDbContextFactory _factory;
 
-    public AdminController(PlatformDbContext platform, TenantContext t, ProvisionamentoService prov, IConfiguration cfg, IEmailService email)
-    { _platform = platform; _t = t; _prov = prov; _cfg = cfg; _email = email; }
+    public AdminController(PlatformDbContext platform, TenantContext t, ProvisionamentoService prov, IConfiguration cfg, IEmailService email, TenantDbContextFactory factory)
+    { _platform = platform; _t = t; _prov = prov; _cfg = cfg; _email = email; _factory = factory; }
 
     private IActionResult? Guard() =>
         _t.IsPlatformAdmin ? null : StatusCode(403, new { erro = "Acesso restrito ao administrador da plataforma" });
@@ -51,10 +52,44 @@ public class AdminController : ControllerBase
             .Select(t => new {
                 t.Id, t.Nome, t.Plano, t.Ativo,
                 Suspenso    = t.SuspensoEm != null,
-                t.Email, t.SchemaName, t.CriadoEm, t.TrialExpiraEm
+                t.Email, t.SchemaName, t.CriadoEm, t.TrialExpiraEm,
+                t.StatusPagamento, t.ProximoFaturamento
             })
             .ToListAsync();
         return Ok(clinicas);
+    }
+
+    [HttpPost("clinicas/{id}/resetar-senha")]
+    public async Task<IActionResult> ResetarSenha(Guid id)
+    {
+        var g = Guard(); if (g != null) return g;
+        var t = await _platform.Tenants.FirstOrDefaultAsync(x => x.Id == id);
+        if (t == null) return NotFound();
+        if (string.IsNullOrWhiteSpace(t.SchemaName))
+            return BadRequest(new { erro = "Clinica sem schema configurado." });
+
+        using var db = _factory.CreateForSchema(t.SchemaName!);
+        var owner = await db.Users.FirstOrDefaultAsync(u => u.Email == t.Email && u.Ativo);
+        if (owner == null)
+            return NotFound(new { erro = "Usuario principal (owner) nao encontrado nessa clinica." });
+
+        var novaSenha = ProvisionamentoService.GerarSenhaTemporaria();
+        owner.SenhaHash = BCrypt.Net.BCrypt.HashPassword(novaSenha, workFactor: 11);
+        await db.SaveChangesAsync();
+
+        return Ok(new { loginEmail = owner.Email, senhaTemporaria = novaSenha });
+    }
+
+    [HttpPut("clinicas/{id}/pagamento")]
+    public async Task<IActionResult> AtualizarPagamento(Guid id, AtualizarPagamentoRequest req)
+    {
+        var g = Guard(); if (g != null) return g;
+        var t = await _platform.Tenants.FirstOrDefaultAsync(x => x.Id == id);
+        if (t == null) return NotFound();
+        t.StatusPagamento    = string.IsNullOrWhiteSpace(req.StatusPagamento) ? null : req.StatusPagamento;
+        t.ProximoFaturamento = req.ProximoFaturamento;
+        await _platform.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPost("clinicas")]

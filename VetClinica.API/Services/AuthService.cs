@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using VetClinica.API.Data;
 using VetClinica.API.DTOs;
+using VetClinica.API.Models;
 
 namespace VetClinica.API.Services;
 
@@ -19,32 +20,39 @@ public class AuthService
         _cfg      = cfg;
     }
 
-    public async Task<LoginResponse?> Login(LoginRequest req)
+    public async Task<LoginOutcome> Login(LoginRequest req)
     {
         // 1. Tenta login como owner (email = email do tenant)
+        // Nota: nao filtra SuspensoEm aqui de proposito -- precisamos achar o tenant
+        // suspenso para devolver um motivo claro (trial vencido / pagamento) em vez
+        // de simplesmente dizer "credenciais invalidas".
         var tenantRecord = await _platform.Tenants
             .FirstOrDefaultAsync(t => t.Email == req.Email
                                    && t.Ativo
-                                   && t.SuspensoEm == null
                                    && t.SchemaName != null);
 
         if (tenantRecord != null)
         {
-            // Valida senha dentro do schema do owner
             using var db = CriarDbParaSchema(tenantRecord.SchemaName!);
             var owner = await db.Users
                 .FirstOrDefaultAsync(u => u.Email == req.Email && u.Ativo);
 
             if (owner == null || !BCrypt.Net.BCrypt.Verify(req.Senha, owner.SenhaHash))
-                return null;
+                return new LoginOutcome(null, "credenciais_invalidas", null);
+
+            if (tenantRecord.SuspensoEm != null)
+                return new LoginOutcome(null, "suspenso", MensagemSuspensao(tenantRecord));
 
             var token = GerarToken(owner.Id, tenantRecord.Id, owner.Papel, tenantRecord.SchemaName!);
-            return new LoginResponse(token, owner.Nome, owner.Papel, tenantRecord.Id, tenantRecord.Plano, tenantRecord.TrialExpiraEm);
+            return new LoginOutcome(
+                new LoginResponse(token, owner.Nome, owner.Papel, tenantRecord.Id, tenantRecord.Plano, tenantRecord.TrialExpiraEm),
+                null, null);
         }
 
         // 2. Login como usuário não-owner — busca o schema varrendo os tenants ativos
+        // (inclusive suspensos, pelo mesmo motivo do passo 1)
         var tenants = await _platform.Tenants
-            .Where(t => t.Ativo && t.SuspensoEm == null && t.SchemaName != null)
+            .Where(t => t.Ativo && t.SchemaName != null)
             .ToListAsync();
 
         foreach (var t in tenants)
@@ -55,13 +63,23 @@ public class AuthService
 
             if (user != null && BCrypt.Net.BCrypt.Verify(req.Senha, user.SenhaHash))
             {
+                if (t.SuspensoEm != null)
+                    return new LoginOutcome(null, "suspenso", MensagemSuspensao(t));
+
                 var token = GerarToken(user.Id, t.Id, user.Papel, t.SchemaName!);
-                return new LoginResponse(token, user.Nome, user.Papel, t.Id, t.Plano, t.TrialExpiraEm);
+                return new LoginOutcome(
+                    new LoginResponse(token, user.Nome, user.Papel, t.Id, t.Plano, t.TrialExpiraEm),
+                    null, null);
             }
         }
 
-        return null;
+        return new LoginOutcome(null, "credenciais_invalidas", null);
     }
+
+    private static string MensagemSuspensao(Tenant t) =>
+        t.Plano == "trial" && t.TrialExpiraEm != null && t.TrialExpiraEm.Value <= DateTime.UtcNow
+            ? "Seu periodo de teste expirou. Escolha um plano para continuar usando o sistema."
+            : "Sua assinatura esta suspensa. Escolha um plano para reativar o acesso.";
 
     public async Task<LoginResponse?> LoginPlataforma(LoginRequest req)
     {

@@ -26,7 +26,11 @@ export default function Login() {
       if (data.trialExpiraEm) localStorage.setItem('trialExpiraEm', data.trialExpiraEm)
       else localStorage.removeItem('trialExpiraEm')
       nav('/')
-    } catch {
+    } catch (err) {
+      if (err.response?.status === 402) {
+        nav('/planos?motivo=suspenso')
+        return
+      }
       setErro('Email ou senha invalidos')
     } finally {
       setLoading(false)

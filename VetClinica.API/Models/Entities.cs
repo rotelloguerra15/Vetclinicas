@@ -205,6 +205,10 @@ public class Tenant
     [Column("trial_expira_em")]    public DateTime? TrialExpiraEm    { get; set; }
     [Column("token_reset_senha")]  public string?   TokenResetSenha  { get; set; }
     [Column("token_reset_expira")] public DateTime? TokenResetExpira { get; set; }
+    // Cobranca SaaS — MANUAL por enquanto (Asaas/recorrencia ainda nao integrado, ver backlog item 7).
+    // Quando a automacao existir, estes campos passam a ser atualizados pelo webhook em vez de a mao.
+    [Column("status_pagamento")]   public string?   StatusPagamento  { get; set; }   // "pago" | "atraso" | null
+    [Column("proximo_faturamento")] public DateTime? ProximoFaturamento { get; set; }
 }
 
 [Table("users")]

@@ -39,6 +39,19 @@ export default function AdminPanel() {
     await api.put(`/admin/clinicas/${c.id}/plano`, { plano })
     carregar()
   }
+  async function resetarSenha(c) {
+    if (!confirm(`Gerar uma nova senha temporaria para o usuario principal de "${c.nome}"? A senha atual deixa de funcionar.`)) return
+    const { data } = await api.post(`/admin/clinicas/${c.id}/resetar-senha`)
+    setCriada({ ...data, _contexto: 'reset' })
+  }
+  async function atualizarPagamento(c, campo, valor) {
+    const corpo = {
+      statusPagamento: campo === 'statusPagamento' ? valor : (c.statusPagamento || null),
+      proximoFaturamento: campo === 'proximoFaturamento' ? (valor || null) : (c.proximoFaturamento || null)
+    }
+    await api.put(`/admin/clinicas/${c.id}/pagamento`, corpo)
+    carregar()
+  }
   async function salvarSmtp(e) {
     e.preventDefault()
     setSmtpLoading(true)
@@ -116,6 +129,8 @@ export default function AdminPanel() {
                     <th className="p-3">Email</th>
                     <th className="p-3">Plano</th>
                     <th className="p-3">Trial expira</th>
+                    <th className="p-3">Pagamento</th>
+                    <th className="p-3">Proximo faturamento</th>
                     <th className="p-3">Status</th>
                     <th className="p-3"></th>
                   </tr>
@@ -142,11 +157,36 @@ export default function AdminPanel() {
                           ) : <span className="text-slate-300">—</span>}
                         </td>
                         <td className="p-3">
+                          <select
+                            value={c.statusPagamento || ''}
+                            onChange={(e) => atualizarPagamento(c, 'statusPagamento', e.target.value || null)}
+                            className={`text-xs px-2 py-1 rounded-full border-0 ${
+                              c.statusPagamento === 'pago' ? 'bg-emerald-100 text-emerald-700'
+                              : c.statusPagamento === 'atraso' ? 'bg-red-100 text-red-700'
+                              : 'bg-slate-100 text-slate-500'
+                            }`}>
+                            <option value="">—</option>
+                            <option value="pago">Pago</option>
+                            <option value="atraso">Em atraso</option>
+                          </select>
+                        </td>
+                        <td className="p-3">
+                          <input
+                            type="date"
+                            value={c.proximoFaturamento ? c.proximoFaturamento.slice(0, 10) : ''}
+                            onChange={(e) => atualizarPagamento(c, 'proximoFaturamento', e.target.value)}
+                            className="text-xs border rounded-md px-2 py-1 text-slate-600"
+                          />
+                        </td>
+                        <td className="p-3">
                           {c.suspenso
                             ? <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">Suspensa</span>
                             : <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Ativa</span>}
                         </td>
-                        <td className="p-3 text-right">
+                        <td className="p-3 text-right space-x-3 whitespace-nowrap">
+                          <button onClick={() => resetarSenha(c)} className="text-xs text-slate-500 hover:underline">
+                            Resetar senha
+                          </button>
                           <button onClick={() => suspender(c)} className="text-xs text-blue-600 hover:underline">
                             {c.suspenso ? 'Reativar' : 'Suspender'}
                           </button>
@@ -154,10 +194,13 @@ export default function AdminPanel() {
                       </tr>
                     )
                   })}
-                  {clinicas.length === 0 && <tr><td colSpan="6" className="p-6 text-center text-slate-400">Nenhuma clinica ainda</td></tr>}
+                  {clinicas.length === 0 && <tr><td colSpan="8" className="p-6 text-center text-slate-400">Nenhuma clinica ainda</td></tr>}
                 </tbody>
               </table>
             </div>
+            <p className="text-xs text-slate-400 mt-2">
+              "Pagamento" e "Proximo faturamento" sao manuais por enquanto (cobranca recorrente via Asaas ainda nao integrada — backlog item 7).
+            </p>
           </>
         )}
 
@@ -329,7 +372,15 @@ export default function AdminPanel() {
       </div>
 
       {modal && <ModalNovaClinica onClose={() => setModal(false)} onCriada={(r) => { setModal(false); setCriada(r); carregar() }} />}
-      {criada && <ModalCredenciais dados={criada} onClose={() => setCriada(null)} />}
+      {criada && (
+        <ModalCredenciais
+          dados={criada}
+          onClose={() => setCriada(null)}
+          {...(criada._contexto === 'reset'
+            ? { titulo: 'Senha redefinida!', subtitulo: 'Envie a nova senha temporaria ao responsavel pela clinica.' }
+            : {})}
+        />
+      )}
     </div>
   )
 }
@@ -382,13 +433,13 @@ function ModalNovaClinica({ onClose, onCriada }) {
   )
 }
 
-function ModalCredenciais({ dados, onClose }) {
+function ModalCredenciais({ dados, onClose, titulo = 'Clinica criada!', subtitulo = 'Envie estas credenciais ao responsavel. A senha e temporaria.' }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md text-center" onClick={(e) => e.stopPropagation()}>
         <div className="text-4xl mb-2">✅</div>
-        <h3 className="font-bold text-lg mb-3">Clinica criada!</h3>
-        <p className="text-sm text-slate-500 mb-4">Envie estas credenciais ao responsavel. A senha e temporaria.</p>
+        <h3 className="font-bold text-lg mb-3">{titulo}</h3>
+        <p className="text-sm text-slate-500 mb-4">{subtitulo}</p>
         <div className="bg-slate-50 rounded-lg p-4 text-left text-sm space-y-2">
           <div><span className="text-slate-400">Login:</span> <b>{dados.loginEmail}</b></div>
           <div><span className="text-slate-400">Senha temporaria:</span> <b className="font-mono">{dados.senhaTemporaria}</b></div>

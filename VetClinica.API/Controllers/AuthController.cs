@@ -33,8 +33,12 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login(LoginRequest req)
     {
         var result = await _auth.Login(req);
-        if (result == null) return Unauthorized(new { erro = "Credenciais invalidas" });
-        return Ok(result);
+        if (result.Resposta != null) return Ok(result.Resposta);
+
+        if (result.CodigoErro == "suspenso")
+            return StatusCode(402, new { erro = "suspenso", mensagem = result.Mensagem, redirecionarPara = "/planos" });
+
+        return Unauthorized(new { erro = "Credenciais invalidas" });
     }
 
     [HttpPost("login-plataforma")]

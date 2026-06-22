@@ -1,8 +1,12 @@
 // Pagina publica de planos e precos — /planos
 // Ainda sem integracao de pagamento (Asaas pendente)
 // CTA aponta para /trial (cadastro) ou /login (ja tem conta)
+import { useSearchParams } from 'react-router-dom'
 
 export default function Planos() {
+  const [params] = useSearchParams()
+  const suspenso = params.get('motivo') === 'suspenso'
+
   const planos = [
     {
       id: 'starter',
@@ -86,6 +90,11 @@ export default function Planos() {
 
       {/* Header */}
       <div className="text-center pt-16 pb-10 px-4">
+        {suspenso && (
+          <div className="max-w-xl mx-auto mb-8 bg-orange-500/20 border border-orange-400/40 text-orange-200 px-5 py-3 rounded-xl text-sm">
+            Seu acesso foi suspenso (trial vencido ou pagamento pendente). Escolha um plano abaixo para continuar usando o sistema.
+          </div>
+        )}
         <div className="text-4xl mb-3">🐾</div>
         <h1 className="text-3xl font-bold text-white mb-2">VetClinica</h1>
         <p className="text-slate-300 text-lg mb-2">Planos e Precos</p>

@@ -159,7 +159,7 @@ public class ProvisionamentoService
         return $"vet_{slug}";
     }
 
-    private static string GerarSenhaTemporaria()
+    public static string GerarSenhaTemporaria()
     {
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
         return new string(Enumerable.Range(0, 10).Select(_ => chars[Random.Shared.Next(chars.Length)]).ToArray());
