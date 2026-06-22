@@ -12,6 +12,67 @@ public class ProvisionamentoService
     private readonly IConfiguration         _cfg;
     private const string SCHEMA_TEMPLATE = "vet_barbarafonseca";
 
+    // Mesma logica do database/044_reparar_drift_colunas_todas_clinicas.sql,
+    // mas escopada a UM schema, chamada automaticamente ao fim de CriarClinica.
+    // Nota: DO $$ $$ nao aceita parametro do Npgsql -- por isso interpola o
+    // nome do schema direto, igual o resto deste metodo ja faz (valor vem de
+    // GerarSchemaName, ja sanitizado: so [a-z0-9_]).
+    private static string RepararColunasSql(string schemaDestino) => $@"
+DO $$
+DECLARE
+    tbl RECORD;
+    col RECORD;
+    tipo_sql TEXT;
+    default_sql TEXT;
+    nulo_sql TEXT;
+    ddl TEXT;
+BEGIN
+    FOR tbl IN
+        SELECT DISTINCT table_name FROM information_schema.tables
+        WHERE table_schema = '{SCHEMA_TEMPLATE}'
+    LOOP
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = '{schemaDestino}' AND table_name = tbl.table_name
+        ) THEN
+            FOR col IN
+                SELECT c.column_name, c.data_type, c.character_maximum_length,
+                       c.numeric_precision, c.numeric_scale, c.is_nullable,
+                       c.column_default, c.udt_name
+                FROM information_schema.columns c
+                WHERE c.table_schema = '{SCHEMA_TEMPLATE}' AND c.table_name = tbl.table_name
+                  AND NOT EXISTS (
+                      SELECT 1 FROM information_schema.columns c2
+                      WHERE c2.table_schema = '{schemaDestino}'
+                        AND c2.table_name = tbl.table_name
+                        AND c2.column_name = c.column_name
+                  )
+            LOOP
+                tipo_sql := CASE
+                    WHEN col.data_type = 'ARRAY' THEN regexp_replace(col.udt_name, '^_', '') || '[]'
+                    WHEN col.data_type = 'character varying' AND col.character_maximum_length IS NOT NULL
+                        THEN format('varchar(%s)', col.character_maximum_length)
+                    WHEN col.data_type = 'numeric' AND col.numeric_precision IS NOT NULL
+                        THEN format('numeric(%s,%s)', col.numeric_precision, COALESCE(col.numeric_scale, 0))
+                    WHEN col.data_type = 'USER-DEFINED' THEN col.udt_name
+                    ELSE col.data_type
+                END;
+                default_sql := CASE WHEN col.column_default IS NOT NULL
+                    THEN format(' DEFAULT %s', col.column_default) ELSE '' END;
+                nulo_sql := CASE WHEN col.is_nullable = 'NO' AND col.column_default IS NOT NULL
+                    THEN ' NOT NULL' ELSE '' END;
+                ddl := format('ALTER TABLE %I.%I ADD COLUMN %I %s%s%s',
+                    '{schemaDestino}', tbl.table_name, col.column_name, tipo_sql, default_sql, nulo_sql);
+                BEGIN
+                    EXECUTE ddl;
+                EXCEPTION WHEN OTHERS THEN
+                    RAISE WARNING 'Reparo automatico falhou: % -- %', ddl, SQLERRM;
+                END;
+            END LOOP;
+        END IF;
+    END LOOP;
+END $$;";
+
     public ProvisionamentoService(PlatformDbContext platform, TenantDbContextFactory factory, IConfiguration cfg)
     {
         _platform = platform;
@@ -60,6 +121,18 @@ public class ProvisionamentoService
             }
             catch { }
         }
+
+        // CREATE TABLE IF NOT EXISTS so cria do zero -- se a tabela JA existir
+        // (schema reaproveitado de um teste anterior incompleto, por exemplo),
+        // fica com a estrutura antiga pra sempre. Esse passo extra garante que
+        // a clinica nasce sempre 100% igual ao molde atual, mesmo nesse caso.
+        try
+        {
+            await using var cmdReparo = new NpgsqlCommand(RepararColunasSql(schema), conn);
+            await cmdReparo.ExecuteNonQueryAsync();
+        }
+        catch { /* nao bloqueia a criacao da clinica por causa disso */ }
+
         await conn.CloseAsync();
 
         // 4. Registra na platform.tenants
