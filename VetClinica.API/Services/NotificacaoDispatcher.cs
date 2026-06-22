@@ -88,7 +88,7 @@ public class NotificacaoDispatcher : BackgroundService
 
                     case "lembrete_banho":
                         var link = await linkService.GerarLinkAgendamento(
-                            notif.TenantId, notif.TutorId!.Value, notif.PetId);
+                            db, notif.TenantId, notif.TutorId!.Value, notif.PetId);
                         ok = await zapi.EnviarTexto(notif.Destinatario,
                             $"🐕 Olá! Já faz 30 dias que o *{petNome}* não passa por aqui.\n\n" +
                             $"Que tal agendar um banho? Clique no link e escolha o melhor dia:\n👉 {link}");

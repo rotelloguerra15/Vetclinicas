@@ -36,11 +36,29 @@ public class AgendadorMensagens : BackgroundService
     private async Task Rodar(CancellationToken ct)
     {
         using var scope = _sp.CreateScope();
-        var factory = scope.ServiceProvider.GetRequiredService<TenantDbContextFactory>();
-        var db = factory.Create();
+        var platform = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var factory  = scope.ServiceProvider.GetRequiredService<TenantDbContextFactory>();
 
-        await ProcessarAniversarios(db, ct);
-        await ProcessarLembretesAgendamento(db, ct);
+        // Sem HTTP/JWT aqui (worker em background) — varre os tenants ativos
+        // e processa cada schema isoladamente (mesmo padrão do NotificacaoDispatcher).
+        var schemas = await platform.Tenants
+            .Where(t => t.Ativo && t.SuspensoEm == null && t.SchemaName != null)
+            .Select(t => t.SchemaName!)
+            .ToListAsync(ct);
+
+        foreach (var schema in schemas)
+        {
+            try
+            {
+                var db = factory.CreateForSchema(schema);
+                await ProcessarAniversarios(db, ct);
+                await ProcessarLembretesAgendamento(db, ct);
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Erro ao processar agendador de mensagens para o schema {Schema}", schema);
+            }
+        }
     }
 
     private static string Render(string template, string clinica, string tutor, string pet,

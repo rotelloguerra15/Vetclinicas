@@ -39,7 +39,7 @@ public class AuthService
                 return null;
 
             var token = GerarToken(owner.Id, tenantRecord.Id, owner.Papel, tenantRecord.SchemaName!);
-            return new LoginResponse(token, owner.Nome, owner.Papel, tenantRecord.Id);
+            return new LoginResponse(token, owner.Nome, owner.Papel, tenantRecord.Id, tenantRecord.Plano, tenantRecord.TrialExpiraEm);
         }
 
         // 2. Login como usuário não-owner — busca o schema varrendo os tenants ativos
@@ -56,7 +56,7 @@ public class AuthService
             if (user != null && BCrypt.Net.BCrypt.Verify(req.Senha, user.SenhaHash))
             {
                 var token = GerarToken(user.Id, t.Id, user.Papel, t.SchemaName!);
-                return new LoginResponse(token, user.Nome, user.Papel, t.Id);
+                return new LoginResponse(token, user.Nome, user.Papel, t.Id, t.Plano, t.TrialExpiraEm);
             }
         }
 

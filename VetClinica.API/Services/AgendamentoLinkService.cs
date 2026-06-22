@@ -3,18 +3,19 @@ using VetClinica.API.Models;
 
 namespace VetClinica.API.Services;
 
+// Usado SOMENTE pelo NotificacaoDispatcher (background worker, sem HTTP/JWT).
+// Por isso recebe o TenantDbContext já resolvido por schema, em vez de
+// depender do TenantDbContextFactory (que so funciona dentro de uma requisicao).
 public class AgendamentoLinkService
 {
-    private readonly TenantDbContext _db;
     private readonly IConfiguration _cfg;
 
-    public AgendamentoLinkService(TenantDbContextFactory factory, IConfiguration cfg)
+    public AgendamentoLinkService(IConfiguration cfg)
     {
-        _db = factory.Create();
         _cfg = cfg;
     }
 
-    public async Task<string> GerarLinkAgendamento(Guid tenantId, Guid tutorId, Guid? petId)
+    public async Task<string> GerarLinkAgendamento(TenantDbContext db, Guid tenantId, Guid tutorId, Guid? petId)
     {
         var token = Convert.ToHexString(Guid.NewGuid().ToByteArray()
             .Concat(Guid.NewGuid().ToByteArray()).ToArray()).ToLower();
@@ -30,10 +31,11 @@ public class AgendamentoLinkService
             CriadoEm = DateTime.UtcNow
         };
 
-        _db.LinksAgendamento.Add(link);
-        await _db.SaveChangesAsync();
+        db.LinksAgendamento.Add(link);
+        await db.SaveChangesAsync();
 
         var baseUrl = _cfg["App:FrontendUrl"];
         return $"{baseUrl}/agendar/{token}";
     }
 }
+

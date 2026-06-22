@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import Logo from './Logo'
+import TrialBanner from './TrialBanner'
 import api from '../api/client'
 
 const menu = [
@@ -185,6 +186,8 @@ export default function Layout() {
 
       {/* Conteudo principal */}
       <div className="flex-1 flex flex-col min-w-0">
+
+        <TrialBanner />
 
         {/* Topbar mobile */}
         <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">

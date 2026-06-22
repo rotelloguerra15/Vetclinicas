@@ -2,7 +2,7 @@ namespace VetClinica.API.DTOs;
 
 // ---------- Auth ----------
 public record LoginRequest(string Email, string Senha);
-public record LoginResponse(string Token, string Nome, string Papel, Guid TenantId);
+public record LoginResponse(string Token, string Nome, string Papel, Guid TenantId, string? Plano = null, DateTime? TrialExpiraEm = null);
 
 // ---------- Paginação ----------
 public record PagedResult<T>(IEnumerable<T> Items, int Total, int Page, int PageSize);

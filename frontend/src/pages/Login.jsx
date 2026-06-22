@@ -21,6 +21,10 @@ export default function Login() {
       localStorage.setItem('nome', data.nome)
       localStorage.setItem('papel', data.papel)
       localStorage.setItem('tenantId', data.tenantId)
+      if (data.plano) localStorage.setItem('plano', data.plano)
+      else localStorage.removeItem('plano')
+      if (data.trialExpiraEm) localStorage.setItem('trialExpiraEm', data.trialExpiraEm)
+      else localStorage.removeItem('trialExpiraEm')
       nav('/')
     } catch {
       setErro('Email ou senha invalidos')
