@@ -247,6 +247,8 @@ public class FinanceiroController : ControllerBase
         var conta = await _db.Contas
             .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == _t.TenantId);
         if (conta == null) return NotFound();
+        if (conta.Status == "previsao")
+            return BadRequest(new { erro = "Este titulo esta em previsao (contrato) e nao pode ser pago diretamente. Ele so libera apos a medicao ser aprovada no contrato." });
         if (conta.Status != "aberta")
             return BadRequest(new { erro = $"Conta já está com status '{conta.Status}'" });
 

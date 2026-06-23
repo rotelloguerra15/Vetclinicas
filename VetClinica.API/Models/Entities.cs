@@ -645,6 +645,9 @@ public class Conta
     [Column("criado_por")]       public Guid? CriadoPor { get; set; }
     [Column("criado_em")]        public DateTime CriadoEm { get; set; }
     [Column("atualizado_em")]    public DateTime AtualizadoEm { get; set; }
+    // Liga o titulo ao contrato/parcela que o gerou, quando Status = "previsao".
+    // So sai de "previsao" quando a medicao dessa parcela for aprovada.
+    [Column("contrato_parcela_id")] public Guid? ContratoParcelaId { get; set; }
 
     public CategoriaFinanceira? Categoria { get; set; }
 }
@@ -958,6 +961,57 @@ public class RecebimentoItem
     [Column("criado_em")]            public DateTime CriadoEm { get; set; }
 
     public Produto? Produto { get; set; }
+}
+
+// ── Modulo Gestao de Contratos (compra e venda / fornecimento recorrente) ──
+// Contrato gera N parcelas (medicoes). Cada parcela ja nasce com um titulo
+// em Contas no status "previsao" (nao pode ser pago). So depois que a
+// parcela e medida E aprovada pelo gestor, o titulo correspondente vira
+// "aberta" (real, pagavel normalmente).
+[Table("contratos")]
+public class Contrato
+{
+    [Column("id")]                    public Guid Id { get; set; }
+    [Column("tenant_id")]             public Guid TenantId { get; set; }
+    [Column("fornecedor_id")]         public Guid FornecedorId { get; set; }
+    [Column("descricao")]             public string Descricao { get; set; } = ""; // produto/servico fornecido
+    [Column("valor_total")]           public decimal ValorTotal { get; set; }
+    [Column("condicao_pagamento_id")] public Guid? CondicaoPagamentoId { get; set; }
+    [Column("numero_parcelas")]       public int NumeroParcelas { get; set; } = 1;
+    [Column("data_inicio")]           public DateOnly DataInicio { get; set; }
+    [Column("status")]                public string Status { get; set; } = "ativo"; // ativo | encerrado | cancelado
+    [Column("obs")]                   public string? Obs { get; set; }
+    [Column("criado_por")]            public Guid? CriadoPor { get; set; }
+    [Column("criado_em")]             public DateTime CriadoEm { get; set; }
+    [Column("atualizado_em")]         public DateTime AtualizadoEm { get; set; }
+
+    public Fornecedor? Fornecedor { get; set; }
+    public CondicaoPagamento? CondicaoPagamento { get; set; }
+    public ICollection<ContratoParcela> Parcelas { get; set; } = new List<ContratoParcela>();
+}
+
+[Table("contrato_parcelas")]
+public class ContratoParcela
+{
+    [Column("id")]              public Guid Id { get; set; }
+    [Column("tenant_id")]       public Guid TenantId { get; set; }
+    [Column("contrato_id")]     public Guid ContratoId { get; set; }
+    [Column("numero")]          public int Numero { get; set; } // 1, 2, 3...
+    [Column("valor_previsto")]  public decimal ValorPrevisto { get; set; }
+    [Column("data_prevista")]   public DateOnly DataPrevista { get; set; }
+    [Column("conta_id")]        public Guid? ContaId { get; set; } // titulo em "previsao" gerado junto
+    // pendente -> medido -> aprovado (libera o titulo) | rejeitado
+    [Column("status_medicao")]  public string StatusMedicao { get; set; } = "pendente";
+    [Column("quantidade_medida")] public decimal? QuantidadeMedida { get; set; }
+    [Column("obs_medicao")]     public string? ObsMedicao { get; set; }
+    [Column("medido_por")]      public Guid? MedidoPor { get; set; }
+    [Column("medido_em")]       public DateTime? MedidoEm { get; set; }
+    [Column("aprovado_por")]    public Guid? AprovadoPor { get; set; }
+    [Column("aprovado_em")]     public DateTime? AprovadoEm { get; set; }
+    [Column("motivo_rejeicao")] public string? MotivoRejeicao { get; set; }
+
+    public Contrato? Contrato { get; set; }
+    public Conta? Conta { get; set; }
 }
 
 [Table("metas_faturamento")]

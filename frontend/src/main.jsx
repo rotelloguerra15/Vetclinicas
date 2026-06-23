@@ -22,6 +22,8 @@ import Financeiro from './pages/Financeiro'
 import Bancario from './pages/Bancario'
 import Fornecedores from './pages/Fornecedores'
 import Compras from './pages/Compras'
+import Contratos from './pages/Contratos'
+import ContratoDetalhe from './pages/ContratoDetalhe'
 import Recebimentos from './pages/Recebimentos'
 import CondicoesPagamento from './pages/CondicoesPagamento'
 import AgendarPublico from './pages/AgendarPublico'
@@ -79,6 +81,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="bancario" element={<Bancario />} />
           <Route path="fornecedores" element={<Fornecedores />} />
           <Route path="compras" element={<Compras />} />
+          <Route path="contratos" element={<Contratos />} />
+          <Route path="contratos/:id" element={<ContratoDetalhe />} />
           <Route path="recebimentos" element={<Recebimentos />} />
           <Route path="compras/condicoes" element={<CondicoesPagamento />} />
           <Route path="rh/funcionarios" element={<Funcionarios />} />

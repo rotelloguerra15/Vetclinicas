@@ -26,6 +26,7 @@ const menu = [
 
   { group: 'Compras' },
   { to: '/compras',           label: 'Pedidos de Compra' },
+  { to: '/contratos',         label: 'Contratos' },
   { to: '/compras/condicoes', label: 'Cond. de Pagamento' },
   { to: '/fornecedores',      label: 'Fornecedores' },
 

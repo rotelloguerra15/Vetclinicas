@@ -81,6 +81,8 @@ public class TenantDbContext : DbContext
     public DbSet<PedidoCompra>            PedidosCompra          => Set<PedidoCompra>();
     public DbSet<PedidoItem>              PedidoItens            => Set<PedidoItem>();
     public DbSet<RecebimentoMercadoria>   RecebimentosMercadoria => Set<RecebimentoMercadoria>();
+    public DbSet<Contrato>                Contratos              => Set<Contrato>();
+    public DbSet<ContratoParcela>         ContratoParcelas       => Set<ContratoParcela>();
     public DbSet<RecebimentoItem>         RecebimentoItens       => Set<RecebimentoItem>();
     public DbSet<RecebimentoAnexo>        RecebimentoAnexos      => Set<RecebimentoAnexo>();
 
