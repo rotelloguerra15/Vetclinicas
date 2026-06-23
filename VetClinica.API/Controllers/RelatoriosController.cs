@@ -356,15 +356,24 @@ public class RelatoriosController : ControllerBase
         {
             var de  = new DateOnly(a, m, 1);
             var ate = de.AddMonths(1);
+            var deDt  = de.ToDateTime(TimeOnly.MinValue);
+            var ateDt = ate.ToDateTime(TimeOnly.MinValue);
 
-            var realizado = await _db.Contas
-                .Where(c => c.TenantId == _t.TenantId
-                         && c.Tipo == "receita"
-                         && (c.Status == "recebida" || c.Status == "paga")
-                         && c.DataBaixa >= de && c.DataBaixa < ate)
-                .SumAsync(c => (decimal?)(c.ValorPago ?? 0)) ?? 0;
+            // Realizado = vendas de produto (PDV) + servicos entregues no mes.
+            // Igual a logica de MetasVendasController -- meta de venda e sobre
+            // venda/servico, nao sobre receita financeira generica.
+            var realizadoProduto = await _db.Vendas
+                .Where(v => v.TenantId == _t.TenantId && v.Status == "finalizada"
+                         && v.FinalizadaEm >= deDt && v.FinalizadaEm < ateDt)
+                .SumAsync(v => (decimal?)v.ValorTotal) ?? 0;
+            var realizadoServico = await _db.OrdensServico
+                .Where(o => o.TenantId == _t.TenantId && o.Status == "entregue"
+                         && o.EntregueEm >= deDt && o.EntregueEm < ateDt)
+                .SumAsync(o => (decimal?)(o.ValorTotal ?? 0)) ?? 0;
+            var realizado = realizadoProduto + realizadoServico;
 
-            var meta = metas.FirstOrDefault(x => x.Mes == m)?.ValorMeta ?? 0;
+            // Soma todos os tipos de meta cadastrados pro mes (produto + servico + ambos)
+            var meta = metas.Where(x => x.Mes == m).Sum(x => x.ValorMeta);
             var pct  = meta > 0 ? Math.Round((realizado / meta) * 100, 1) : 0;
             var label = de.ToString("MMM", new System.Globalization.CultureInfo("pt-BR"));
 
@@ -372,43 +381,5 @@ public class RelatoriosController : ControllerBase
         }
 
         return Ok(resultado);
-    }
-
-    // ── Salvar / atualizar meta ───────────────────────────────────────────────
-    // PUT /api/relatorios/metas/{ano}/{mes}
-
-    public record MetaRequest(decimal ValorMeta);
-
-    [HttpPut("metas/{ano}/{mes}")]
-    public async Task<IActionResult> SalvarMeta(int ano, int mes, MetaRequest dto)
-    {
-        if (mes < 1 || mes > 12) return BadRequest(new { erro = "Mês inválido." });
-        if (dto.ValorMeta < 0)   return BadRequest(new { erro = "Valor inválido." });
-
-        var meta = await _db.MetasFaturamento
-            .FirstOrDefaultAsync(m => m.TenantId == _t.TenantId && m.Ano == ano && m.Mes == mes);
-
-        if (meta == null)
-        {
-            meta = new Models.MetaFaturamento
-            {
-                Id          = Guid.NewGuid(),
-                TenantId    = _t.TenantId,
-                Ano         = ano,
-                Mes         = mes,
-                ValorMeta   = dto.ValorMeta,
-                CriadoEm    = DateTime.UtcNow,
-                AtualizadoEm = DateTime.UtcNow
-            };
-            _db.MetasFaturamento.Add(meta);
-        }
-        else
-        {
-            meta.ValorMeta    = dto.ValorMeta;
-            meta.AtualizadoEm = DateTime.UtcNow;
-        }
-
-        await _db.SaveChangesAsync();
-        return Ok(new { mensagem = "Meta salva.", ano, mes, valorMeta = dto.ValorMeta });
     }
 }

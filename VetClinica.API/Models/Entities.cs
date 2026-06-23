@@ -1022,6 +1022,7 @@ public class MetaFaturamento
     [Column("tenant_id")]     public Guid TenantId { get; set; }
     [Column("ano")]           public int Ano { get; set; }
     [Column("mes")]           public int Mes { get; set; }
+    [Column("tipo")]          public string Tipo { get; set; } = "ambos"; // produto | servico | ambos
     [Column("valor_meta")]    public decimal ValorMeta { get; set; }
     [Column("criado_em")]     public DateTime CriadoEm { get; set; }
     [Column("atualizado_em")] public DateTime AtualizadoEm { get; set; }

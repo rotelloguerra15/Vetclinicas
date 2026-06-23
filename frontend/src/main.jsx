@@ -13,6 +13,7 @@ import Agenda from './pages/Agenda'
 import Atendimentos from './pages/Atendimentos'
 import Estoque from './pages/Estoque'
 import PDV from './pages/PDV'
+import MetasVendas from './pages/MetasVendas'
 import Mensagens from './pages/Mensagens'
 import Promocoes from './pages/Promocoes'
 import Servicos from './pages/Servicos'
@@ -70,6 +71,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="agenda" element={<Agenda />} />
           <Route path="atendimentos" element={<Atendimentos />} />
           <Route path="pdv" element={<PDV />} />
+          <Route path="vendas/metas" element={<MetasVendas />} />
           <Route path="estoque" element={<Estoque />} />
           <Route path="mensagens" element={<Mensagens />} />
           <Route path="promocoes" element={<Promocoes />} />

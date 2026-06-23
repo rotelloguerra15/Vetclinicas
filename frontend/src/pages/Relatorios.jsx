@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import {
   ComposedChart, BarChart, Bar, LineChart, Line,
   PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
@@ -137,8 +138,6 @@ export default function Relatorios() {
   const [contratosPrevReal, setContratosPrevReal] = useState([])
   const [contratosPorFornecedor, setContratosPorFornecedor] = useState([])
   const [metas, setMetas]             = useState([])
-  const [editandoMeta, setEditandoMeta] = useState(null)
-  const [valorMetaEdit, setValorMetaEdit] = useState('')
   const [loading, setLoading]         = useState(true)
 
   const carregar = useCallback(() => {
@@ -169,16 +168,6 @@ export default function Relatorios() {
   }, [ano, mes])
 
   useEffect(() => { carregar() }, [carregar])
-
-  async function salvarMeta(mesNum) {
-    const val = parseFloat(valorMetaEdit)
-    if (isNaN(val) || val < 0) return
-    await api.put(`/relatorios/metas/${ano}/${mesNum}`, { valorMeta: val }).catch(() => {})
-    setEditandoMeta(null)
-    setValorMetaEdit('')
-    const r = await api.get('/relatorios/metas', { params: { ano } })
-    setMetas(r.data)
-  }
 
   const mesAtual = metas.find(m => m.mes === mes)
   const totalCustos = custos.reduce((s, c) => s + c.total, 0)
@@ -559,12 +548,16 @@ export default function Relatorios() {
             </div>
           )}
 
-          {/* Tabela de metas do ano */}
+          {/* Tabela de metas do ano (somente leitura -- editar agora fica em Vendas > Metas de Vendas) */}
           <div style={{ background: 'white', borderRadius: 16, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <PetIcon tipo="cifrao" size={22} color="#f59e0b" />
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Metas x Realizado — {ano}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <PetIcon tipo="cifrao" size={22} color="#f59e0b" />
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Metas x Realizado — {ano}</h3>
+              </div>
+              <Link to="/vendas/metas" style={{ fontSize: 12, color: '#6366f1', textDecoration: 'none' }}>Gerenciar metas →</Link>
             </div>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: '#94a3b8' }}>Para criar ou editar metas (por produto, serviço ou ambos), use Vendas → Metas de Vendas.</p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
                 <thead>
@@ -574,7 +567,6 @@ export default function Relatorios() {
                     <th style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b', fontWeight: 600 }}>Realizado</th>
                     <th style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b', fontWeight: 600 }}>%</th>
                     <th style={{ padding: '8px 12px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>Status</th>
-                    <th style={{ padding: '8px 12px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>Editar</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -582,14 +574,7 @@ export default function Relatorios() {
                     <tr key={m.mes} style={{ borderTop: '1px solid #f1f5f9', background: m.mes === mes ? '#fafbff' : 'white' }}>
                       <td style={{ padding: '8px 12px', fontWeight: m.mes === mes ? 700 : 400 }}>{m.label}</td>
                       <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                        {editandoMeta === m.mes ? (
-                          <input type="number" step="100" style={{ width: 110, border: '1px solid #6366f1', borderRadius: 6, padding: '2px 6px', fontSize: 13 }}
-                            value={valorMetaEdit} onChange={e => setValorMetaEdit(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && salvarMeta(m.mes)}
-                            autoFocus />
-                        ) : (
-                          m.meta > 0 ? fmt(m.meta) : <span style={{ color: '#cbd5e1' }}>—</span>
-                        )}
+                        {m.meta > 0 ? fmt(m.meta) : <span style={{ color: '#cbd5e1' }}>—</span>}
                       </td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: m.realizado > 0 ? '#1e293b' : '#cbd5e1' }}>
                         {m.realizado > 0 ? fmt(m.realizado) : '—'}
@@ -608,19 +593,6 @@ export default function Relatorios() {
                             : <span style={{ background: '#fef9c3', color: '#ca8a04', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>Em andamento</span>
                           : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>
                         }
-                      </td>
-                      <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                        {editandoMeta === m.mes ? (
-                          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                            <button onClick={() => salvarMeta(m.mes)} style={{ background: '#6366f1', color: 'white', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: 12, cursor: 'pointer' }}>✓</button>
-                            <button onClick={() => { setEditandoMeta(null); setValorMetaEdit('') }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: 12, cursor: 'pointer' }}>✕</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => { setEditandoMeta(m.mes); setValorMetaEdit(m.meta > 0 ? String(m.meta) : '') }}
-                            style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', color: '#64748b' }}>
-                            {m.meta > 0 ? 'Editar' : '+ Definir'}
-                          </button>
-                        )}
                       </td>
                     </tr>
                   ))}

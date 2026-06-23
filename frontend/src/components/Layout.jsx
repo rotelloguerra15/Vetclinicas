@@ -18,7 +18,8 @@ const menu = [
   { to: '/tutores',      label: 'Tutores' },
 
   { group: 'Vendas' },
-  { to: '/pdv',      label: 'PDV / Caixa', highlight: true },
+  { to: '/pdv',          label: 'PDV / Caixa', highlight: true },
+  { to: '/vendas/metas', label: 'Metas de Vendas' },
 
   { group: 'Estoque' },
   { to: '/estoque',      label: 'Controle de Estoque' },
