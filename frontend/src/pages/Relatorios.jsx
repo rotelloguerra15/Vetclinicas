@@ -134,6 +134,8 @@ export default function Relatorios() {
   const [custos, setCustos]           = useState([])
   const [receitas, setReceitas]       = useState([])
   const [evolucao, setEvolucao]       = useState([])
+  const [contratosPrevReal, setContratosPrevReal] = useState([])
+  const [contratosPorFornecedor, setContratosPorFornecedor] = useState([])
   const [metas, setMetas]             = useState([])
   const [editandoMeta, setEditandoMeta] = useState(null)
   const [valorMetaEdit, setValorMetaEdit] = useState('')
@@ -150,7 +152,9 @@ export default function Relatorios() {
       api.get('/relatorios/receitas-categoria',{ params: { ano, mes } }),
       api.get('/relatorios/evolucao',         { params: { meses: 12 } }),
       api.get('/relatorios/metas',            { params: { ano } }),
-    ]).then(([r1,r2,r3,r4,r5,r6,r7,r8]) => {
+      api.get('/relatorios/contratos-previsto-realizado', { params: { mesesPassado: 3, mesesFuturo: 6 } }),
+      api.get('/relatorios/contratos-previsto-realizado-fornecedor', { params: { mesesPassado: 3, mesesFuturo: 6 } }),
+    ]).then(([r1,r2,r3,r4,r5,r6,r7,r8,r9,r10]) => {
       setResumo(r1.data)
       setDiasData(r2.data)
       setTopServicos(r3.data)
@@ -159,6 +163,8 @@ export default function Relatorios() {
       setReceitas(r6.data)
       setEvolucao(r7.data)
       setMetas(r8.data)
+      setContratosPrevReal(r9.data)
+      setContratosPorFornecedor(r10.data)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [ano, mes])
 
@@ -294,6 +300,61 @@ export default function Relatorios() {
                 <Line  type="monotone" dataKey="saldo"    name="Saldo"    stroke="#6366f1" strokeWidth={2} dot={false} strokeDasharray="4 2" />
               </AreaChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* Contratos: previsto vs realizado */}
+          <div style={{ background: 'white', borderRadius: 16, padding: '20px 20px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <PetIcon tipo="coracao" size={22} color="#a78bfa" />
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Contratos — previsto vs realizado</h3>
+            </div>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: '#94a3b8' }}>
+              "Previsto" é o que foi planejado pelo contrato pra cada mês, independente do status. "Realizado" é o que já foi efetivamente pago dali.
+            </p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={contratosPrevReal} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
+                <YAxis tickFormatter={fmtK} tick={{ fontSize: 10 }} />
+                <Tooltip content={<TooltipCustom />} />
+                <Legend />
+                <Bar dataKey="previsto"   name="Previsto"   fill="#c4b5fd" radius={[4,4,0,0]} />
+                <Bar dataKey="realizado"  name="Realizado"  fill="#7c3aed" radius={[4,4,0,0]} />
+                <Bar dataKey="pendente"   name="Pendente"   fill="#f59e0b" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+
+            {contratosPorFornecedor.length > 0 && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
+                <h4 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#475569' }}>Por fornecedor</h4>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', color: '#94a3b8' }}>
+                      <th style={{ padding: '4px 8px 4px 0', fontWeight: 600 }}>Fornecedor</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Previsto</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Realizado</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Pendente</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contratosPorFornecedor.map(f => (
+                      <tr key={f.fornecedorId} style={{ borderTop: '1px solid #f8fafc' }}>
+                        <td style={{ padding: '6px 8px 6px 0' }}>{f.fornecedor}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: '#7c3aed' }}>
+                          R$ {f.previsto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: '#16a34a' }}>
+                          R$ {f.realizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: '#d97706' }}>
+                          R$ {f.pendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Pizza receitas vs custos por categoria lado a lado */}

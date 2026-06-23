@@ -237,6 +237,77 @@ public class RelatoriosController : ControllerBase
     // ── Evolução mensal (12 meses) ────────────────────────────────────────────
     // GET /api/relatorios/evolucao?meses=12
 
+    // ── Contratos: previsto vs realizado ────────────────────────────────────
+    // GET /api/relatorios/contratos-previsto-realizado?mesesPassado=3&mesesFuturo=6
+    // "previsto" = tudo que foi planejado por contrato pra cair naquele mes
+    // (independente do status atual). "realizado" = o que ja foi efetivamente
+    // pago daquele planejado. Os dois agrupados pela DataVencimento original
+    // do titulo (nao muda quando a parcela e aprovada/paga).
+
+    [HttpGet("contratos-previsto-realizado")]
+    public async Task<IActionResult> ContratosPrevistoRealizado([FromQuery] int mesesPassado = 3, [FromQuery] int mesesFuturo = 6)
+    {
+        var resultado = new List<object>();
+
+        for (int i = -mesesPassado; i <= mesesFuturo; i++)
+        {
+            var refMes = DateTime.Today.AddMonths(i);
+            var de  = new DateOnly(refMes.Year, refMes.Month, 1);
+            var ate = de.AddMonths(1);
+            var label = de.ToString("MMM/yy", new System.Globalization.CultureInfo("pt-BR"));
+
+            var previsto = await _db.Contas
+                .Where(c => c.TenantId == _t.TenantId && c.ContratoParcelaId != null
+                         && c.DataVencimento >= de && c.DataVencimento < ate)
+                .SumAsync(c => (decimal?)c.Valor) ?? 0;
+
+            var realizado = await _db.Contas
+                .Where(c => c.TenantId == _t.TenantId && c.ContratoParcelaId != null
+                         && c.Status == "paga"
+                         && c.DataVencimento >= de && c.DataVencimento < ate)
+                .SumAsync(c => (decimal?)(c.ValorPago ?? c.Valor)) ?? 0;
+
+            resultado.Add(new { mes = label, previsto, realizado, pendente = previsto - realizado });
+        }
+
+        return Ok(resultado);
+    }
+
+    // GET /api/relatorios/contratos-previsto-realizado-fornecedor?mesesPassado=3&mesesFuturo=6
+    // Mesmo recorte do endpoint acima, mas agregado por fornecedor em vez de por mes
+    // -- pra ver quem concentra mais valor previsto/pendente no contrato.
+
+    [HttpGet("contratos-previsto-realizado-fornecedor")]
+    public async Task<IActionResult> ContratosPrevistoRealizadoPorFornecedor([FromQuery] int mesesPassado = 3, [FromQuery] int mesesFuturo = 6)
+    {
+        var de  = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-mesesPassado);
+        var ate = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(mesesFuturo + 1);
+
+        var linhas = await (
+            from c in _db.Contas
+            join cp in _db.ContratoParcelas on c.ContratoParcelaId equals cp.Id
+            join ct in _db.Contratos on cp.ContratoId equals ct.Id
+            join f in _db.Fornecedores on ct.FornecedorId equals f.Id
+            where c.TenantId == _t.TenantId
+               && c.DataVencimento >= de && c.DataVencimento < ate
+            select new { f.Id, f.Nome, c.Valor, c.ValorPago, c.Status }
+        ).ToListAsync();
+
+        var resultado = linhas
+            .GroupBy(x => new { x.Id, x.Nome })
+            .Select(g => new {
+                fornecedorId = g.Key.Id,
+                fornecedor   = g.Key.Nome,
+                previsto     = g.Sum(x => x.Valor),
+                realizado    = g.Where(x => x.Status == "paga").Sum(x => x.ValorPago ?? x.Valor)
+            })
+            .Select(x => new { x.fornecedorId, x.fornecedor, x.previsto, x.realizado, pendente = x.previsto - x.realizado })
+            .OrderByDescending(x => x.previsto)
+            .ToList();
+
+        return Ok(resultado);
+    }
+
     [HttpGet("evolucao")]
     public async Task<IActionResult> Evolucao([FromQuery] int meses = 12)
     {
