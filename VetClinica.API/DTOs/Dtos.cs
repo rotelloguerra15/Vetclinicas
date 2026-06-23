@@ -4,6 +4,7 @@ namespace VetClinica.API.DTOs;
 public record LoginRequest(string Email, string Senha);
 public record LoginResponse(string Token, string Nome, string Papel, Guid TenantId, string? Plano = null, DateTime? TrialExpiraEm = null);
 public record LoginOutcome(LoginResponse? Resposta, string? CodigoErro, string? Mensagem);
+public record TrocarSenhaRequest(string SenhaAtual, string NovaSenha);
 
 // ---------- Admin / Plataforma ----------
 public record AtualizarPagamentoRequest(string? StatusPagamento, DateTime? ProximoFaturamento);

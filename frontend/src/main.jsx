@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import Login from './pages/Login'
+import TrocarSenha from './pages/TrocarSenha'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Tutores from './pages/Tutores'
@@ -91,6 +92,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="parametros" element={<Parametros />} />
           <Route path="parametros/bot" element={<Bot />} />
           <Route path="planos-saude" element={<PlanosSaude />} />
+          <Route path="trocar-senha" element={<TrocarSenha />} />
         </Route>
         <Route path="/validar/:codigo" element={<Validar />} />
         <Route path="/trial" element={<Trial />} />

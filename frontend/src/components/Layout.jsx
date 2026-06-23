@@ -148,6 +148,7 @@ function NavContent({ onClose }) {
       {/* Footer */}
       <div className="p-4 border-t border-slate-800 text-xs text-slate-400">
         <div className="truncate mb-2">{nome}</div>
+        <NavLink to="/trocar-senha" className="block text-slate-400 hover:text-white mb-2">Trocar senha</NavLink>
         <button onClick={sair} className="text-red-400 hover:text-red-300">Sair</button>
       </div>
     </div>

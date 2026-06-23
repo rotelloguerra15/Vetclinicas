@@ -129,6 +129,23 @@ public class AuthController : ControllerBase
         tenant.TokenResetExpira = null;
         await _platform.SaveChangesAsync();
 
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            var htmlConfirma = $@"<!DOCTYPE html>
+<html><head><meta charset='utf-8'></head>
+<body style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+  <div style='background: #0f172a; padding: 30px; border-radius: 12px 12px 0 0; text-align: center;'>
+    <h1 style='color: white; margin: 0;'>VetClinica</h1>
+  </div>
+  <div style='background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0;'>
+    <h2>Sua senha foi alterada</h2>
+    <p>Confirmamos a alteracao da senha da conta <strong>{user.Email}</strong> agora ha pouco.</p>
+    <p style='font-size: 13px; color: #94a3b8;'>Se voce nao fez essa alteracao, entre em contato com o suporte imediatamente: <a href='mailto:suporte@ketra.com.br'>suporte@ketra.com.br</a>.</p>
+  </div>
+</body></html>";
+            await _email.EnviarAsync(user.Email, "Sua senha foi alterada - VetClinica", htmlConfirma);
+        }
+
         return Ok(new { mensagem = "Senha redefinida com sucesso! Faca o login." });
     }
 

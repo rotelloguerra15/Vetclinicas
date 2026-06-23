@@ -147,18 +147,36 @@ END $$;";
         await _platform.SaveChangesAsync();
 
         // 5. Cria usuário owner AGORA em SaveChanges separado
+        // Idempotente: se o schema ja tiver um owner com esse email (retry,
+        // clique duplo no cadastro, schema reaproveitado de teste anterior),
+        // NUNCA cria um segundo -- so segue. E a unica forma de garantir isso
+        // de verdade e o UNIQUE em users.email (ver database/052), mas o
+        // check abaixo evita a maioria dos casos sem nem chegar a tentar.
         var senhaTemp = GerarSenhaTemporaria();
         var senhaHash = BCrypt.Net.BCrypt.HashPassword(senhaTemp, 12);
         var opts = new DbContextOptionsBuilder<TenantDbContext>().UseNpgsql(connStr).Options;
         using (var dbUser = new TenantDbContext(opts, schema))
         {
-            dbUser.Users.Add(new User
+            var jaTemOwner = await dbUser.Users.AnyAsync(u => u.Email == emailDono);
+            if (!jaTemOwner)
             {
-                Id = Guid.NewGuid(), TenantId = tenant.Id, Nome = nomeDono,
-                Email = emailDono, SenhaHash = senhaHash,
-                Papel = "owner", Ativo = true, CriadoEm = DateTime.UtcNow
-            });
-            await dbUser.SaveChangesAsync();
+                try
+                {
+                    dbUser.Users.Add(new User
+                    {
+                        Id = Guid.NewGuid(), TenantId = tenant.Id, Nome = nomeDono,
+                        Email = emailDono, SenhaHash = senhaHash,
+                        Papel = "owner", Ativo = true, CriadoEm = DateTime.UtcNow
+                    });
+                    await dbUser.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    // corrida rara: outra requisicao criou o owner entre o
+                    // AnyAsync e o SaveChanges (ex: UNIQUE constraint pegou).
+                    // Nao e erro fatal -- a clinica ja tem owner, so seguir.
+                }
+            }
         }
 
         // 6. Seeds em background (não bloqueia)
