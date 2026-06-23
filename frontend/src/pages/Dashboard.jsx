@@ -280,6 +280,24 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Previsao de custo futuro (contratos -- titulos ainda nao aprovados) */}
+            <div className="bg-white rounded-2xl shadow p-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-slate-700">Previsão de custo futuro (contratos)</h3>
+                <span className="text-sm text-slate-500">Total: R$ {d.previsaoCustoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <p className="text-xs text-slate-400 mb-3">Títulos gerados por contratos que ainda não tiveram a medição aprovada — não entram no realizado até serem liberados.</p>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={d.previsaoCustoPorMes} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={65} />
+                  <Tooltip formatter={(v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
+                  <Bar dataKey="valor" fill="#a78bfa" radius={[4,4,0,0]} name="Previsão" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
             {/* Agenda hoje (pizza) */}
             <div className="bg-white rounded-2xl shadow p-5">
               <h3 className="font-semibold text-slate-700 mb-4">Agenda hoje</h3>
@@ -366,6 +384,7 @@ export default function Dashboard() {
                 { label:'Vacinas vencendo (30d)',valor: d.vacinasVencendo,      cor: d.vacinasVencendo > 0 ? 'bg-orange-400' : 'bg-emerald-400' },
                 { label:'Contas a vencer (7d)',  valor: d.contasVencer,         cor: d.contasVencer > 0 ? 'bg-orange-400' : 'bg-emerald-400' },
                 { label:'Contas vencidas',       valor: d.contasVencidas,       cor: d.contasVencidas > 0 ? 'bg-red-500' : 'bg-emerald-400' },
+                { label:'Previsão de custo (contratos)', valor: `${d.previsaoCustoQtd} título(s)`, cor: d.previsaoCustoQtd > 0 ? 'bg-purple-400' : 'bg-emerald-400' },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-1 border-b last:border-0">
                   <span className="text-sm text-slate-600">{item.label}</span>

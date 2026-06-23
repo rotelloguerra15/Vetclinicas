@@ -85,6 +85,26 @@ public class DashboardController : ControllerBase
             .CountAsync(c => c.TenantId == _t.TenantId && c.Status == "aberta"
                 && c.DataVencimento < DateOnly.FromDateTime(hoje));
 
+        // ── Previsao de custo futuro (titulos de contrato ainda nao aprovados) ──
+        var previsaoTotal = await _db.Contas
+            .Where(c => c.TenantId == _t.TenantId && c.Status == "previsao")
+            .SumAsync(c => (decimal?)c.Valor) ?? 0;
+        var previsaoQtd = await _db.Contas
+            .CountAsync(c => c.TenantId == _t.TenantId && c.Status == "previsao");
+
+        var previsaoPorMes = new List<object>();
+        for (int i = 0; i < 6; i++)
+        {
+            var refMes = DateTime.Today.AddMonths(i);
+            var de  = new DateOnly(refMes.Year, refMes.Month, 1);
+            var ate = de.AddMonths(1);
+            var valor = await _db.Contas
+                .Where(c => c.TenantId == _t.TenantId && c.Status == "previsao"
+                         && c.DataVencimento >= de && c.DataVencimento < ate)
+                .SumAsync(c => (decimal?)c.Valor) ?? 0;
+            previsaoPorMes.Add(new { mes = de.ToString("MMM/yy", new System.Globalization.CultureInfo("pt-BR")), valor });
+        }
+
         var produtosAbaixoMinimo = await _db.Produtos
             .CountAsync(p => p.TenantId == _t.TenantId && p.Ativo
                 && p.EstoqueAtual <= p.EstoqueMinimo);
@@ -182,6 +202,9 @@ public class DashboardController : ControllerBase
             agendamentosHoje, agendamentosPendentes, osAbertas,
             totalPets, totalTutores, vacinasVencendo,
             produtosAbaixoMinimo, contasVencer, contasVencidas,
+
+            // Previsao de custo futuro (contratos -- titulos ainda nao aprovados)
+            previsaoCustoTotal = previsaoTotal, previsaoCustoQtd = previsaoQtd, previsaoCustoPorMes = previsaoPorMes,
 
             // Financeiro
             vendasMes, vendasMesAnterior, crescimentoVendas = crescimento,
