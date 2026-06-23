@@ -24,6 +24,7 @@ import Fornecedores from './pages/Fornecedores'
 import Compras from './pages/Compras'
 import Contratos from './pages/Contratos'
 import ContratoDetalhe from './pages/ContratoDetalhe'
+import MedicoesPendentes from './pages/MedicoesPendentes'
 import Recebimentos from './pages/Recebimentos'
 import CondicoesPagamento from './pages/CondicoesPagamento'
 import AgendarPublico from './pages/AgendarPublico'
@@ -82,6 +83,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="fornecedores" element={<Fornecedores />} />
           <Route path="compras" element={<Compras />} />
           <Route path="contratos" element={<Contratos />} />
+          <Route path="contratos/medicoes" element={<MedicoesPendentes />} />
           <Route path="contratos/:id" element={<ContratoDetalhe />} />
           <Route path="recebimentos" element={<Recebimentos />} />
           <Route path="compras/condicoes" element={<CondicoesPagamento />} />

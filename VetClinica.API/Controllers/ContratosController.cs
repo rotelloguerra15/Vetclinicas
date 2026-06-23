@@ -28,6 +28,34 @@ public class ContratosController : ControllerBase
     // Mesma regra ja usada em reabertura de caixa e aprovacao de campanha.
     private bool PodeAprovar => _t.Papel == "owner" || _t.Papel == "admin";
 
+    // ── Fila de medicoes (cruza todos os contratos, pra nao precisar entrar
+    // contrato por contrato pra fazer a rotina de medicao) ─────────────────
+
+    [HttpGet("parcelas/pendentes")]
+    public async Task<IActionResult> ParcelasPendentes([FromQuery] string? status)
+    {
+        var statusFiltro = string.IsNullOrEmpty(status)
+            ? new[] { "pendente", "medido", "rejeitado" }
+            : new[] { status };
+
+        var lista = await _db.ContratoParcelas
+            .Include(p => p.Contrato).ThenInclude(c => c!.Fornecedor)
+            .Include(p => p.Contrato).ThenInclude(c => c!.Produto)
+            .Where(p => p.TenantId == _t.TenantId
+                     && p.Contrato!.Status == "ativo"
+                     && statusFiltro.Contains(p.StatusMedicao))
+            .OrderBy(p => p.DataPrevista)
+            .Select(p => new {
+                p.Id, p.ContratoId, p.Numero, p.ValorPrevisto, p.DataPrevista, p.StatusMedicao,
+                p.QuantidadeMedida, p.ObsMedicao, p.MotivoRejeicao,
+                FornecedorNome = p.Contrato!.Fornecedor != null ? p.Contrato.Fornecedor.Nome : null,
+                ProdutoNome = p.Contrato.Produto != null ? p.Contrato.Produto.Nome : null
+            })
+            .ToListAsync();
+
+        return Ok(lista);
+    }
+
     // ── Listagem e detalhe ──────────────────────────────────────────────
 
     [HttpGet]
