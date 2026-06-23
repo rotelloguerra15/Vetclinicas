@@ -47,7 +47,7 @@ export default function Contratos() {
           <thead className="bg-slate-50 text-left">
             <tr>
               <th className="p-3">Fornecedor</th>
-              <th className="p-3">Descrição</th>
+              <th className="p-3">Produto</th>
               <th className="p-3">Valor total</th>
               <th className="p-3">Parcelas</th>
               <th className="p-3">Status</th>
@@ -58,7 +58,7 @@ export default function Contratos() {
             {lista.map(c => (
               <tr key={c.id} className="hover:bg-slate-50">
                 <td className="p-3">{c.fornecedorNome}</td>
-                <td className="p-3">{c.descricao}</td>
+                <td className="p-3">{c.produtoNome}</td>
                 <td className="p-3">R$ {c.valorTotal.toFixed(2)}</td>
                 <td className="p-3">
                   {c.parcelasAprovadas}/{c.numeroParcelas} aprovadas
@@ -84,9 +84,10 @@ export default function Contratos() {
 
 function ModalNovoContrato({ onClose, onCriado }) {
   const [fornecedores, setFornecedores] = useState([])
+  const [produtos, setProdutos] = useState([])
   const [condicoes, setCondicoes] = useState([])
   const [fornecedorId, setFornecedorId] = useState('')
-  const [descricao, setDescricao] = useState('')
+  const [produtoId, setProdutoId] = useState('')
   const [valorTotal, setValorTotal] = useState('')
   const [condicaoPagamentoId, setCondicaoPagamentoId] = useState('')
   const [numeroParcelas, setNumeroParcelas] = useState(1)
@@ -97,6 +98,7 @@ function ModalNovoContrato({ onClose, onCriado }) {
 
   useEffect(() => {
     api.get('/fornecedores', { params: { pageSize: 100 } }).then(r => setFornecedores(r.data.items || r.data)).catch(() => {})
+    api.get('/produtos', { params: { pageSize: 200 } }).then(r => setProdutos(r.data.items || r.data)).catch(() => {})
     api.get('/compras/condicoes').then(r => setCondicoes(r.data)).catch(() => {})
   }, [])
 
@@ -110,12 +112,13 @@ function ModalNovoContrato({ onClose, onCriado }) {
     e.preventDefault()
     setErro('')
     if (!fornecedorId) return setErro('Selecione o fornecedor.')
+    if (!produtoId) return setErro('Selecione o produto.')
     if (!valorTotal || Number(valorTotal) <= 0) return setErro('Informe o valor total.')
 
     setLoading(true)
     try {
       await api.post('/contratos', {
-        fornecedorId, descricao, valorTotal: Number(valorTotal),
+        fornecedorId, produtoId, valorTotal: Number(valorTotal),
         condicaoPagamentoId: condicaoPagamentoId || null,
         numeroParcelas: Number(numeroParcelas), dataInicio, obs: obs || null
       })
@@ -142,10 +145,12 @@ function ModalNovoContrato({ onClose, onCriado }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Produto / serviço fornecido</label>
-            <input value={descricao} onChange={e => setDescricao(e.target.value)}
-              placeholder="Ex: pecas de reposicao para equipamento X"
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <label className="block text-xs font-medium text-slate-600 mb-1">Produto</label>
+            <select value={produtoId} onChange={e => setProdutoId(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm">
+              <option value="">Selecione...</option>
+              {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Valor total do contrato</label>

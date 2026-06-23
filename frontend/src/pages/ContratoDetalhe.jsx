@@ -69,7 +69,7 @@ export default function ContratoDetalhe() {
       <Link to="/contratos" className="text-sm text-blue-600 hover:underline">← Voltar para contratos</Link>
 
       <div className="bg-white rounded-2xl shadow p-6 mt-3 mb-6">
-        <h1 className="text-lg font-bold">{contrato.descricao || 'Contrato'}</h1>
+        <h1 className="text-lg font-bold">{contrato.produto?.nome || 'Contrato'}</h1>
         <p className="text-sm text-slate-500">{contrato.fornecedor?.nome}</p>
         <p className="text-sm mt-2">Valor total: <strong>R$ {contrato.valorTotal.toFixed(2)}</strong> em {contrato.numeroParcelas}x</p>
         {contrato.obs && <p className="text-sm text-slate-500 mt-2">{contrato.obs}</p>}

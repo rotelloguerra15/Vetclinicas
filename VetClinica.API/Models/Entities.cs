@@ -974,7 +974,7 @@ public class Contrato
     [Column("id")]                    public Guid Id { get; set; }
     [Column("tenant_id")]             public Guid TenantId { get; set; }
     [Column("fornecedor_id")]         public Guid FornecedorId { get; set; }
-    [Column("descricao")]             public string Descricao { get; set; } = ""; // produto/servico fornecido
+    [Column("produto_id")]            public Guid ProdutoId { get; set; } // vem do cadastro -- nao digita texto livre
     [Column("valor_total")]           public decimal ValorTotal { get; set; }
     [Column("condicao_pagamento_id")] public Guid? CondicaoPagamentoId { get; set; }
     [Column("numero_parcelas")]       public int NumeroParcelas { get; set; } = 1;
@@ -986,6 +986,7 @@ public class Contrato
     [Column("atualizado_em")]         public DateTime AtualizadoEm { get; set; }
 
     public Fornecedor? Fornecedor { get; set; }
+    public Produto? Produto { get; set; }
     public CondicaoPagamento? CondicaoPagamento { get; set; }
     public ICollection<ContratoParcela> Parcelas { get; set; } = new List<ContratoParcela>();
 }

@@ -8,7 +8,7 @@ using VetClinica.API.Models;
 namespace VetClinica.API.Controllers;
 
 public record ContratoCreate(
-    Guid FornecedorId, string Descricao, decimal ValorTotal,
+    Guid FornecedorId, Guid ProdutoId, decimal ValorTotal,
     Guid? CondicaoPagamentoId, int NumeroParcelas, DateOnly DataInicio, string? Obs);
 
 public record MedirParcelaRequest(decimal? QuantidadeMedida, string? Obs);
@@ -33,13 +33,14 @@ public class ContratosController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Listar([FromQuery] string? status)
     {
-        var q = _db.Contratos.Include(c => c.Fornecedor).Where(c => c.TenantId == _t.TenantId);
+        var q = _db.Contratos.Include(c => c.Fornecedor).Include(c => c.Produto).Where(c => c.TenantId == _t.TenantId);
         if (!string.IsNullOrEmpty(status)) q = q.Where(c => c.Status == status);
 
         var lista = await q.OrderByDescending(c => c.CriadoEm)
             .Select(c => new {
-                c.Id, c.Descricao, c.ValorTotal, c.NumeroParcelas, c.DataInicio, c.Status,
+                c.Id, c.ValorTotal, c.NumeroParcelas, c.DataInicio, c.Status,
                 FornecedorNome = c.Fornecedor != null ? c.Fornecedor.Nome : null,
+                ProdutoNome = c.Produto != null ? c.Produto.Nome : null,
                 ParcelasPendentes = c.Parcelas.Count(p => p.StatusMedicao == "pendente"),
                 ParcelasAprovadas = c.Parcelas.Count(p => p.StatusMedicao == "aprovado")
             })
@@ -52,14 +53,16 @@ public class ContratosController : ControllerBase
     {
         var c = await _db.Contratos
             .Include(x => x.Fornecedor)
+            .Include(x => x.Produto)
             .Include(x => x.CondicaoPagamento)
             .Include(x => x.Parcelas)
             .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == _t.TenantId);
         if (c == null) return NotFound();
 
         return Ok(new {
-            c.Id, c.Descricao, c.ValorTotal, c.NumeroParcelas, c.DataInicio, c.Status, c.Obs,
+            c.Id, c.ValorTotal, c.NumeroParcelas, c.DataInicio, c.Status, c.Obs,
             Fornecedor = c.Fornecedor == null ? null : new { c.Fornecedor.Id, c.Fornecedor.Nome },
+            Produto = c.Produto == null ? null : new { c.Produto.Id, c.Produto.Nome },
             CondicaoPagamento = c.CondicaoPagamento == null ? null : new { c.CondicaoPagamento.Id, c.CondicaoPagamento.Nome },
             Parcelas = c.Parcelas.OrderBy(p => p.Numero).Select(p => new {
                 p.Id, p.Numero, p.ValorPrevisto, p.DataPrevista, p.StatusMedicao,
@@ -84,6 +87,9 @@ public class ContratosController : ControllerBase
         var fornecedor = await _db.Fornecedores.FirstOrDefaultAsync(f => f.Id == dto.FornecedorId && f.TenantId == _t.TenantId);
         if (fornecedor == null) return BadRequest(new { erro = "Fornecedor nao encontrado." });
 
+        var produto = await _db.Produtos.FirstOrDefaultAsync(p => p.Id == dto.ProdutoId && p.TenantId == _t.TenantId);
+        if (produto == null) return BadRequest(new { erro = "Produto nao encontrado no cadastro." });
+
         CondicaoPagamento? condicao = null;
         if (dto.CondicaoPagamentoId.HasValue)
             condicao = await _db.CondicoesPagamento.FirstOrDefaultAsync(c => c.Id == dto.CondicaoPagamentoId.Value && c.TenantId == _t.TenantId);
@@ -91,7 +97,7 @@ public class ContratosController : ControllerBase
         var contrato = new Contrato
         {
             Id = Guid.NewGuid(), TenantId = _t.TenantId,
-            FornecedorId = dto.FornecedorId, Descricao = dto.Descricao,
+            FornecedorId = dto.FornecedorId, ProdutoId = dto.ProdutoId,
             ValorTotal = dto.ValorTotal, CondicaoPagamentoId = dto.CondicaoPagamentoId,
             NumeroParcelas = dto.NumeroParcelas, DataInicio = dto.DataInicio,
             Status = "ativo", Obs = dto.Obs,
@@ -114,7 +120,7 @@ public class ContratosController : ControllerBase
             {
                 Id = contaId, TenantId = _t.TenantId,
                 Tipo = "despesa",
-                Descricao = $"Contrato - {fornecedor.Nome} ({dto.Descricao}) - parcela {i + 1}/{dto.NumeroParcelas}",
+                Descricao = $"Contrato - {fornecedor.Nome} ({produto.Nome}) - parcela {i + 1}/{dto.NumeroParcelas}",
                 Valor = valor,
                 DataCompetencia = dto.DataInicio,
                 DataVencimento = dataPrevista,

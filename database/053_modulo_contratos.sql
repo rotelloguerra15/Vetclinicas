@@ -27,7 +27,7 @@ BEGIN
                     id uuid PRIMARY KEY,
                     tenant_id uuid NOT NULL,
                     fornecedor_id uuid NOT NULL REFERENCES %I.fornecedores(id),
-                    descricao varchar(255) NOT NULL DEFAULT '',
+                    produto_id uuid NOT NULL REFERENCES %I.produtos(id),
                     valor_total numeric NOT NULL DEFAULT 0,
                     condicao_pagamento_id uuid REFERENCES %I.condicoes_pagamento(id),
                     numero_parcelas integer NOT NULL DEFAULT 1,
@@ -38,7 +38,16 @@ BEGIN
                     criado_em timestamptz NOT NULL DEFAULT now(),
                     atualizado_em timestamptz NOT NULL DEFAULT now()
                 );
-            $ddl$, s, s, s);
+            $ddl$, s, s, s, s);
+
+            -- Defensivo: se a versao anterior deste script ja rodou (com a
+            -- coluna "descricao" em vez de "produto_id"), corrige aqui --
+            -- nao depende de ninguem ter rodado a v1 ou nao.
+            EXECUTE format(
+                'ALTER TABLE %I.contratos ADD COLUMN IF NOT EXISTS produto_id uuid REFERENCES %I.produtos(id)',
+                s, s
+            );
+            EXECUTE format('ALTER TABLE %I.contratos DROP COLUMN IF EXISTS descricao', s);
 
             EXECUTE format($ddl$
                 CREATE TABLE IF NOT EXISTS %I.contrato_parcelas (
